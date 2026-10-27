@@ -5,6 +5,9 @@ import { updateAvailabilityAction } from "@/actions/availability";
 import { dbRepo } from "@/db/repo";
 import { ArrowLeft, Clock3, Save, CalendarDays, Check } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function DoctorAvailabilityPage() {
   const user = await getCurrentUser();
   if (!user || user.role !== "DOCTOR") {

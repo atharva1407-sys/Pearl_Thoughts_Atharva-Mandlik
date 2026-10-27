@@ -99,8 +99,9 @@ export function SlotPicker({
   const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isLoggedInPatient) {
+      const currentPath = typeof window !== "undefined" ? window.location.pathname : `/doctors/${doctorId}`;
       router.push(
-        `/login?message=Please sign in as a patient to complete your booking.`
+        `/login?redirectTo=${encodeURIComponent(currentPath)}&message=Please sign in as a patient to complete your booking.`
       );
       return;
     }
@@ -318,11 +319,12 @@ export function SlotPicker({
           ) : (
             <button
               type="button"
-              onClick={() =>
+              onClick={() => {
+                const currentPath = typeof window !== "undefined" ? window.location.pathname : `/doctors/${doctorId}`;
                 router.push(
-                  "/login?message=Please sign in as a patient to complete your booking."
-                )
-              }
+                  `/login?redirectTo=${encodeURIComponent(currentPath)}&message=Please sign in as a patient to complete your booking.`
+                );
+              }}
               className="btn primary w-full justify-center py-2.5 text-xs font-bold"
             >
               Sign In as Patient to Reserve Slot

@@ -6,7 +6,7 @@ import { Pool } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import * as schema from "./schema";
 import { hashPassword } from "../lib/auth-crypto";
-import { MEDRELLA_TEST_DATA } from "./test-data-backup";
+import { RUBY_HALL_SPECIALISTS } from "./specialists-catalog";
 
 async function main() {
   const connectionString = process.env.DATABASE_URL;
@@ -23,7 +23,7 @@ async function main() {
   console.log("Seeding initial specialists and shifts...");
   const defaultPasswordHash = hashPassword("password123");
 
-  for (const doc of MEDRELLA_TEST_DATA.doctors) {
+  for (const doc of RUBY_HALL_SPECIALISTS) {
     // 1. Upsert User
     await db
       .insert(schema.users)
@@ -89,7 +89,7 @@ async function main() {
     }
   }
 
-  console.log(`✅ Successfully seeded ${MEDRELLA_TEST_DATA.doctors.length} specialists into Neon PostgreSQL!`);
+  console.log(`✅ Successfully seeded ${RUBY_HALL_SPECIALISTS.length} specialists into Neon PostgreSQL!`);
   await pool.end();
   process.exit(0);
 }

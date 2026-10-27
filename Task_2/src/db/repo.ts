@@ -3,7 +3,7 @@ import crypto from "crypto";
 import { db, isPostgresConfigured, assertProductionDatabase } from "./index";
 import * as schema from "./schema";
 import { hashPassword } from "@/lib/auth-crypto";
-import { MEDRELLA_TEST_DATA } from "./test-data-backup";
+import { RUBY_HALL_SPECIALISTS } from "./specialists-catalog";
 
 export interface UserEntity {
   id: string;
@@ -73,7 +73,7 @@ class MedrellaRepository {
   private memAppointments: AppointmentEntity[] = [];
 
   constructor() {
-    if (!isPostgresConfigured() && process.env.ENABLE_SEED_DATA === "true" && process.env.NODE_ENV !== "production") {
+    if (!isPostgresConfigured() && process.env.ENABLE_SEED_DATA !== "false" && process.env.NODE_ENV !== "production") {
       this.seedMemory();
     }
   }
@@ -91,7 +91,7 @@ class MedrellaRepository {
 
     const defaultPasswordHash = hashPassword("password123");
 
-    MEDRELLA_TEST_DATA.doctors.forEach((d) => {
+    RUBY_HALL_SPECIALISTS.forEach((d) => {
       this.memUsers.push({
         id: d.userId,
         email: d.email,
@@ -639,7 +639,7 @@ class MedrellaRepository {
     if (db) {
       // In Neon Postgres, seed specialists if empty
       const defaultPasswordHash = hashPassword("password123");
-      for (const d of MEDRELLA_TEST_DATA.doctors) {
+      for (const d of RUBY_HALL_SPECIALISTS) {
         await db
           .insert(schema.users)
           .values({

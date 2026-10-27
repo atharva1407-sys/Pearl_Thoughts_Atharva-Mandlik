@@ -4,6 +4,9 @@ import { getCurrentUser } from "@/actions/auth";
 import { cancelAppointmentAction } from "@/actions/appointments";
 import { dbRepo } from "@/db/repo";
 import { formatDate } from "@/lib/utils";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 import {
   CalendarDays,
   Clock3,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -34,8 +34,20 @@ export default function AuthPage({ mode }: AuthPageProps) {
   const [remember, setRemember] = useState(true);
   const [agree, setAgree] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [redirectTo, setRedirectTo] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // Read URL search params on client mount for redirect & notice messages
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const msg = params.get("message");
+      if (msg) setNotice(msg);
+      const redir = params.get("redirectTo");
+      if (redir) setRedirectTo(redir);
+    }
+  }, []);
 
   // Form fields
   const [email, setEmail] = useState("");
@@ -54,11 +66,18 @@ export default function AuthPage({ mode }: AuthPageProps) {
     formData.append("email", email);
     formData.append("password", password);
     formData.append("role", role);
+    if (redirectTo) {
+      formData.append("redirectTo", redirectTo);
+    }
 
     startTransition(async () => {
       if (!isSignup) {
         // Login Flow
         const res = await loginAction(formData);
+        if (res && res.success && res.redirectPath) {
+          window.location.href = res.redirectPath;
+          return;
+        }
         if (res && !res.success) {
           setError(res.error || "Authentication failed. Please check your credentials.");
         }
@@ -79,6 +98,10 @@ export default function AuthPage({ mode }: AuthPageProps) {
           res = await registerDoctorAction(formData);
         }
 
+        if (res && res.success && res.redirectPath) {
+          window.location.href = res.redirectPath;
+          return;
+        }
         if (res && !res.success) {
           setError(res.error || "Account registration failed. Please review your details.");
         }

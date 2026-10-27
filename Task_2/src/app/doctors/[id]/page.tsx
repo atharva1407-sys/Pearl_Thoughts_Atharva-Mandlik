@@ -5,6 +5,9 @@ import { getCurrentUser } from "@/actions/auth";
 import { SlotPicker } from "@/components/slot-picker";
 import { ArrowLeft, Stethoscope, ShieldCheck, CheckCircle2 } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function DoctorProfilePage({
   params,
 }: {
