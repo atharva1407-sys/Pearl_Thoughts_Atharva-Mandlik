@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Activity, CalendarDays, Eye, EyeOff, Headset, LockKeyhole, Mail, ShieldCheck, UsersRound, UserRound, Phone, ArrowRight, Stethoscope } from 'lucide-react';
 
 type AuthPageProps = { mode: 'login' | 'signup' };
@@ -22,6 +23,16 @@ export default function AuthPage({ mode }: AuthPageProps) {
   return (
     <main className="auth-page">
       <section className="auth-hero" aria-label="Medrella healthcare platform introduction">
+        <div className="auth-hero-img-wrap">
+          <Image
+            src="/images/hospital-auth-hero.jpg"
+            alt="SP Delta Hospital Clinical Hallway"
+            fill
+            priority
+            sizes="(max-width: 900px) 100vw, 50vw"
+            className="auth-hero-bg-img"
+          />
+        </div>
         <div className="auth-hero-shade" />
         <div className="hero-content">
           <Link href="/" className="auth-brand" aria-label="Medrella home">
