@@ -118,7 +118,7 @@ export default function ReceptionPage() {
 
           <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
             <span>Shortcut: Enter to Issue</span>
-            <span>Facility: SP Delta Hospital</span>
+            <span>Facility: Ruby Hall, Pune</span>
           </div>
         </div>
 
@@ -127,7 +127,7 @@ export default function ReceptionPage() {
           <div className="card-head">
             <div>
               <h2>OPD Department Shift Overview</h2>
-              <p>Active consulting specialist shifts at SP Delta Hospital</p>
+              <p>Active consulting specialist shifts at Ruby Hall, Pune</p>
             </div>
             <Link href="/doctor/availability" className="btn text-xs">
               Manage Shifts →

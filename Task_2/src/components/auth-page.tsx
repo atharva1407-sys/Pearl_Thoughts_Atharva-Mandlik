@@ -169,23 +169,25 @@ export default function AuthPage({ mode }: AuthPageProps) {
 
       {/* Right Authentication Panel */}
       <section className="auth-panel">
-        <Link href="/" className="mobile-brand">
-          <Image
-            src="/images/medrella-logo.png"
-            alt="Medrella"
-            width={34}
-            height={34}
-            className="mobile-brand-logo-img"
-            priority
-          />
-          <span>
-            medrella<span className="brand-dot">.</span>
-          </span>
-        </Link>
+        <div className="auth-panel-header">
+          <Link href="/" className="mobile-brand">
+            <Image
+              src="/images/medrella-logo.png"
+              alt="Medrella"
+              width={34}
+              height={34}
+              className="mobile-brand-logo-img"
+              priority
+            />
+            <span>
+              medrella<span className="brand-dot">.</span>
+            </span>
+          </Link>
 
-        <a className="help-link" href="mailto:support@medrella.com">
-          <Headset size={16} /> Need help?
-        </a>
+          <a className="help-link" href="mailto:support@medrella.com">
+            <Headset size={16} /> <span className="help-link-text">Need help?</span>
+          </a>
+        </div>
 
         <div className={`auth-card ${isSignup ? "signup-card" : ""}`}>
           <div className="form-heading">

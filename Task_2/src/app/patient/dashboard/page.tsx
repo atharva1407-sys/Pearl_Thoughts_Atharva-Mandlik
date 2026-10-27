@@ -34,7 +34,7 @@ export default async function PatientDashboard() {
         <div>
           <div className="eyebrow">PATIENT CARE · OUTPATIENT PORTAL</div>
           <h1>Welcome, {patient?.firstName} {patient?.lastName}</h1>
-          <p>Manage your upcoming hospital consultations and clinical records at SP Delta Hospital.</p>
+          <p>Manage your upcoming hospital consultations and clinical records at Ruby Hall, Pune.</p>
         </div>
         <div className="heading-actions">
           <Link href="/doctors" className="btn primary">
@@ -89,11 +89,11 @@ export default async function PatientDashboard() {
             <span className="stat-icon text-amber-600 bg-amber-50">
               <Clock3 />
             </span>
-            <span className="badge amber text-[10px]">T. Nagar</span>
+            <span className="badge amber text-[10px]">Pune</span>
           </div>
-          <div className="stat-value text-lg mt-3">SP Delta</div>
+          <div className="stat-value text-lg mt-3">Ruby Hall</div>
           <div className="stat-label">Assigned Facility</div>
-          <div className="stat-note">Chennai, Tamil Nadu</div>
+          <div className="stat-note">Pune, Maharashtra</div>
         </div>
       </div>
 
@@ -139,7 +139,7 @@ export default async function PatientDashboard() {
                     </td>
                     <td>
                       <b>Dr. {apt.doctor.firstName} {apt.doctor.lastName}</b>
-                      <small>SP Delta Hospital</small>
+                      <small>Ruby Hall, Pune</small>
                     </td>
                     <td>
                       <span className="badge blue text-[10px]">{apt.doctor.specialization}</span>

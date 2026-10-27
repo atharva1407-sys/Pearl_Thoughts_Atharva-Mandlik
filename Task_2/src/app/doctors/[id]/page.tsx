@@ -42,7 +42,7 @@ export default async function DoctorProfilePage({
               Dr. {doctor.firstName} {doctor.lastName}
             </h1>
             <p className="text-xs text-slate-400 m-0">
-              License: #{doctor.licenseNumber} · SP Delta Hospital
+              License: #{doctor.licenseNumber} · Ruby Hall, Pune
             </p>
           </div>
 
