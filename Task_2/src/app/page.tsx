@@ -34,9 +34,9 @@ export default async function HomePage() {
       {/* Page Heading */}
       <div className="page-heading">
         <div>
-          <div className="eyebrow">SP DELTA HOSPITAL · T. NAGAR</div>
+          <div className="eyebrow">RUBY HALL · PUNE</div>
           <h1>{user ? `Good morning, ${user.name}` : "Welcome to Medrella Healthcare"}</h1>
-          <p>Outpatient scheduling and clinical hospital operations at SP Delta Hospital, T. Nagar.</p>
+          <p>Outpatient scheduling and clinical hospital operations at Ruby Hall, Pune.</p>
         </div>
         <div className="heading-actions">
           <Link href="/doctors" className="btn primary">
@@ -55,7 +55,7 @@ export default async function HomePage() {
         <ShieldCheck size={20} className="text-blue-600 flex-shrink-0" />
         <div>
           <b>Hospital Outpatient Operations Active</b>
-          <span>All clinical appointment windows and triage queues are connected to SP Delta Hospital.</span>
+          <span>All clinical appointment windows and triage queues are connected to Ruby Hall, Pune.</span>
         </div>
         <span className="badge blue">Operational</span>
       </div>
@@ -117,7 +117,7 @@ export default async function HomePage() {
           <div className="card-head">
             <div>
               <h2>Today&apos;s appointments</h2>
-              <p>Monday, 5 October · SP Delta Hospital OPD</p>
+              <p>Monday, 5 October · Ruby Hall OPD</p>
             </div>
             <Link href="/schedule">
               View schedule <ArrowRight size={14} />
@@ -196,7 +196,7 @@ export default async function HomePage() {
             <div className="card-head">
               <div>
                 <h2>Queue overview</h2>
-                <p>SP Delta Hospital, T. Nagar</p>
+                <p>Ruby Hall, Pune</p>
               </div>
               <span className="badge green">
                 <span className="live-dot" /> Live

@@ -143,7 +143,7 @@ export function SlotPicker({
       <div className="card-head">
         <div>
           <h2>Select Consultation Date & Time</h2>
-          <p>Real-time slot availability for SP Delta Hospital OPD</p>
+          <p>Real-time slot availability for Ruby Hall OPD</p>
         </div>
         <span className="badge sky">Conflict-Free</span>
       </div>

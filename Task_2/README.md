@@ -25,7 +25,7 @@ A full-stack clinical outpatient management platform built for **Pearl Thoughts 
 - **Weekly Schedule Matrix (`/schedule`)**: 7-day multi-column calendar grid (8:00 AM – 5:00 PM) with color-coded appointment blocks (Consultation, Antenatal, Procedure, Follow-up).
 - **Doctor Encounters & Vitals (`/encounters`)**: Doctor consultation workspace with Chief Complaint, SOAP clinical notes, ICD-10 diagnosis selector, and live recorded vitals (BP `168/110`, HR `102`, Temp `99.1°F`, SpO₂ `98%`, Weight `72kg`).
 - **Reports & Analytics (`/reports`)**: Outpatient census charts, 5-day daily visit bar charts, appointment type breakdown progress bars, and CSV report export.
-- **Hospital Settings (`/settings`)**: Facility profile for `SP Delta Hospital, T. Nagar (Chennai)` and infrastructure health monitor.
+- **Hospital Settings (`/settings`)**: Facility profile for `Ruby Hall, Pune` and infrastructure health monitor.
 
 ### 2. Specialist Booking & Patient Care
 - **Specialist Directory (`/doctors`)**: Search and filter physicians by department (Cardiology, Dermatology, Pediatrics, Orthopedics, General Medicine).

@@ -74,7 +74,7 @@ export default function SettingsPage() {
               </label>
               <input
                 type="text"
-                defaultValue="SP Delta Hospital, T. Nagar"
+                defaultValue="Ruby Hall, Pune"
                 className="w-full p-2.5 border border-slate-200 rounded-lg text-xs"
               />
             </div>
@@ -86,7 +86,7 @@ export default function SettingsPage() {
                 </label>
                 <input
                   type="text"
-                  defaultValue="Chennai, Tamil Nadu"
+                  defaultValue="Pune, Maharashtra"
                   className="w-full p-2.5 border border-slate-200 rounded-lg text-xs"
                 />
               </div>
@@ -96,7 +96,7 @@ export default function SettingsPage() {
                 </label>
                 <input
                   type="text"
-                  defaultValue="+91 44 1234 5678"
+                  defaultValue="+91 20 6645 5100"
                   className="w-full p-2.5 border border-slate-200 rounded-lg text-xs"
                 />
               </div>
@@ -108,7 +108,7 @@ export default function SettingsPage() {
               </label>
               <input
                 type="text"
-                defaultValue="123, T. Nagar Main Road, Chennai – 600017"
+                defaultValue="40, Sassoon Road, Sangamvadi, Pune – 411001"
                 className="w-full p-2.5 border border-slate-200 rounded-lg text-xs"
               />
             </div>
@@ -120,7 +120,7 @@ export default function SettingsPage() {
                 </label>
                 <input
                   type="email"
-                  defaultValue="info@spdelta-hospital.medrella.com"
+                  defaultValue="info@rubyhall-pune.medrella.com"
                   className="w-full p-2.5 border border-slate-200 rounded-lg text-xs"
                 />
               </div>
