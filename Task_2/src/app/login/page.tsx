@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { loginAction } from "@/actions/auth";
+import { ShieldCheck, LogIn, AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
   const [role, setRole] = useState<"PATIENT" | "DOCTOR">("PATIENT");
@@ -40,34 +41,35 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="max-w-md mx-auto my-auto py-8">
-      <div className="p-8 rounded-2xl border border-zinc-800/80 bg-zinc-900/40 backdrop-blur-md space-y-6 shadow-xl">
+    <div className="max-w-md mx-auto my-auto py-10">
+      <div className="card space-y-6 p-8 shadow-md">
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-indigo-800/60 bg-indigo-950/40 text-indigo-300 text-xs font-medium">
-            <span>✨</span>
-            <span>Task 2 Authentication</span>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-bold border border-blue-200">
+            <ShieldCheck size={14} />
+            <span>Medrella Secure Access</span>
           </div>
-          <h1 className="text-2xl font-extrabold text-white">Sign In to Medrella</h1>
-          <p className="text-xs text-zinc-400">
-            Access your patient appointments or physician shift portal
+          <h1 className="text-2xl font-bold text-slate-900 m-0">Sign In to Medrella</h1>
+          <p className="text-xs text-slate-500 m-0">
+            Access your patient appointments or physician shift portal at SP Delta Hospital
           </p>
         </div>
 
         {error && (
-          <div className="p-3.5 rounded-xl border border-rose-800/60 bg-rose-950/40 text-rose-300 text-xs">
-            {error}
+          <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+            <AlertCircle size={16} className="flex-shrink-0" />
+            <span>{error}</span>
           </div>
         )}
 
         {/* Role Toggle Switch */}
-        <div className="grid grid-cols-2 gap-2 p-1 bg-zinc-950 rounded-xl border border-zinc-800">
+        <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-lg border border-slate-200">
           <button
             type="button"
             onClick={() => handleRoleChange("PATIENT")}
-            className={`py-2 rounded-lg text-xs font-bold transition-all ${
+            className={`py-2 rounded-md text-xs font-bold transition-all ${
               role === "PATIENT"
-                ? "bg-white text-zinc-950 shadow-md"
-                : "text-zinc-400 hover:text-white"
+                ? "bg-white text-blue-700 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
             }`}
           >
             🧑‍💼 Patient
@@ -75,10 +77,10 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={() => handleRoleChange("DOCTOR")}
-            className={`py-2 rounded-lg text-xs font-bold transition-all ${
+            className={`py-2 rounded-md text-xs font-bold transition-all ${
               role === "DOCTOR"
-                ? "bg-white text-zinc-950 shadow-md"
-                : "text-zinc-400 hover:text-white"
+                ? "bg-white text-blue-700 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
             }`}
           >
             🩺 Doctor
@@ -86,47 +88,58 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-zinc-400">Email Address</label>
+          <div>
+            <label className="text-xs font-bold text-slate-700 block mb-1">
+              Email Address
+            </label>
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-lg border border-zinc-800 text-xs bg-zinc-950 text-white focus:border-zinc-600 focus:outline-none"
+              className="w-full p-2.5 rounded-lg border border-slate-200 text-xs text-slate-800 bg-white"
             />
           </div>
 
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-zinc-400">Password</label>
+          <div>
+            <label className="text-xs font-bold text-slate-700 block mb-1">
+              Password
+            </label>
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-lg border border-zinc-800 text-xs bg-zinc-950 text-white focus:border-zinc-600 focus:outline-none"
+              className="w-full p-2.5 rounded-lg border border-slate-200 text-xs text-slate-800 bg-white"
             />
           </div>
 
           <button
             type="submit"
             disabled={isPending}
-            className="w-full py-3 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-xs transition-colors shadow-md active:scale-95 disabled:opacity-50 cursor-pointer"
+            className={`btn primary w-full justify-center py-2.5 text-xs font-bold ${
+              isPending ? "opacity-60 cursor-not-allowed" : ""
+            }`}
           >
-            {isPending ? "Signing In..." : `Sign In as ${role === "PATIENT" ? "Patient" : "Doctor"}`}
+            <LogIn size={14} />
+            <span>{isPending ? "Authenticating..." : `Sign In as ${role}`}</span>
           </button>
         </form>
 
-        <div className="p-3 rounded-xl border border-zinc-800/80 bg-zinc-950/60 text-[11px] text-zinc-400 space-y-1">
-          <div className="font-semibold text-zinc-300">Quick Test Credentials:</div>
-          <div>Doctor: <code className="text-indigo-300">doctor.smith@medrella.com</code></div>
-          <div>Patient: <code className="text-indigo-300">patient.john@medrella.com</code></div>
-          <div>Password: <code className="text-zinc-200">password123</code></div>
+        {/* Pre-seeded credentials tip */}
+        <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs space-y-1">
+          <div className="font-bold text-blue-900">Pre-seeded Test Credentials:</div>
+          <div className="text-[11px] text-slate-600">
+            Click the role switcher above to test either account. Password:{" "}
+            <code className="bg-white border border-blue-200 px-1 py-0.5 rounded font-mono text-blue-700">
+              password123
+            </code>
+          </div>
         </div>
 
-        <div className="text-center text-xs text-zinc-400">
-          Need an account?{" "}
-          <Link href="/register" className="text-white font-semibold hover:underline">
+        <div className="text-center text-xs text-slate-500 pt-1">
+          Don&apos;t have an account yet?{" "}
+          <Link href="/register" className="text-blue-600 font-bold hover:underline">
             Register here
           </Link>
         </div>

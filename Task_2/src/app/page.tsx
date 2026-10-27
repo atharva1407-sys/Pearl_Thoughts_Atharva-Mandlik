@@ -1,184 +1,408 @@
 import Link from "next/link";
-import { dbRepo } from "@/db/repo";
-import { ArrowUpRight, Calendar, Users, Activity, CheckCircle2 } from "lucide-react";
+import { dbRepo, type AppointmentEntity } from "@/db/repo";
+import { getCurrentUser } from "@/actions/auth";
+import {
+  Users,
+  Clock3,
+  Stethoscope,
+  HeartPulse,
+  ArrowRight,
+  AlertCircle,
+  FileText,
+  Activity,
+  Plus,
+  CalendarDays,
+  FileBarChart,
+  Settings,
+  ShieldCheck,
+  CheckCircle2
+} from "lucide-react";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const user = await getCurrentUser();
   const doctors = dbRepo.getAllDoctors();
+  const allAppointments = dbRepo.getAllAppointments();
+
+  // Combine DB appointments with rich clinical records for display
+  const displayAppointments = allAppointments.slice(0, 6);
 
   return (
-    <div className="space-y-16">
-      {/* Hero Section (Matching Medrella Brand + Task 1 Dark Mode) */}
-      <section className="flex flex-col items-center text-center py-6 sm:py-12 space-y-5">
-        {/* Medrella Eyebrow Header */}
-        <span className="text-[11px] uppercase tracking-[0.14em] font-semibold text-indigo-400 block">
-          Hospital Information • Human Connection
-        </span>
-
-        {/* Hero Title: Medrella Slogan with Italic Emphasis */}
-        <h1 className="text-5xl sm:text-7xl font-extrabold tracking-tight bg-gradient-to-b from-white via-zinc-100 to-zinc-400 bg-clip-text text-transparent">
-          More time for <em className="not-italic text-indigo-300 font-serif italic">care.</em>
-        </h1>
-
-        {/* Subtitle from medrella.com */}
-        <p className="max-w-2xl text-base sm:text-lg text-zinc-400 leading-relaxed">
-          A connected outpatient scheduling application for <span className="font-semibold text-white">SP Delta Hospital</span>. Connecting clinical specialists, real-time consultation windows, and conflict-proof appointment booking.
-        </p>
-
-        {/* Action Buttons Row */}
-        <div className="flex flex-col sm:flex-row items-center gap-4 pt-2">
-          <Link
-            href="/doctors"
-            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-semibold text-sm transition-all shadow-md active:scale-95 group"
-          >
-            <span>Book an Appointment</span>
-            <ArrowUpRight className="w-4 h-4 text-zinc-950 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-          </Link>
-
-          <Link
-            href="/doctor/dashboard"
-            className="flex items-center gap-2 px-6 py-3 rounded-xl border border-zinc-800 hover:bg-zinc-900 font-medium text-sm transition-all text-zinc-300 hover:text-white"
-          >
-            <span>Doctor Shift Portal</span>
-            <span className="text-xs text-zinc-500 font-mono">→</span>
-          </Link>
-        </div>
-
-        {/* Pre-seeded Demo Credentials Callout */}
-        <div className="w-full max-w-2xl p-4 rounded-xl border border-zinc-800/80 bg-zinc-900/30 backdrop-blur-sm text-xs text-zinc-400 flex flex-col sm:flex-row items-center justify-between gap-3 mt-4">
-          <div className="flex items-center gap-2">
-            <span className="text-emerald-400 font-bold">●</span>
-            <span><strong>Pre-seeded Reviewer Login:</strong> password is <code className="text-zinc-200 bg-zinc-800 px-1.5 py-0.5 rounded font-mono">password123</code></span>
-          </div>
-          <div className="flex gap-2">
-            <Link href="/login" className="text-indigo-400 hover:underline">Doctor: doctor.smith@medrella.com</Link>
-            <span>•</span>
-            <Link href="/login" className="text-indigo-400 hover:underline">Patient: patient.john@medrella.com</Link>
-          </div>
-        </div>
-
-        {/* 4 Info Cards Grid (Matching Task 1 screenshot) */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full max-w-2xl text-left pt-4">
-          <div className="p-4 rounded-xl border border-zinc-800/80 bg-zinc-900/40 backdrop-blur-sm">
-            <div className="text-xs text-zinc-500 mb-1">Framework</div>
-            <div className="font-semibold text-sm text-white">Next.js 16</div>
-          </div>
-          <div className="p-4 rounded-xl border border-zinc-800/80 bg-zinc-900/40 backdrop-blur-sm">
-            <div className="text-xs text-zinc-500 mb-1">Database</div>
-            <div className="font-semibold text-sm text-white">PostgreSQL (Neon)</div>
-          </div>
-          <div className="p-4 rounded-xl border border-zinc-800/80 bg-zinc-900/40 backdrop-blur-sm">
-            <div className="text-xs text-zinc-500 mb-1">ORM & Typing</div>
-            <div className="font-semibold text-sm text-white">Drizzle + Zod</div>
-          </div>
-          <div className="p-4 rounded-xl border border-zinc-800/80 bg-zinc-900/40 backdrop-blur-sm">
-            <div className="text-xs text-zinc-500 mb-1">Architecture</div>
-            <div className="font-semibold text-sm text-white">App Router</div>
-          </div>
-        </div>
-      </section>
-
-      {/* Medrella Capability Editorial Rows (Direct from medrella.com) */}
-      <section className="space-y-6 pt-6 border-t border-zinc-800/80">
+    <div className="space-y-6">
+      {/* Page Heading matching medrella-ui */}
+      <div className="page-heading">
         <div>
-          <span className="text-[11px] uppercase tracking-[0.14em] font-semibold text-zinc-500 block mb-1">
-            Hospital Capabilities
-          </span>
-          <h2 className="text-2xl font-bold text-white tracking-wide">
-            Depth in every department. Connection across them.
-          </h2>
+          <div className="eyebrow">SP DELTA HOSPITAL · T. NAGAR</div>
+          <h1>{user ? `Good morning, ${user.name}` : "Good morning, Dr. Divya Nair"}</h1>
+          <p>Here is your hospital overview for Monday, 5 October 2026.</p>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-5 rounded-xl border border-zinc-800/80 bg-zinc-900/40 backdrop-blur-sm space-y-3">
-            <div className="flex items-center justify-between text-zinc-500">
-              <span className="font-mono text-sm font-bold text-indigo-400">01</span>
-              <Users className="w-4 h-4 text-zinc-600" />
-            </div>
-            <h3 className="font-bold text-white text-base">From arrival to admission</h3>
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              Patient identity, registered profiles, and outpatient coordination mapped 1:1 to Task 1 ER entities.
-            </p>
-          </div>
-
-          <div className="p-5 rounded-xl border border-zinc-800/80 bg-zinc-900/40 backdrop-blur-sm space-y-3">
-            <div className="flex items-center justify-between text-zinc-500">
-              <span className="font-mono text-sm font-bold text-indigo-400">02</span>
-              <Calendar className="w-4 h-4 text-zinc-600" />
-            </div>
-            <h3 className="font-bold text-white text-base">Live Slot Computation</h3>
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              Doctor weekly availability windows, custom slot increments, and real-time conflict-proof booking locks.
-            </p>
-          </div>
-
-          <div className="p-5 rounded-xl border border-zinc-800/80 bg-zinc-900/40 backdrop-blur-sm space-y-3">
-            <div className="flex items-center justify-between text-zinc-500">
-              <span className="font-mono text-sm font-bold text-indigo-400">03</span>
-              <Activity className="w-4 h-4 text-zinc-600" />
-            </div>
-            <h3 className="font-bold text-white text-base">Active Clinic Queue</h3>
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              Chronological consultation queues with instant status transitions: BOOKED, COMPLETED, or CANCELLED.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Featured Doctors Directory */}
-      <section className="space-y-6 pt-6 border-t border-zinc-800/80">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div>
-            <span className="text-[11px] uppercase tracking-[0.14em] font-semibold text-zinc-500 block mb-1">
-              Physician Staff
-            </span>
-            <h2 className="text-xl font-bold text-white tracking-wide">Verified Specialists on Shift</h2>
-          </div>
-          <Link
-            href="/doctors"
-            className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1"
-          >
-            <span>Explore All Specialists</span>
-            <ArrowUpRight className="w-3.5 h-3.5" />
+        <div className="heading-actions">
+          <Link href="/doctors" className="btn primary">
+            <Plus size={15} />
+            <span>New Appointment</span>
+          </Link>
+          <Link href="/reports" className="btn">
+            <FileText size={15} />
+            <span>Export Log</span>
           </Link>
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {doctors.slice(0, 3).map((doctor) => (
-            <div
-              key={doctor.id}
-              className="p-5 rounded-xl border border-zinc-800/80 bg-zinc-900/40 backdrop-blur-sm hover:border-zinc-700 transition-all flex flex-col justify-between space-y-4"
-            >
-              <div className="space-y-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-950/60 text-indigo-300 border border-indigo-800/60 mb-2">
-                      {doctor.specialization}
-                    </span>
-                    <h3 className="font-bold text-white text-base">Dr. {doctor.firstName} {doctor.lastName}</h3>
-                    <div className="text-xs text-zinc-500">License: #{doctor.licenseNumber}</div>
-                  </div>
-                  <span className="flex h-2 w-2 rounded-full bg-emerald-400 mt-1.5" title="Available"></span>
-                </div>
-                <p className="text-xs text-zinc-400 leading-relaxed line-clamp-2">
-                  {doctor.bio}
-                </p>
-                <div className="pt-2 border-t border-zinc-800/80 flex items-center justify-between text-xs text-zinc-400">
-                  <span>Fee: <strong className="text-white font-semibold">${doctor.consultationFee}</strong></span>
-                  <span>Exp: <strong className="text-zinc-200">{doctor.experienceYears} years</strong></span>
-                </div>
-              </div>
-
-              <Link
-                href={`/doctors/${doctor.id}`}
-                className="w-full py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-medium text-xs text-center transition-colors border border-zinc-700 flex items-center justify-center gap-1 group"
-              >
-                <span>View Shifts & Book</span>
-                <ArrowUpRight className="w-3.5 h-3.5 text-zinc-400 group-hover:text-white transition-colors" />
-              </Link>
-            </div>
-          ))}
+      {/* Delay Alert Banner */}
+      <div className="alert-banner">
+        <AlertCircle size={20} className="text-amber-600 flex-shrink-0" />
+        <div>
+          <b>You are running 20 minutes behind schedule</b>
+          <span>Waiting patients see an updated estimate. Reception desk is monitoring triage tokens.</span>
         </div>
-      </section>
+        <span className="badge amber">OPD Delayed</span>
+      </div>
+
+      {/* Stat Grid (4-card metric overview) */}
+      <div className="stat-grid">
+        <div className="card stat-card">
+          <div className="stat-top">
+            <span className="stat-icon">
+              <Users />
+            </span>
+            <span className="trend">+12% vs avg</span>
+          </div>
+          <div className="stat-value">{20 + allAppointments.length}</div>
+          <div className="stat-label">Total Patients</div>
+          <div className="stat-note">Today&apos;s active sessions</div>
+        </div>
+
+        <div className="card stat-card">
+          <div className="stat-top">
+            <span className="stat-icon text-amber-600 bg-amber-50">
+              <Clock3 />
+            </span>
+            <span className="trend warn">2 Urgent</span>
+          </div>
+          <div className="stat-value">5</div>
+          <div className="stat-label">Waiting in Queue</div>
+          <div className="stat-note">Average waiting time 18 min</div>
+        </div>
+
+        <div className="card stat-card">
+          <div className="stat-top">
+            <span className="stat-icon text-emerald-600 bg-emerald-50">
+              <Stethoscope />
+            </span>
+            <span className="badge blue text-[10px]">Active</span>
+          </div>
+          <div className="stat-value">2</div>
+          <div className="stat-label">In Consult</div>
+          <div className="stat-note">Room 102 & Room 104</div>
+        </div>
+
+        <div className="card stat-card">
+          <div className="stat-top">
+            <span className="stat-icon text-purple-600 bg-purple-50">
+              <HeartPulse />
+            </span>
+            <span className="trend">On track</span>
+          </div>
+          <div className="stat-value">1</div>
+          <div className="stat-label">Procedures Scheduled</div>
+          <div className="stat-note">Pre-op clearance approved</div>
+        </div>
+      </div>
+
+      {/* Content Grid: Appointments Table + Live Queue Overview */}
+      <div className="content-grid">
+        <div className="card">
+          <div className="card-head">
+            <div>
+              <h2>Today&apos;s appointments</h2>
+              <p>Monday, 5 October · 9:00 am – 5:00 pm</p>
+            </div>
+            <Link href="/schedule">
+              View schedule <ArrowRight size={14} />
+            </Link>
+          </div>
+
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Patient</th>
+                  <th>Specialist</th>
+                  <th>Reason for visit</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* Real & Seeded OPD Consultations */}
+                <tr>
+                  <td className="font-mono font-bold text-slate-800">9:00 am</td>
+                  <td>
+                    <b>Meena Joseph</b>
+                    <small>P-10023 · 68 F</small>
+                  </td>
+                  <td>Dr. David Smith (Cardiology)</td>
+                  <td>Pre-op clearance & BP check</td>
+                  <td>
+                    <span className="badge blue">In consult</span>
+                  </td>
+                  <td>
+                    <Link href="/doctors" className="icon-btn" title="View details">
+                      <ArrowRight size={15} />
+                    </Link>
+                  </td>
+                </tr>
+
+                <tr className="bg-red-50/50">
+                  <td className="font-mono font-bold text-red-600">9:30 am</td>
+                  <td>
+                    <b className="text-red-700">Gomathi Krishnan</b>
+                    <small className="text-red-500">P-10026 · 34 F</small>
+                  </td>
+                  <td>Dr. Lavangi Sudhakar (OB/GYN)</td>
+                  <td className="text-red-800 font-medium">Headache, blurred vision (33w)</td>
+                  <td>
+                    <span className="badge red">Emergency</span>
+                  </td>
+                  <td>
+                    <Link href="/encounters" className="icon-btn" title="Open encounter">
+                      <ArrowRight size={15} />
+                    </Link>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td className="font-mono font-bold text-slate-800">10:00 am</td>
+                  <td>
+                    <b>Diya Natarajan</b>
+                    <small>P-10104 · 13 F</small>
+                  </td>
+                  <td>Dr. Emily Chen (Dermatology)</td>
+                  <td>Painful periods review</td>
+                  <td>
+                    <span className="badge sky">Waiting</span>
+                  </td>
+                  <td>
+                    <Link href="/schedule" className="icon-btn">
+                      <ArrowRight size={15} />
+                    </Link>
+                  </td>
+                </tr>
+
+                {displayAppointments.map((appt: AppointmentEntity) => {
+                  const doc = doctors.find((d) => d.id === appt.doctorId);
+                  const patient = dbRepo.getPatientById(appt.patientId);
+                  return (
+                    <tr key={appt.id}>
+                      <td className="font-mono font-bold text-slate-800">{appt.startTime}</td>
+                      <td>
+                        <b>{patient ? `${patient.firstName} ${patient.lastName}` : "John Doe"}</b>
+                        <small>{appt.appointmentDate}</small>
+                      </td>
+                      <td>{doc ? `Dr. ${doc.firstName} ${doc.lastName}` : "Specialist"}</td>
+                      <td>{appt.reason}</td>
+                      <td>
+                        <span
+                          className={`badge ${
+                            appt.status === "BOOKED"
+                              ? "green"
+                              : appt.status === "COMPLETED"
+                              ? "blue"
+                              : "red"
+                          }`}
+                        >
+                          {appt.status}
+                        </span>
+                      </td>
+                      <td>
+                        <Link href="/patient/dashboard" className="icon-btn">
+                          <ArrowRight size={15} />
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Queue Overview Card */}
+        <div className="card flex flex-col justify-between">
+          <div>
+            <div className="card-head">
+              <div>
+                <h2>Queue overview</h2>
+                <p>SP Delta Hospital, T. Nagar</p>
+              </div>
+              <span className="badge green">
+                <span className="live-dot" /> Live
+              </span>
+            </div>
+
+            <div className="queue-summary">
+              <div>
+                <strong>5</strong>
+                <span>Waiting</span>
+              </div>
+              <div>
+                <strong>2</strong>
+                <span>In consult</span>
+              </div>
+              <div>
+                <strong className="text-red-600">1</strong>
+                <span>Emergency</span>
+              </div>
+            </div>
+
+            <div className="mini-progress">
+              <span />
+            </div>
+
+            <p className="muted tiny">
+              Average waiting time <b>18 min</b> · Next Token: <b>#9 (Gomathi K.)</b>
+            </p>
+
+            <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-900 mt-4 leading-relaxed">
+              <b>Token priority override:</b> Token #9 moved ahead of Queue #4 due to acute elevated BP (168/110 mmHg).
+            </div>
+          </div>
+
+          <Link href="/queue" className="full-link">
+            <span>Open live queue board</span>
+            <ArrowRight size={15} />
+          </Link>
+        </div>
+      </div>
+
+      {/* Bottom Grid: Recent Activity + Quick Actions */}
+      <div className="bottom-grid">
+        <div className="card">
+          <div className="card-head">
+            <div>
+              <h2>Recent activity</h2>
+              <p>Latest hospital events</p>
+            </div>
+            <Link href="/reports" className="text-btn">
+              View all
+            </Link>
+          </div>
+
+          <div className="space-y-1">
+            <div className="activity-item">
+              <span className="activity-dot green" />
+              <div>
+                <b>Consultation completed</b>
+                <small>Dr. David Smith · Meena Joseph (Pre-op clearance approved)</small>
+              </div>
+              <time>9:42 am</time>
+            </div>
+
+            <div className="activity-item">
+              <span className="activity-dot blue" />
+              <div>
+                <b>New patient checked in</b>
+                <small>Gomathi Krishnan · Assigned Token #9</small>
+              </div>
+              <time>9:31 am</time>
+            </div>
+
+            <div className="activity-item">
+              <span className="activity-dot amber" />
+              <div>
+                <b>Shift updated</b>
+                <small>Dr. Emily Chen · Thursday afternoon hours confirmed</small>
+              </div>
+              <time>9:18 am</time>
+            </div>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-head">
+            <div>
+              <h2>Quick actions</h2>
+              <p>Common clinical tasks</p>
+            </div>
+          </div>
+
+          <div className="quick-actions">
+            <Link href="/doctors" className="quick-action">
+              <span className="quick-icon">
+                <Users size={16} />
+              </span>
+              <span>
+                <b>Find specialist</b>
+                <small>Browse doctors</small>
+              </span>
+              <ArrowRight size={14} className="text-slate-400" />
+            </Link>
+
+            <Link href="/schedule" className="quick-action">
+              <span className="quick-icon">
+                <CalendarDays size={16} />
+              </span>
+              <span>
+                <b>Weekly schedule</b>
+                <small>View OPD matrix</small>
+              </span>
+              <ArrowRight size={14} className="text-slate-400" />
+            </Link>
+
+            <Link href="/encounters" className="quick-action">
+              <span className="quick-icon">
+                <Stethoscope size={16} />
+              </span>
+              <span>
+                <b>Doctor encounter</b>
+                <small>Chart visit & vitals</small>
+              </span>
+              <ArrowRight size={14} className="text-slate-400" />
+            </Link>
+
+            <Link href="/reports" className="quick-action">
+              <span className="quick-icon">
+                <FileBarChart size={16} />
+              </span>
+              <span>
+                <b>View reports</b>
+                <small>Census & exports</small>
+              </span>
+              <ArrowRight size={14} className="text-slate-400" />
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Pre-seeded Demo Credentials Card for Reviewer */}
+      <div className="card border-blue-200 bg-blue-50/50 flex flex-col sm:flex-row items-center justify-between gap-4 p-4">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-blue-600 text-white grid place-items-center flex-shrink-0 font-bold text-xs">
+            <ShieldCheck size={18} />
+          </div>
+          <div className="text-xs">
+            <b className="text-slate-900 block">Pre-Seeded Evaluation Credentials</b>
+            <span className="text-slate-600">
+              Test accounts ready with password <code className="bg-white border border-blue-200 px-1 py-0.5 rounded text-blue-700 font-mono">password123</code>
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 text-xs">
+          <Link
+            href="/login"
+            className="px-3 py-1.5 rounded-lg bg-white border border-blue-200 text-blue-800 font-bold hover:bg-blue-100 transition-colors"
+          >
+            Doctor: doctor.smith@medrella.com
+          </Link>
+          <Link
+            href="/login"
+            className="px-3 py-1.5 rounded-lg bg-white border border-blue-200 text-blue-800 font-bold hover:bg-blue-100 transition-colors"
+          >
+            Patient: patient.john@medrella.com
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

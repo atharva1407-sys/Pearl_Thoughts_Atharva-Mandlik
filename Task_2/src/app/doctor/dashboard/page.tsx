@@ -4,7 +4,17 @@ import { getCurrentUser } from "@/actions/auth";
 import { completeAppointmentAction, cancelAppointmentAction } from "@/actions/appointments";
 import { dbRepo } from "@/db/repo";
 import { formatDate } from "@/lib/utils";
-import { Building2, ArrowUpRight, CheckCircle2 } from "lucide-react";
+import {
+  CalendarDays,
+  Clock3,
+  CheckCircle2,
+  CalendarClock,
+  ArrowRight,
+  Check,
+  X,
+  Stethoscope,
+  Users
+} from "lucide-react";
 
 export default async function DoctorDashboard() {
   const user = await getCurrentUser();
@@ -21,150 +31,206 @@ export default async function DoctorDashboard() {
   const completedBookings = appointments.filter((a) => a.status === "COMPLETED");
 
   return (
-    <div className="space-y-8">
-      {/* Header with Medrella Eyebrow & Facility Tag */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-zinc-800/80 pb-6">
+    <div className="space-y-6">
+      {/* Page Heading */}
+      <div className="page-heading">
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-[11px] uppercase tracking-[0.14em] font-semibold text-indigo-400">
-              Outpatient Care • Physician Portal
-            </span>
-            <span className="text-zinc-600">•</span>
-            <span className="text-xs text-zinc-400 flex items-center gap-1">
-              <Building2 className="w-3 h-3 text-zinc-500" />
-              SP Delta Hospital
-            </span>
-          </div>
-          <h1 className="text-3xl font-extrabold text-white">Dr. {doctor?.firstName} {doctor?.lastName}</h1>
-          <p className="text-xs text-zinc-400 mt-0.5">
-            {doctor?.specialization} Department • License #{doctor?.licenseNumber} • Fee: ${doctor?.consultationFee}
+          <div className="eyebrow">PHYSICIAN AGENDA · OPD CLINICAL QUEUE</div>
+          <h1>Dr. {doctor?.firstName} {doctor?.lastName}</h1>
+          <p>
+            {doctor?.specialization} Department · License #{doctor?.licenseNumber} · Fee: ${doctor?.consultationFee} · SP Delta Hospital
           </p>
         </div>
-        <Link
-          href="/doctor/availability"
-          className="px-5 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-semibold text-xs transition-colors shadow-md flex items-center gap-1.5 group"
-        >
-          <span>Manage Weekly Shifts</span>
-          <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-        </Link>
+        <div className="heading-actions">
+          <Link href="/doctor/availability" className="btn primary">
+            <CalendarClock size={15} />
+            <span>Manage Shifts</span>
+          </Link>
+          <Link href="/encounters" className="btn">
+            <Stethoscope size={15} />
+            <span>Open Charting</span>
+          </Link>
+        </div>
       </div>
 
-      {/* Metrics Row (Matching Task 1 screenshot cards) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-5 rounded-xl border border-zinc-800/80 bg-zinc-900/40 backdrop-blur-sm">
-          <div className="text-xs text-zinc-500 mb-1">Active Queue Bookings</div>
-          <div className="font-bold text-2xl text-white">{activeBookings.length} Patients</div>
-          <div className="text-[11px] text-emerald-400 font-semibold mt-1">● Next patient ready</div>
+      {/* Metric Cards */}
+      <div className="stat-grid">
+        <div className="card stat-card">
+          <div className="stat-top">
+            <span className="stat-icon">
+              <Users />
+            </span>
+            <span className="badge amber text-[10px]">Queue</span>
+          </div>
+          <div className="stat-value">{activeBookings.length}</div>
+          <div className="stat-label">Active Bookings</div>
+          <div className="stat-note">Waiting for consultation</div>
         </div>
 
-        <div className="p-5 rounded-xl border border-zinc-800/80 bg-zinc-900/40 backdrop-blur-sm">
-          <div className="text-xs text-zinc-500 mb-1">Completed Consultations</div>
-          <div className="font-bold text-2xl text-white">{completedBookings.length} Completed</div>
-          <div className="text-[11px] text-zinc-400 mt-1">Outpatient medical reports</div>
+        <div className="card stat-card">
+          <div className="stat-top">
+            <span className="stat-icon text-emerald-600 bg-emerald-50">
+              <CheckCircle2 />
+            </span>
+            <span className="badge green text-[10px]">Done</span>
+          </div>
+          <div className="stat-value">{completedBookings.length}</div>
+          <div className="stat-label">Completed Consults</div>
+          <div className="stat-note">Clinical notes filed</div>
         </div>
 
-        <div className="p-5 rounded-xl border border-zinc-800/80 bg-zinc-900/40 backdrop-blur-sm">
-          <div className="text-xs text-zinc-500 mb-1">Configured Shifts</div>
-          <div className="font-bold text-lg text-white">{activeShifts.length} Days / Week</div>
-          <div className="text-[11px] text-indigo-400 mt-1">
-            {activeShifts.map(s => s.dayOfWeek).join(", ")}
+        <div className="card stat-card">
+          <div className="stat-top">
+            <span className="stat-icon text-blue-600 bg-blue-50">
+              <CalendarClock />
+            </span>
+            <span className="badge blue text-[10px]">Shifts</span>
+          </div>
+          <div className="stat-value">{activeShifts.length} Days</div>
+          <div className="stat-label">Weekly Schedule</div>
+          <div className="stat-note truncate">
+            {activeShifts.map((s) => s.dayOfWeek).join(", ")}
           </div>
         </div>
+
+        <div className="card stat-card">
+          <div className="stat-top">
+            <span className="stat-icon text-purple-600 bg-purple-50">
+              <Clock3 />
+            </span>
+            <span className="badge green text-[10px]">On Track</span>
+          </div>
+          <div className="stat-value">30m</div>
+          <div className="stat-label">Slot Duration</div>
+          <div className="stat-note">OPD consultation window</div>
+        </div>
       </div>
 
-      {/* Patient Queue */}
-      <div className="p-6 rounded-xl border border-zinc-800/80 bg-zinc-900/40 backdrop-blur-sm space-y-4">
-        <div className="flex items-center justify-between">
+      {/* Active Consultations Table Card */}
+      <div className="card space-y-4">
+        <div className="card-head">
           <div>
-            <h2 className="font-bold text-white text-base">Active Consultation Queue</h2>
-            <p className="text-xs text-zinc-500">Live outpatient appointments awaiting review</p>
+            <h2>Consultation Queue for Review</h2>
+            <p>{activeBookings.length} patient appointments booked</p>
           </div>
-          <span className="px-2.5 py-1 rounded-md text-xs font-mono bg-zinc-900 text-zinc-300 border border-zinc-800">
-            {activeBookings.length} In Queue
-          </span>
+          <span className="badge blue">Live Clinic Session</span>
         </div>
 
         {activeBookings.length === 0 ? (
-          <div className="py-8 text-center text-xs text-zinc-500 border border-dashed border-zinc-800 rounded-xl">
-            No patient appointments are currently queued.
+          <div className="py-8 text-center text-xs text-slate-500 border border-dashed border-slate-200 rounded-lg bg-slate-50">
+            No patient consultations are currently pending in your queue.
           </div>
         ) : (
-          <div className="divide-y divide-zinc-800/80">
-            {activeBookings.map((apt, index) => (
-              <div
-                key={apt.id}
-                className="py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs font-bold text-indigo-300">
-                      📅 {formatDate(apt.appointmentDate)} • {apt.startTime} - {apt.endTime}
-                    </span>
-                    {index === 0 && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950/60 text-emerald-300 border border-emerald-800/60">
-                        NEXT PATIENT
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Token #</th>
+                  <th>Date & Time</th>
+                  <th>Patient</th>
+                  <th>Contact</th>
+                  <th>Chief Complaint</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activeBookings.map((apt, index) => (
+                  <tr key={apt.id}>
+                    <td>
+                      <span className="token w-7 h-7 text-xs font-bold bg-blue-100 text-blue-800">
+                        #{index + 1}
                       </span>
-                    )}
-                  </div>
-                  <div className="font-bold text-white text-sm">
-                    {apt.patient.firstName} {apt.patient.lastName} (Phone: {apt.patient.phone})
-                  </div>
-                  <div className="text-xs text-zinc-400">
-                    Reason: <span className="text-zinc-200">{apt.reason}</span>
-                  </div>
-                </div>
+                    </td>
+                    <td>
+                      <b className="text-slate-900">{formatDate(apt.appointmentDate)}</b>
+                      <small className="font-mono text-blue-600">{apt.startTime} – {apt.endTime}</small>
+                    </td>
+                    <td>
+                      <b>{apt.patient.firstName} {apt.patient.lastName}</b>
+                      <small>Patient ID: {apt.patientId.slice(0, 8)}</small>
+                    </td>
+                    <td className="font-mono text-xs">{apt.patient.phone}</td>
+                    <td>
+                      <span className="text-slate-700 font-medium">{apt.reason}</span>
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-1.5">
+                        <form
+                          action={async () => {
+                            "use server";
+                            await completeAppointmentAction(apt.id);
+                          }}
+                        >
+                          <button
+                            type="submit"
+                            className="btn primary text-xs py-1 px-2.5"
+                            title="Mark Consultation Complete"
+                          >
+                            <Check size={13} />
+                            <span>Done</span>
+                          </button>
+                        </form>
 
-                <div className="flex items-center gap-2">
-                  <form action={async () => {
-                    "use server";
-                    await completeAppointmentAction(apt.id);
-                  }}>
-                    <button
-                      type="submit"
-                      className="px-3.5 py-1.5 rounded-lg bg-white hover:bg-zinc-200 text-zinc-950 font-semibold text-xs shadow-xs cursor-pointer flex items-center gap-1.5"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Mark Done</span>
-                    </button>
-                  </form>
-
-                  <form action={async () => {
-                    "use server";
-                    await cancelAppointmentAction(apt.id);
-                  }}>
-                    <button
-                      type="submit"
-                      className="px-3 py-1.5 rounded-lg border border-zinc-800 hover:bg-zinc-800 text-zinc-300 text-xs cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                  </form>
-                </div>
-              </div>
-            ))}
+                        <form
+                          action={async () => {
+                            "use server";
+                            await cancelAppointmentAction(apt.id);
+                          }}
+                        >
+                          <button
+                            type="submit"
+                            className="btn text-xs py-1 px-2 text-red-600 hover:bg-red-50"
+                            title="Cancel Appointment"
+                          >
+                            <X size={13} />
+                            <span>Cancel</span>
+                          </button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
 
-      {/* Completed Consultations History */}
+      {/* Completed Consultations Card */}
       {completedBookings.length > 0 && (
-        <div className="p-6 rounded-xl border border-zinc-800/80 bg-zinc-900/40 backdrop-blur-sm space-y-4">
-          <h2 className="font-bold text-white text-base">Completed Consultations History</h2>
-          <div className="divide-y divide-zinc-800/80">
-            {completedBookings.map((apt) => (
-              <div
-                key={apt.id}
-                className="py-3 flex items-center justify-between opacity-70 text-xs"
-              >
-                <div>
-                  <span className="font-bold text-white">{apt.patient.firstName} {apt.patient.lastName}</span>
-                  <span className="text-zinc-500 ml-2">({formatDate(apt.appointmentDate)} at {apt.startTime})</span>
-                </div>
-                <span className="px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
-                  COMPLETED
-                </span>
-              </div>
-            ))}
+        <div className="card space-y-4">
+          <div className="card-head">
+            <div>
+              <h2>Completed Consultations History</h2>
+              <p>{completedBookings.length} consultations finished</p>
+            </div>
+          </div>
+
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Patient</th>
+                  <th>Time Slot</th>
+                  <th>Chief Complaint</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {completedBookings.map((apt) => (
+                  <tr key={apt.id}>
+                    <td><b>{formatDate(apt.appointmentDate)}</b></td>
+                    <td>{apt.patient.firstName} {apt.patient.lastName}</td>
+                    <td className="font-mono">{apt.startTime} – {apt.endTime}</td>
+                    <td>{apt.reason}</td>
+                    <td>
+                      <span className="badge green">Completed</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
