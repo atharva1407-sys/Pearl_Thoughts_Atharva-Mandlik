@@ -90,15 +90,14 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
       <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
         {/* Brand Header */}
         <Link href="/" className="brand" onClick={() => setSidebarOpen(false)}>
-          <span className="brand-mark">
-            <Image
-              src="/images/medrella-logo.png"
-              alt="Medrella"
-              width={30}
-              height={30}
-              priority
-            />
-          </span>
+          <Image
+            src="/images/medrella-logo.png"
+            alt="Medrella"
+            width={30}
+            height={30}
+            className="brand-logo-img"
+            priority
+          />
           <span>
             medrella<span className="brand-dot">.</span>
           </span>
