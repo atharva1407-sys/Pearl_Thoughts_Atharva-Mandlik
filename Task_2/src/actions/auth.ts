@@ -96,6 +96,7 @@ export async function loginAction(formData: FormData) {
 
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, token, getCookieConfig());
+  revalidatePath("/", "layout");
 
   // Determine safe redirect destination
   const safeRedirect = rawRedirect && rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : null;
@@ -159,6 +160,7 @@ export async function registerPatientAction(formData: FormData) {
 
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, token, getCookieConfig());
+  revalidatePath("/", "layout");
 
   const rawRedirect = (formData.get("redirectTo") as string)?.trim();
   const safeRedirect = rawRedirect && rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : null;
@@ -239,6 +241,7 @@ export async function registerDoctorAction(formData: FormData) {
 
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, token, getCookieConfig());
+  revalidatePath("/", "layout");
 
   const rawRedirect = (formData.get("redirectTo") as string)?.trim();
   const safeRedirect = rawRedirect && rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : null;

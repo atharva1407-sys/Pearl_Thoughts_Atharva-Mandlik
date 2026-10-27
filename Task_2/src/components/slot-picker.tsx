@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { getDoctorSlotsAction } from "@/actions/availability";
 import { bookAppointmentAction } from "@/actions/appointments";
 import {
@@ -18,7 +19,7 @@ interface SlotPickerProps {
   doctorId: string;
   doctorName: string;
   consultationFee: number;
-  isLoggedInPatient: boolean;
+  isLoggedIn: boolean;
 }
 
 interface Slot {
@@ -38,7 +39,7 @@ export function SlotPicker({
   doctorId,
   doctorName,
   consultationFee,
-  isLoggedInPatient,
+  isLoggedIn,
 }: SlotPickerProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -98,11 +99,9 @@ export function SlotPicker({
 
   const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isLoggedInPatient) {
+    if (!isLoggedIn) {
       const currentPath = typeof window !== "undefined" ? window.location.pathname : `/doctors/${doctorId}`;
-      router.push(
-        `/login?redirectTo=${encodeURIComponent(currentPath)}&message=Please sign in as a patient to complete your booking.`
-      );
+      window.location.href = `/login?redirectTo=${encodeURIComponent(currentPath)}&message=Please sign in to complete your booking.`;
       return;
     }
 
@@ -249,17 +248,30 @@ export function SlotPicker({
       )}
 
       {success && (
-        <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 size={16} className="text-emerald-600 flex-shrink-0" />
+        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs space-y-2.5">
+          <div className="flex items-center gap-2 font-bold text-sm text-emerald-900">
+            <CheckCircle2 size={18} className="text-emerald-600 flex-shrink-0" />
             <span>{success}</span>
           </div>
-          <button
-            onClick={() => router.push("/patient/dashboard")}
-            className="btn text-xs font-bold text-emerald-800"
-          >
-            View in Dashboard →
-          </button>
+          <p className="text-emerald-700 m-0">
+            Your appointment has been registered in the hospital schedule.
+          </p>
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <Link
+              href="/patient/dashboard"
+              className="btn primary text-xs py-1.5 px-3 inline-flex items-center gap-1.5"
+            >
+              <span>View in My Appointments</span>
+              <ArrowRight size={14} />
+            </Link>
+            <button
+              type="button"
+              onClick={() => setSuccess(null)}
+              className="btn text-xs py-1.5 px-3"
+            >
+              Book Another Slot
+            </button>
+          </div>
         </div>
       )}
 
@@ -306,7 +318,7 @@ export function SlotPicker({
 
         {/* Submit Button */}
         <div>
-          {isLoggedInPatient ? (
+          {isLoggedIn ? (
             <button
               type="submit"
               disabled={isPending || !selectedSlot}
@@ -321,13 +333,11 @@ export function SlotPicker({
               type="button"
               onClick={() => {
                 const currentPath = typeof window !== "undefined" ? window.location.pathname : `/doctors/${doctorId}`;
-                router.push(
-                  `/login?redirectTo=${encodeURIComponent(currentPath)}&message=Please sign in as a patient to complete your booking.`
-                );
+                window.location.href = `/login?redirectTo=${encodeURIComponent(currentPath)}&message=Please sign in to complete your booking.`;
               }}
               className="btn primary w-full justify-center py-2.5 text-xs font-bold"
             >
-              Sign In as Patient to Reserve Slot
+              Sign In to Reserve Slot
             </button>
           )}
         </div>

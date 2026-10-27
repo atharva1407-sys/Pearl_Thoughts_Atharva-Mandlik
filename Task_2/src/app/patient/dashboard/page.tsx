@@ -20,13 +20,21 @@ import {
 
 export default async function PatientDashboard() {
   const user = await getCurrentUser();
-  if (!user || user.role !== "PATIENT") {
-    redirect("/login?message=Please sign in to access the patient dashboard.");
+  if (!user) {
+    redirect("/login?message=Please sign in to access your appointments.");
+  }
+
+  let patientId = user.profileId;
+  if (user.role === "DOCTOR") {
+    const p = await dbRepo.getPatientByUserId(user.userId);
+    if (p) {
+      patientId = p.id;
+    }
   }
 
   const [patient, appointments] = await Promise.all([
-    dbRepo.getPatientById(user.profileId),
-    dbRepo.getAppointmentsByPatientId(user.profileId),
+    dbRepo.getPatientById(patientId),
+    patientId ? dbRepo.getAppointmentsByPatientId(patientId) : Promise.resolve([]),
   ]);
 
   const upcoming = appointments.filter((a) => a.status === "BOOKED");
@@ -38,7 +46,7 @@ export default async function PatientDashboard() {
       <div className="page-heading">
         <div>
           <div className="eyebrow">PATIENT CARE · OUTPATIENT PORTAL</div>
-          <h1>Welcome, {patient?.firstName} {patient?.lastName}</h1>
+          <h1>Welcome, {patient ? `${patient.firstName} ${patient.lastName}` : user.name}</h1>
           <p>Manage your upcoming hospital consultations and clinical records at Ruby Hall, Pune.</p>
         </div>
         <div className="heading-actions">

@@ -1,14 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import crypto from "crypto";
 import { getCurrentUser } from "./auth";
 import { dbRepo } from "@/db/repo";
 import { bookingSchema } from "@/lib/validators";
 
 export async function bookAppointmentAction(formData: FormData) {
   const user = await getCurrentUser();
-  if (!user || user.role !== "PATIENT") {
-    return { success: false, error: "You must be signed in as a patient to book an appointment." };
+  if (!user) {
+    return { success: false, error: "You must be signed in to book an appointment." };
   }
 
   const raw = {
@@ -99,8 +100,25 @@ export async function bookAppointmentAction(formData: FormData) {
   const endM = (calculatedEndMinutes % 60).toString().padStart(2, "0");
   const serverEndTime = `${endH}:${endM}`;
 
+  let patientId = user.profileId;
+  if (user.role === "DOCTOR") {
+    let patient = await dbRepo.getPatientByUserId(user.userId);
+    if (!patient) {
+      const doctor = await dbRepo.getDoctorById(user.profileId);
+      const newPatientId = `pat_${crypto.randomUUID()}`;
+      patient = await dbRepo.createPatient({
+        id: newPatientId,
+        userId: user.userId,
+        firstName: doctor?.firstName || "Dr.",
+        lastName: doctor?.lastName || "Staff",
+        phone: doctor?.phone || "+91 20 6645 5000",
+      });
+    }
+    patientId = patient.id;
+  }
+
   const result = await dbRepo.createAppointment({
-    patientId: user.profileId,
+    patientId,
     doctorId: parsed.data.doctorId,
     appointmentDate: parsed.data.appointmentDate,
     startTime: parsed.data.startTime,
@@ -112,6 +130,7 @@ export async function bookAppointmentAction(formData: FormData) {
     return { success: false, error: result.message };
   }
 
+  revalidatePath("/", "layout");
   revalidatePath("/patient/dashboard");
   revalidatePath("/doctor/dashboard");
   revalidatePath(`/doctors/${parsed.data.doctorId}`);
