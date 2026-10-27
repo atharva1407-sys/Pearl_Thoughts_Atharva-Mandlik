@@ -18,9 +18,13 @@ import {
 
 export default async function HomePage() {
   const user = await getCurrentUser();
-  const doctors = dbRepo.getAllDoctors();
-  const allAppointments = dbRepo.getAllAppointments();
-  const allPatients = dbRepo.getAllPatients();
+  const doctors = typeof dbRepo.getAllDoctors === "function" ? dbRepo.getAllDoctors() : [];
+  const allAppointments: AppointmentEntity[] = typeof dbRepo.getAllAppointments === "function"
+    ? dbRepo.getAllAppointments()
+    : ((dbRepo as any).appointments || []);
+  const allPatients = typeof dbRepo.getAllPatients === "function"
+    ? dbRepo.getAllPatients()
+    : ((dbRepo as any).patients || []);
 
   const bookedAppointments = allAppointments.filter((a) => a.status === "BOOKED");
   const completedAppointments = allAppointments.filter((a) => a.status === "COMPLETED");

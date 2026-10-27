@@ -169,7 +169,7 @@ class MedrellaStore {
   }
 
   public getAllPatients(): PatientEntity[] {
-    return [...this.patients];
+    return this.patients ? [...this.patients] : [];
   }
 
   // --- User Operations ---
@@ -344,7 +344,7 @@ class MedrellaStore {
   }
 
   public getAllAppointments(): AppointmentEntity[] {
-    return [...this.appointments];
+    return this.appointments ? [...this.appointments] : [];
   }
 
   public getAppointmentsByPatientId(patientId: string): (AppointmentEntity & { doctor: DoctorEntity })[] {
@@ -381,6 +381,20 @@ class MedrellaStore {
 // Singleton global store instance for dev & runtime persistence
 declare global {
   var __medrella_store__: MedrellaStore | undefined;
+}
+
+if (globalThis.__medrella_store__) {
+  Object.setPrototypeOf(globalThis.__medrella_store__, MedrellaStore.prototype);
+  if (!globalThis.__medrella_store__.getAllPatients) {
+    globalThis.__medrella_store__.getAllPatients = function() {
+      return (this as any).patients ? [...(this as any).patients] : [];
+    };
+  }
+  if (!globalThis.__medrella_store__.getAllAppointments) {
+    globalThis.__medrella_store__.getAllAppointments = function() {
+      return (this as any).appointments ? [...(this as any).appointments] : [];
+    };
+  }
 }
 
 export const dbRepo = globalThis.__medrella_store__ || new MedrellaStore();
