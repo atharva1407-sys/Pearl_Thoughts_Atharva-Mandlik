@@ -11,8 +11,10 @@ export default async function DoctorAvailabilityPage() {
     redirect("/login?message=Please sign in to access availability management.");
   }
 
-  const doctor = dbRepo.getDoctorById(user.profileId);
-  const availabilities = dbRepo.getAvailabilitiesByDoctorId(user.profileId);
+  const [doctor, availabilities] = await Promise.all([
+    dbRepo.getDoctorById(user.profileId),
+    dbRepo.getAvailabilitiesByDoctorId(user.profileId),
+  ]);
 
   const days: Array<"MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN"> = [
     "MON",

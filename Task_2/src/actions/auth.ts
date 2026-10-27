@@ -2,9 +2,16 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import crypto from "crypto";
 import { dbRepo } from "@/db/repo";
-import { hashPassword, verifyPassword, createSessionToken, verifySessionToken, type SessionPayload } from "@/lib/auth-crypto";
-import { loginSchema, registerPatientSchema, registerDoctorSchema } from "@/lib/validators";
+import {
+  hashPassword,
+  verifyPassword,
+  createSessionToken,
+  verifySessionToken,
+  type SessionPayload,
+} from "@/lib/auth-crypto";
+import { registerPatientSchema, registerDoctorSchema } from "@/lib/validators";
 
 const COOKIE_NAME = "medrella_session";
 
@@ -24,7 +31,7 @@ export async function loginAction(formData: FormData) {
     return { success: false, error: "Please enter your email and password." };
   }
 
-  const user = dbRepo.getUserByEmail(email);
+  const user = await dbRepo.getUserByEmail(email);
   if (!user) {
     return { success: false, error: "No Medrella account found with this email." };
   }
@@ -49,12 +56,12 @@ export async function loginAction(formData: FormData) {
   let name = "";
 
   if (role === "PATIENT") {
-    const patient = dbRepo.getPatientByUserId(user.id);
+    const patient = await dbRepo.getPatientByUserId(user.id);
     if (!patient) return { success: false, error: "Patient profile not found." };
     profileId = patient.id;
     name = `${patient.firstName} ${patient.lastName}`;
   } else {
-    const doctor = dbRepo.getDoctorByUserId(user.id);
+    const doctor = await dbRepo.getDoctorByUserId(user.id);
     if (!doctor) return { success: false, error: "Doctor profile not found." };
     profileId = doctor.id;
     name = `Dr. ${doctor.firstName} ${doctor.lastName}`;
@@ -77,19 +84,8 @@ export async function loginAction(formData: FormData) {
     maxAge: 60 * 60 * 24 * 7, // 7 days
   });
 
-  if (role === "PATIENT") {
-    redirect("/patient/dashboard");
-  } else {
-    redirect("/doctor/dashboard");
-  }
-}
-
-export async function registerAction(formData: FormData) {
-  const roleInput = (formData.get("role") as string)?.toUpperCase();
-  if (roleInput === "DOCTOR") {
-    return registerDoctorAction(formData);
-  }
-  return registerPatientAction(formData);
+  const redirectPath = role === "PATIENT" ? "/patient/dashboard" : "/doctor/dashboard";
+  redirect(redirectPath);
 }
 
 export async function registerPatientAction(formData: FormData) {
@@ -109,15 +105,16 @@ export async function registerPatientAction(formData: FormData) {
     return { success: false, error: parsed.error.issues[0].message };
   }
 
-  const existing = dbRepo.getUserByEmail(parsed.data.email);
+  const existing = await dbRepo.getUserByEmail(parsed.data.email);
   if (existing) {
     return { success: false, error: "An account with this email already exists." };
   }
 
-  const userId = `user-${Date.now()}`;
-  const patientId = `pat-${Date.now()}`;
+  // 128-bit collision-proof cryptographically secure UUIDs
+  const userId = `usr_${crypto.randomUUID()}`;
+  const patientId = `pat_${crypto.randomUUID()}`;
 
-  dbRepo.createUser({
+  await dbRepo.createUser({
     id: userId,
     email: parsed.data.email,
     passwordHash: hashPassword(parsed.data.password),
@@ -125,7 +122,7 @@ export async function registerPatientAction(formData: FormData) {
     isActive: true,
   });
 
-  dbRepo.createPatient({
+  await dbRepo.createPatient({
     id: patientId,
     userId,
     firstName: parsed.data.firstName,
@@ -175,15 +172,16 @@ export async function registerDoctorAction(formData: FormData) {
     return { success: false, error: parsed.error.issues[0].message };
   }
 
-  const existing = dbRepo.getUserByEmail(parsed.data.email);
+  const existing = await dbRepo.getUserByEmail(parsed.data.email);
   if (existing) {
     return { success: false, error: "An account with this email already exists." };
   }
 
-  const userId = `user-${Date.now()}`;
-  const doctorId = `doc-${Date.now()}`;
+  // 128-bit collision-proof cryptographically secure UUIDs
+  const userId = `usr_${crypto.randomUUID()}`;
+  const doctorId = `doc_${crypto.randomUUID()}`;
 
-  dbRepo.createUser({
+  await dbRepo.createUser({
     id: userId,
     email: parsed.data.email,
     passwordHash: hashPassword(parsed.data.password),
@@ -191,7 +189,7 @@ export async function registerDoctorAction(formData: FormData) {
     isActive: true,
   });
 
-  dbRepo.createDoctor({
+  await dbRepo.createDoctor({
     id: doctorId,
     userId,
     firstName: parsed.data.firstName,
@@ -208,14 +206,14 @@ export async function registerDoctorAction(formData: FormData) {
   const days: Array<"MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN"> = [
     "MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"
   ];
-  days.forEach((day) => {
-    dbRepo.updateDoctorAvailability(doctorId, day, {
+  for (const day of days) {
+    await dbRepo.updateDoctorAvailability(doctorId, day, {
       startTime: "09:00",
       endTime: "17:00",
       slotDurationMinutes: 30,
       isActive: ["MON", "TUE", "WED", "THU", "FRI"].includes(day),
     });
-  });
+  }
 
   const token = createSessionToken({
     userId,

@@ -18,14 +18,13 @@ import {
 
 export default async function HomePage() {
   const user = await getCurrentUser();
-  const doctors = typeof dbRepo.getAllDoctors === "function" ? dbRepo.getAllDoctors() : [];
-  const allAppointments: AppointmentEntity[] = typeof dbRepo.getAllAppointments === "function"
-    ? dbRepo.getAllAppointments()
-    : ((dbRepo as any).appointments || []);
-  const allPatients = typeof dbRepo.getAllPatients === "function"
-    ? dbRepo.getAllPatients()
-    : ((dbRepo as any).patients || []);
+  const [doctors, allAppointments, allPatients] = await Promise.all([
+    dbRepo.getAllDoctors(),
+    dbRepo.getAllAppointments(),
+    dbRepo.getAllPatients(),
+  ]);
 
+  const patientMap = new Map(allPatients.map((p) => [p.id, p]));
   const bookedAppointments = allAppointments.filter((a) => a.status === "BOOKED");
   const completedAppointments = allAppointments.filter((a) => a.status === "COMPLETED");
 
@@ -153,7 +152,7 @@ export default async function HomePage() {
                 ) : (
                   allAppointments.map((appt: AppointmentEntity) => {
                     const doc = doctors.find((d) => d.id === appt.doctorId);
-                    const patient = dbRepo.getPatientById(appt.patientId);
+                    const patient = patientMap.get(appt.patientId);
                     return (
                       <tr key={appt.id}>
                         <td className="font-mono font-bold text-slate-800">{appt.startTime}</td>

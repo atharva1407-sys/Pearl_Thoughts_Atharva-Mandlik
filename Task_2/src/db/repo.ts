@@ -1,3 +1,7 @@
+import { eq, and, desc, sql } from "drizzle-orm";
+import crypto from "crypto";
+import { db, isPostgresConfigured, assertProductionDatabase } from "./index";
+import * as schema from "./schema";
 import { hashPassword } from "@/lib/auth-crypto";
 import { MEDRELLA_TEST_DATA } from "./test-data-backup";
 
@@ -16,9 +20,9 @@ export interface PatientEntity {
   firstName: string;
   lastName: string;
   phone: string;
-  dateOfBirth?: string;
-  gender?: string;
-  address?: string;
+  dateOfBirth?: string | null;
+  gender?: string | null;
+  address?: string | null;
 }
 
 export interface DoctorEntity {
@@ -31,7 +35,7 @@ export interface DoctorEntity {
   licenseNumber: string;
   experienceYears: number;
   consultationFee: number;
-  bio?: string;
+  bio?: string | null;
 }
 
 export interface AvailabilityEntity {
@@ -52,31 +56,43 @@ export interface AppointmentEntity {
   startTime: string;       // HH:mm
   endTime: string;         // HH:mm
   status: "BOOKED" | "COMPLETED" | "CANCELLED";
-  reason: string;
+  reason?: string | null;
   createdAt: Date;
 }
 
-// In-Memory Database Store (Initialized with realistic mock data)
-class MedrellaStore {
-  private users: UserEntity[] = [];
-  private patients: PatientEntity[] = [];
-  private doctors: DoctorEntity[] = [];
-  private availabilities: AvailabilityEntity[] = [];
-  private appointments: AppointmentEntity[] = [];
+/**
+ * Production Database Repository for Medrella Healthcare.
+ * - Queries Neon PostgreSQL via Drizzle ORM when DATABASE_URL is configured.
+ * - Provides an in-memory dev fallback when offline / unconfigured so local tests pass without crash.
+ */
+class MedrellaRepository {
+  private memUsers: UserEntity[] = [];
+  private memPatients: PatientEntity[] = [];
+  private memDoctors: DoctorEntity[] = [];
+  private memAvailabilities: AvailabilityEntity[] = [];
+  private memAppointments: AppointmentEntity[] = [];
 
   constructor() {
-    if (process.env.ENABLE_SEED_DATA === "true") {
-      this.seed();
+    if (!isPostgresConfigured() && process.env.ENABLE_SEED_DATA === "true" && process.env.NODE_ENV !== "production") {
+      this.seedMemory();
     }
   }
 
-  public seed() {
-    this.clearAll();
+  private checkProductionDatabase() {
+    assertProductionDatabase();
+  }
+
+  private seedMemory() {
+    this.memUsers = [];
+    this.memPatients = [];
+    this.memDoctors = [];
+    this.memAvailabilities = [];
+    this.memAppointments = [];
+
     const defaultPasswordHash = hashPassword("password123");
 
-    // 1. Seed Doctors from Backup
     MEDRELLA_TEST_DATA.doctors.forEach((d) => {
-      this.users.push({
+      this.memUsers.push({
         id: d.userId,
         email: d.email,
         passwordHash: defaultPasswordHash,
@@ -85,7 +101,7 @@ class MedrellaStore {
         createdAt: new Date(),
       });
 
-      this.doctors.push({
+      this.memDoctors.push({
         id: d.id,
         userId: d.userId,
         firstName: d.firstName,
@@ -98,156 +114,252 @@ class MedrellaStore {
         bio: d.bio,
       });
 
-      const allDays: Array<"MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN"> = [
-        "MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"
-      ];
-
-      allDays.forEach((day, index) => {
-        const isActive = (d.days as readonly string[]).includes(day);
-        this.availabilities.push({
-          id: `avail-${d.id}-${index}`,
+      d.days.forEach((day) => {
+        this.memAvailabilities.push({
+          id: `avail-${d.id}-${day}`,
           doctorId: d.id,
           dayOfWeek: day,
           startTime: d.start,
           endTime: d.end,
           slotDurationMinutes: d.duration,
-          isActive,
+          isActive: true,
         });
       });
     });
-
-    // 2. Seed Patients from Backup
-    MEDRELLA_TEST_DATA.patients.forEach((p) => {
-      this.users.push({
-        id: p.userId,
-        email: p.email,
-        passwordHash: defaultPasswordHash,
-        role: "PATIENT",
-        isActive: true,
-        createdAt: new Date(),
-      });
-
-      this.patients.push({
-        id: p.id,
-        userId: p.userId,
-        firstName: p.firstName,
-        lastName: p.lastName,
-        phone: p.phone,
-        dateOfBirth: p.dateOfBirth,
-        gender: p.gender,
-        address: p.address,
-      });
-    });
-
-    // 3. Seed Appointments from Backup
-    const today = new Date();
-    MEDRELLA_TEST_DATA.appointments.forEach((apt) => {
-      const d = new Date(today);
-      d.setDate(today.getDate() + apt.dateOffsetDays);
-      const dateString = d.toISOString().split("T")[0];
-
-      this.appointments.push({
-        id: apt.id,
-        patientId: apt.patientId,
-        doctorId: apt.doctorId,
-        appointmentDate: dateString,
-        startTime: apt.startTime,
-        endTime: apt.endTime,
-        status: apt.status,
-        reason: apt.reason,
-        createdAt: new Date(),
-      });
-    });
-  }
-
-  public clearAll() {
-    this.users = [];
-    this.patients = [];
-    this.doctors = [];
-    this.availabilities = [];
-    this.appointments = [];
-  }
-
-  public getAllPatients(): PatientEntity[] {
-    return this.patients ? [...this.patients] : [];
   }
 
   // --- User Operations ---
-  public getUserByEmail(email: string): UserEntity | undefined {
-    return this.users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+  public async getUserByEmail(email: string): Promise<UserEntity | undefined> {
+    this.checkProductionDatabase();
+    const cleanEmail = email.trim().toLowerCase();
+    if (db) {
+      const rows = await db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.email, cleanEmail))
+        .limit(1);
+      return rows[0] as UserEntity | undefined;
+    }
+    return this.memUsers.find((u) => u.email.toLowerCase() === cleanEmail);
   }
 
-  public getUserById(id: string): UserEntity | undefined {
-    return this.users.find((u) => u.id === id);
+  public async getUserById(id: string): Promise<UserEntity | undefined> {
+    this.checkProductionDatabase();
+    if (db) {
+      const rows = await db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.id, id))
+        .limit(1);
+      return rows[0] as UserEntity | undefined;
+    }
+    return this.memUsers.find((u) => u.id === id);
   }
 
-  public createUser(user: Omit<UserEntity, "createdAt">): UserEntity {
-    const newUser: UserEntity = { ...user, createdAt: new Date() };
-    this.users.push(newUser);
+  public async createUser(user: Omit<UserEntity, "createdAt">): Promise<UserEntity> {
+    this.checkProductionDatabase();
+    const newUser: UserEntity = { ...user, email: user.email.toLowerCase(), createdAt: new Date() };
+    if (db) {
+      await db.insert(schema.users).values({
+        id: newUser.id,
+        email: newUser.email,
+        passwordHash: newUser.passwordHash,
+        role: newUser.role,
+        isActive: newUser.isActive,
+      });
+      return newUser;
+    }
+    this.memUsers.push(newUser);
     return newUser;
   }
 
   // --- Patient Operations ---
-  public getPatientByUserId(userId: string): PatientEntity | undefined {
-    return this.patients.find((p) => p.userId === userId);
+  public async getPatientByUserId(userId: string): Promise<PatientEntity | undefined> {
+    this.checkProductionDatabase();
+    if (db) {
+      const rows = await db
+        .select()
+        .from(schema.patients)
+        .where(eq(schema.patients.userId, userId))
+        .limit(1);
+      return rows[0] as PatientEntity | undefined;
+    }
+    return this.memPatients.find((p) => p.userId === userId);
   }
 
-  public getPatientById(id: string): PatientEntity | undefined {
-    return this.patients.find((p) => p.id === id);
+  public async getPatientById(id: string): Promise<PatientEntity | undefined> {
+    this.checkProductionDatabase();
+    if (db) {
+      const rows = await db
+        .select()
+        .from(schema.patients)
+        .where(eq(schema.patients.id, id))
+        .limit(1);
+      return rows[0] as PatientEntity | undefined;
+    }
+    return this.memPatients.find((p) => p.id === id);
   }
 
-  public createPatient(patient: PatientEntity): PatientEntity {
-    this.patients.push(patient);
+  public async getAllPatients(): Promise<PatientEntity[]> {
+    this.checkProductionDatabase();
+    if (db) {
+      const rows = await db.select().from(schema.patients);
+      return rows as PatientEntity[];
+    }
+    return [...this.memPatients];
+  }
+
+  public async createPatient(patient: PatientEntity): Promise<PatientEntity> {
+    this.checkProductionDatabase();
+    if (db) {
+      await db.insert(schema.patients).values({
+        id: patient.id,
+        userId: patient.userId,
+        firstName: patient.firstName,
+        lastName: patient.lastName,
+        phone: patient.phone,
+        dateOfBirth: patient.dateOfBirth ?? null,
+        gender: patient.gender ?? null,
+        address: patient.address ?? null,
+      });
+      return patient;
+    }
+    this.memPatients.push(patient);
     return patient;
   }
 
   // --- Doctor Operations ---
-  public getDoctorByUserId(userId: string): DoctorEntity | undefined {
-    return this.doctors.find((d) => d.userId === userId);
-  }
-
-  public getDoctorById(id: string): DoctorEntity | undefined {
-    return this.doctors.find((d) => d.id === id);
-  }
-
-  public getAllDoctors(specialization?: string): DoctorEntity[] {
-    if (!specialization || specialization.toLowerCase() === "all") {
-      return this.doctors;
+  public async getDoctorByUserId(userId: string): Promise<DoctorEntity | undefined> {
+    this.checkProductionDatabase();
+    if (db) {
+      const rows = await db
+        .select()
+        .from(schema.doctors)
+        .where(eq(schema.doctors.userId, userId))
+        .limit(1);
+      if (!rows[0]) return undefined;
+      return {
+        ...rows[0],
+        consultationFee: Number(rows[0].consultationFee),
+      };
     }
-    return this.doctors.filter(
+    return this.memDoctors.find((d) => d.userId === userId);
+  }
+
+  public async getDoctorById(id: string): Promise<DoctorEntity | undefined> {
+    this.checkProductionDatabase();
+    if (db) {
+      const rows = await db
+        .select()
+        .from(schema.doctors)
+        .where(eq(schema.doctors.id, id))
+        .limit(1);
+      if (!rows[0]) return undefined;
+      return {
+        ...rows[0],
+        consultationFee: Number(rows[0].consultationFee),
+      };
+    }
+    return this.memDoctors.find((d) => d.id === id);
+  }
+
+  public async getAllDoctors(specialization?: string): Promise<DoctorEntity[]> {
+    this.checkProductionDatabase();
+    if (db) {
+      let query = db.select().from(schema.doctors);
+      if (specialization && specialization.toLowerCase() !== "all") {
+        const rows = await query.where(eq(schema.doctors.specialization, specialization));
+        return rows.map((d) => ({ ...d, consultationFee: Number(d.consultationFee) }));
+      }
+      const rows = await query;
+      return rows.map((d) => ({ ...d, consultationFee: Number(d.consultationFee) }));
+    }
+
+    if (!specialization || specialization.toLowerCase() === "all") {
+      return [...this.memDoctors];
+    }
+    return this.memDoctors.filter(
       (d) => d.specialization.toLowerCase() === specialization.toLowerCase()
     );
   }
 
-  public createDoctor(doctor: DoctorEntity): DoctorEntity {
-    this.doctors.push(doctor);
+  public async createDoctor(doctor: DoctorEntity): Promise<DoctorEntity> {
+    this.checkProductionDatabase();
+    if (db) {
+      await db.insert(schema.doctors).values({
+        id: doctor.id,
+        userId: doctor.userId,
+        firstName: doctor.firstName,
+        lastName: doctor.lastName,
+        specialization: doctor.specialization,
+        phone: doctor.phone,
+        licenseNumber: doctor.licenseNumber,
+        experienceYears: doctor.experienceYears,
+        consultationFee: doctor.consultationFee.toString(),
+        bio: doctor.bio ?? null,
+      });
+      return doctor;
+    }
+    this.memDoctors.push(doctor);
     return doctor;
   }
 
   // --- Availability Operations ---
-  public getAvailabilitiesByDoctorId(doctorId: string): AvailabilityEntity[] {
-    return this.availabilities.filter((a) => a.doctorId === doctorId);
+  public async getAvailabilitiesByDoctorId(doctorId: string): Promise<AvailabilityEntity[]> {
+    this.checkProductionDatabase();
+    if (db) {
+      const rows = await db
+        .select()
+        .from(schema.availabilities)
+        .where(eq(schema.availabilities.doctorId, doctorId));
+      return rows as AvailabilityEntity[];
+    }
+    return this.memAvailabilities.filter((a) => a.doctorId === doctorId);
   }
 
-  public updateDoctorAvailability(
+  public async updateDoctorAvailability(
     doctorId: string,
     dayOfWeek: AvailabilityEntity["dayOfWeek"],
     updates: Partial<Omit<AvailabilityEntity, "id" | "doctorId" | "dayOfWeek">>
-  ) {
-    let item = this.availabilities.find(
+  ): Promise<AvailabilityEntity> {
+    this.checkProductionDatabase();
+    const id = `avail-${doctorId}-${dayOfWeek}`;
+    const startTime = updates.startTime || "09:00";
+    const endTime = updates.endTime || "17:00";
+    const slotDurationMinutes = updates.slotDurationMinutes || 30;
+    const isActive = updates.isActive ?? true;
+
+    if (db) {
+      await db
+        .insert(schema.availabilities)
+        .values({
+          id,
+          doctorId,
+          dayOfWeek,
+          startTime,
+          endTime,
+          slotDurationMinutes,
+          isActive,
+        })
+        .onConflictDoUpdate({
+          target: [schema.availabilities.doctorId, schema.availabilities.dayOfWeek],
+          set: {
+            startTime,
+            endTime,
+            slotDurationMinutes,
+            isActive,
+          },
+        });
+
+      return { id, doctorId, dayOfWeek, startTime, endTime, slotDurationMinutes, isActive };
+    }
+
+    let item = this.memAvailabilities.find(
       (a) => a.doctorId === doctorId && a.dayOfWeek === dayOfWeek
     );
     if (!item) {
-      item = {
-        id: `avail-${doctorId}-${dayOfWeek}`,
-        doctorId,
-        dayOfWeek,
-        startTime: updates.startTime || "09:00",
-        endTime: updates.endTime || "17:00",
-        slotDurationMinutes: updates.slotDurationMinutes || 30,
-        isActive: updates.isActive ?? true,
-      };
-      this.availabilities.push(item);
+      item = { id, doctorId, dayOfWeek, startTime, endTime, slotDurationMinutes, isActive };
+      this.memAvailabilities.push(item);
     } else {
       Object.assign(item, updates);
     }
@@ -255,10 +367,11 @@ class MedrellaStore {
   }
 
   // --- Dynamic Slot Computation Engine ---
-  public computeAvailableSlots(
+  public async computeAvailableSlots(
     doctorId: string,
     dateString: string
-  ): { startTime: string; endTime: string; isBooked: boolean }[] {
+  ): Promise<{ startTime: string; endTime: string; isBooked: boolean }[]> {
+    this.checkProductionDatabase();
     const date = new Date(dateString + "T00:00:00");
     const dayIndex = date.getDay(); // 0 is Sunday, 1 is Monday ...
     const dayMap: Array<"SUN" | "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT"> = [
@@ -266,32 +379,61 @@ class MedrellaStore {
     ];
     const targetDay = dayMap[dayIndex];
 
-    const availability = this.availabilities.find(
-      (a) => a.doctorId === doctorId && a.dayOfWeek === targetDay && a.isActive
-    );
+    let availability: AvailabilityEntity | undefined;
+    let bookedSlots: string[] = [];
+
+    if (db) {
+      const availRows = await db
+        .select()
+        .from(schema.availabilities)
+        .where(
+          and(
+            eq(schema.availabilities.doctorId, doctorId),
+            eq(schema.availabilities.dayOfWeek, targetDay),
+            eq(schema.availabilities.isActive, true)
+          )
+        )
+        .limit(1);
+
+      availability = availRows[0] as AvailabilityEntity | undefined;
+
+      const apptRows = await db
+        .select({ startTime: schema.appointments.startTime })
+        .from(schema.appointments)
+        .where(
+          and(
+            eq(schema.appointments.doctorId, doctorId),
+            eq(schema.appointments.appointmentDate, dateString),
+            sql`${schema.appointments.status} != 'CANCELLED'`
+          )
+        );
+
+      bookedSlots = apptRows.map((a) => a.startTime);
+    } else {
+      availability = this.memAvailabilities.find(
+        (a) => a.doctorId === doctorId && a.dayOfWeek === targetDay && a.isActive
+      );
+
+      bookedSlots = this.memAppointments
+        .filter(
+          (apt) =>
+            apt.doctorId === doctorId &&
+            apt.appointmentDate === dateString &&
+            apt.status !== "CANCELLED"
+        )
+        .map((apt) => apt.startTime);
+    }
 
     if (!availability) {
       return []; // Doctor not working on this day
     }
 
     const { startTime, endTime, slotDurationMinutes } = availability;
-
-    // Parse hours & minutes
     const [startH, startM] = startTime.split(":").map(Number);
     const [endH, endM] = endTime.split(":").map(Number);
 
     const startMinutes = startH * 60 + startM;
     const endMinutes = endH * 60 + endM;
-
-    // Get active bookings for that doctor on that date
-    const bookedSlots = this.appointments
-      .filter(
-        (apt) =>
-          apt.doctorId === doctorId &&
-          apt.appointmentDate === dateString &&
-          apt.status !== "CANCELLED"
-      )
-      .map((apt) => apt.startTime);
 
     const slots: { startTime: string; endTime: string; isBooked: boolean }[] = [];
 
@@ -316,11 +458,60 @@ class MedrellaStore {
   }
 
   // --- Appointment Operations ---
-  public createAppointment(
+  public async getAppointmentById(id: string): Promise<AppointmentEntity | undefined> {
+    this.checkProductionDatabase();
+    if (db) {
+      const rows = await db
+        .select()
+        .from(schema.appointments)
+        .where(eq(schema.appointments.id, id))
+        .limit(1);
+      return rows[0] as AppointmentEntity | undefined;
+    }
+    return this.memAppointments.find((a) => a.id === id);
+  }
+
+  public async createAppointment(
     data: Omit<AppointmentEntity, "id" | "createdAt" | "status">
-  ): { success: boolean; message: string; appointment?: AppointmentEntity } {
-    // Collision check
-    const existing = this.appointments.find(
+  ): Promise<{ success: boolean; message: string; appointment?: AppointmentEntity }> {
+    this.checkProductionDatabase();
+    const id = `apt-${crypto.randomUUID()}`;
+
+    if (db) {
+      try {
+        const [inserted] = await db
+          .insert(schema.appointments)
+          .values({
+            id,
+            patientId: data.patientId,
+            doctorId: data.doctorId,
+            appointmentDate: data.appointmentDate,
+            startTime: data.startTime,
+            endTime: data.endTime,
+            status: "BOOKED",
+            reason: data.reason ?? null,
+          })
+          .returning();
+
+        return {
+          success: true,
+          message: "Appointment booked successfully!",
+          appointment: inserted as AppointmentEntity,
+        };
+      } catch (err: any) {
+        // Postgres unique violation code 23505 (triggers when partial index doctor_slot_active_unique matches)
+        if (err?.code === "23505" || err?.message?.includes("doctor_slot_active_unique")) {
+          return {
+            success: false,
+            message: "This slot has already been booked by another patient. Please choose another time.",
+          };
+        }
+        throw err;
+      }
+    }
+
+    // In-memory concurrency check
+    const existing = this.memAppointments.find(
       (a) =>
         a.doctorId === data.doctorId &&
         a.appointmentDate === data.appointmentDate &&
@@ -334,70 +525,185 @@ class MedrellaStore {
 
     const newAppointment: AppointmentEntity = {
       ...data,
-      id: `apt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      id,
       status: "BOOKED",
       createdAt: new Date(),
     };
 
-    this.appointments.unshift(newAppointment);
+    this.memAppointments.unshift(newAppointment);
     return { success: true, message: "Appointment booked successfully!", appointment: newAppointment };
   }
 
-  public getAllAppointments(): AppointmentEntity[] {
-    return this.appointments ? [...this.appointments] : [];
+  public async getAllAppointments(): Promise<AppointmentEntity[]> {
+    this.checkProductionDatabase();
+    if (db) {
+      const rows = await db
+        .select()
+        .from(schema.appointments)
+        .orderBy(desc(schema.appointments.createdAt));
+      return rows as AppointmentEntity[];
+    }
+    return [...this.memAppointments];
   }
 
-  public getAppointmentsByPatientId(patientId: string): (AppointmentEntity & { doctor: DoctorEntity })[] {
-    return this.appointments
+  public async getAppointmentsByPatientId(
+    patientId: string
+  ): Promise<(AppointmentEntity & { doctor: DoctorEntity })[]> {
+    this.checkProductionDatabase();
+    if (db) {
+      const rows = await db
+        .select({
+          appointment: schema.appointments,
+          doctor: schema.doctors,
+        })
+        .from(schema.appointments)
+        .innerJoin(schema.doctors, eq(schema.appointments.doctorId, schema.doctors.id))
+        .where(eq(schema.appointments.patientId, patientId))
+        .orderBy(desc(schema.appointments.appointmentDate));
+
+      return rows.map((r) => ({
+        ...(r.appointment as AppointmentEntity),
+        doctor: {
+          ...r.doctor,
+          consultationFee: Number(r.doctor.consultationFee),
+        } as DoctorEntity,
+      }));
+    }
+
+    return this.memAppointments
       .filter((a) => a.patientId === patientId)
       .map((a) => ({
         ...a,
-        doctor: this.getDoctorById(a.doctorId)!,
+        doctor: this.memDoctors.find((d) => d.id === a.doctorId)!,
       }))
       .filter((a) => a.doctor !== undefined);
   }
 
-  public getAppointmentsByDoctorId(doctorId: string): (AppointmentEntity & { patient: PatientEntity })[] {
-    return this.appointments
+  public async getAppointmentsByDoctorId(
+    doctorId: string
+  ): Promise<(AppointmentEntity & { patient: PatientEntity })[]> {
+    this.checkProductionDatabase();
+    if (db) {
+      const rows = await db
+        .select({
+          appointment: schema.appointments,
+          patient: schema.patients,
+        })
+        .from(schema.appointments)
+        .innerJoin(schema.patients, eq(schema.appointments.patientId, schema.patients.id))
+        .where(eq(schema.appointments.doctorId, doctorId))
+        .orderBy(desc(schema.appointments.appointmentDate));
+
+      return rows.map((r) => ({
+        ...(r.appointment as AppointmentEntity),
+        patient: r.patient as PatientEntity,
+      }));
+    }
+
+    return this.memAppointments
       .filter((a) => a.doctorId === doctorId)
       .map((a) => ({
         ...a,
-        patient: this.getPatientById(a.patientId)!,
+        patient: this.memPatients.find((p) => p.id === a.patientId)!,
       }))
       .filter((a) => a.patient !== undefined);
   }
 
-  public updateAppointmentStatus(
+  public async updateAppointmentStatus(
     id: string,
     status: "BOOKED" | "COMPLETED" | "CANCELLED"
-  ): boolean {
-    const apt = this.appointments.find((a) => a.id === id);
+  ): Promise<boolean> {
+    this.checkProductionDatabase();
+    if (db) {
+      const res = await db
+        .update(schema.appointments)
+        .set({ status })
+        .where(eq(schema.appointments.id, id));
+      return (res.rowCount ?? 1) > 0;
+    }
+
+    const apt = this.memAppointments.find((a) => a.id === id);
     if (!apt) return false;
     apt.status = status;
     return true;
   }
+
+  public async seed(): Promise<void> {
+    if (db) {
+      // In Neon Postgres, seed specialists if empty
+      const defaultPasswordHash = hashPassword("password123");
+      for (const d of MEDRELLA_TEST_DATA.doctors) {
+        await db
+          .insert(schema.users)
+          .values({
+            id: d.userId,
+            email: d.email.toLowerCase(),
+            passwordHash: defaultPasswordHash,
+            role: "DOCTOR",
+            isActive: true,
+          })
+          .onConflictDoNothing();
+
+        await db
+          .insert(schema.doctors)
+          .values({
+            id: d.id,
+            userId: d.userId,
+            firstName: d.firstName,
+            lastName: d.lastName,
+            specialization: d.specialization,
+            phone: d.phone,
+            licenseNumber: d.licenseNumber,
+            experienceYears: d.experienceYears,
+            consultationFee: d.consultationFee.toString(),
+            bio: d.bio,
+          })
+          .onConflictDoNothing();
+
+        for (const day of d.days) {
+          await db
+            .insert(schema.availabilities)
+            .values({
+              id: `avail-${d.id}-${day}`,
+              doctorId: d.id,
+              dayOfWeek: day,
+              startTime: d.start,
+              endTime: d.end,
+              slotDurationMinutes: d.duration,
+              isActive: true,
+            })
+            .onConflictDoNothing();
+        }
+      }
+      return;
+    }
+    this.seedMemory();
+  }
+
+  public async clearAll(): Promise<void> {
+    if (db) {
+      await db.delete(schema.appointments);
+      await db.delete(schema.availabilities);
+      await db.delete(schema.patients);
+      await db.delete(schema.doctors);
+      await db.delete(schema.users);
+      return;
+    }
+    this.memUsers = [];
+    this.memPatients = [];
+    this.memDoctors = [];
+    this.memAvailabilities = [];
+    this.memAppointments = [];
+  }
 }
 
-// Singleton global store instance for dev & runtime persistence
+// Global Singleton
 declare global {
-  var __medrella_store__: MedrellaStore | undefined;
+  // eslint-disable-next-line no-var
+  var __medrella_repository__: MedrellaRepository | undefined;
 }
 
-if (globalThis.__medrella_store__) {
-  Object.setPrototypeOf(globalThis.__medrella_store__, MedrellaStore.prototype);
-  if (!globalThis.__medrella_store__.getAllPatients) {
-    globalThis.__medrella_store__.getAllPatients = function() {
-      return (this as any).patients ? [...(this as any).patients] : [];
-    };
-  }
-  if (!globalThis.__medrella_store__.getAllAppointments) {
-    globalThis.__medrella_store__.getAllAppointments = function() {
-      return (this as any).appointments ? [...(this as any).appointments] : [];
-    };
-  }
-}
-
-export const dbRepo = globalThis.__medrella_store__ || new MedrellaStore();
+export const dbRepo = globalThis.__medrella_repository__ || new MedrellaRepository();
 if (process.env.NODE_ENV !== "production") {
-  globalThis.__medrella_store__ = dbRepo;
+  globalThis.__medrella_repository__ = dbRepo;
 }

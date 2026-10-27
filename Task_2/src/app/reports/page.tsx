@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/actions/auth";
 import { dbRepo, type AppointmentEntity, type DoctorEntity } from "@/db/repo";
 import {
   FileBarChart,
@@ -14,18 +16,16 @@ import {
 import { ReportsClientControls } from "./reports-client";
 
 export default async function ReportsPage() {
-  const allAppointments: AppointmentEntity[] =
-    typeof dbRepo.getAllAppointments === "function"
-      ? dbRepo.getAllAppointments()
-      : ((dbRepo as any).appointments || []);
+  const user = await getCurrentUser();
+  if (!user || user.role !== "DOCTOR") {
+    redirect("/login?message=Only authorized medical staff can access clinical reports and census analytics.");
+  }
 
-  const doctors: DoctorEntity[] =
-    typeof dbRepo.getAllDoctors === "function" ? dbRepo.getAllDoctors() : [];
-
-  const allPatients =
-    typeof dbRepo.getAllPatients === "function"
-      ? dbRepo.getAllPatients()
-      : ((dbRepo as any).patients || []);
+  const [allAppointments, doctors, allPatients] = await Promise.all([
+    dbRepo.getAllAppointments(),
+    dbRepo.getAllDoctors(),
+    dbRepo.getAllPatients(),
+  ]);
 
   const completedVisits = allAppointments.filter((a) => a.status === "COMPLETED");
   const bookedVisits = allAppointments.filter((a) => a.status === "BOOKED");
@@ -33,25 +33,25 @@ export default async function ReportsPage() {
 
   // Calculate real category breakdown if appointments exist
   const total = allAppointments.length;
-  const consultationCount = allAppointments.filter(
-    (a) =>
-      a.reason.toLowerCase().includes("consult") ||
-      a.reason.toLowerCase().includes("wellness") ||
-      a.reason.toLowerCase().includes("fever") ||
-      a.reason.toLowerCase().includes("assessment")
-  ).length;
-  const followUpCount = allAppointments.filter(
-    (a) =>
-      a.reason.toLowerCase().includes("follow") ||
-      a.reason.toLowerCase().includes("check") ||
-      a.reason.toLowerCase().includes("review")
-  ).length;
-  const procedureCount = allAppointments.filter(
-    (a) =>
-      a.reason.toLowerCase().includes("procedure") ||
-      a.reason.toLowerCase().includes("patch") ||
-      a.reason.toLowerCase().includes("test")
-  ).length;
+  const consultationCount = allAppointments.filter((a) => {
+    const r = (a.reason || "").toLowerCase();
+    return (
+      r.includes("consult") ||
+      r.includes("wellness") ||
+      r.includes("fever") ||
+      r.includes("assessment")
+    );
+  }).length;
+
+  const followUpCount = allAppointments.filter((a) => {
+    const r = (a.reason || "").toLowerCase();
+    return r.includes("follow") || r.includes("check") || r.includes("review");
+  }).length;
+
+  const procedureCount = allAppointments.filter((a) => {
+    const r = (a.reason || "").toLowerCase();
+    return r.includes("procedure") || r.includes("patch") || r.includes("test");
+  }).length;
   const otherCount = total - consultationCount - followUpCount - procedureCount;
 
   const getPercent = (count: number) => (total > 0 ? Math.round((count / total) * 100) : 0);
