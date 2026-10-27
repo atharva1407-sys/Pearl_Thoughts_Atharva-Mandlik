@@ -35,7 +35,10 @@ export function EncountersClient() {
             <User size={20} />
           </div>
           <div>
-            <h2 className="text-base font-bold text-slate-900 m-0">Clinical Encounter Workspace</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-bold text-slate-900 m-0">Clinical Encounter Workspace</h2>
+              <span className="badge amber text-[10px] px-1.5 py-0.5">Clinical Preview</span>
+            </div>
             <p className="text-xs text-slate-400 m-0 mt-0.5">
               Doctor consultation charting, SOAP progress notes, and vitals recording
             </p>

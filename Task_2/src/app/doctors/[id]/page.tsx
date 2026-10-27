@@ -50,7 +50,7 @@ export default async function DoctorProfilePage({
             <div className="flex justify-between items-center">
               <span className="text-slate-500">Consultation Fee</span>
               <span className="font-bold text-slate-900 text-sm">
-                ${doctor.consultationFee}
+                ₹{doctor.consultationFee}
               </span>
             </div>
             <div className="flex justify-between items-center">

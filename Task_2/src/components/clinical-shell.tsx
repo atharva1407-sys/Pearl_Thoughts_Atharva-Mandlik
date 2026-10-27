@@ -117,112 +117,170 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
         </div>
 
         {/* Workspace Navigation */}
-        {/* Primary Core Outpatient Care Navigation */}
-        <div className="nav-label">CORE OUTPATIENT CARE</div>
-        <nav>
-          <Link
-            href="/"
-            onClick={() => setSidebarOpen(false)}
-            className={`nav-item ${pathname === "/" ? "active" : ""}`}
-          >
-            <LayoutDashboard size={17} />
-            <span>Dashboard</span>
-          </Link>
+        {user?.role === "PATIENT" ? (
+          <>
+            <div className="nav-label">PATIENT CARE</div>
+            <nav>
+              <Link
+                href="/"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname === "/" ? "active" : ""}`}
+              >
+                <LayoutDashboard size={17} />
+                <span>Dashboard</span>
+              </Link>
 
-          <Link
-            href="/doctors"
-            onClick={() => setSidebarOpen(false)}
-            className={`nav-item ${pathname === "/doctors" || pathname.startsWith("/doctors/") ? "active" : ""}`}
-          >
-            <Stethoscope size={17} />
-            <span>Specialists</span>
-          </Link>
+              <Link
+                href="/doctors"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname === "/doctors" || pathname.startsWith("/doctors/") ? "active" : ""}`}
+              >
+                <Stethoscope size={17} />
+                <span>Find Specialists</span>
+              </Link>
 
-          <Link
-            href="/patient/dashboard"
-            onClick={() => setSidebarOpen(false)}
-            className={`nav-item ${pathname.startsWith("/patient/dashboard") ? "active" : ""}`}
-          >
-            <UserCheck size={17} />
-            <span>Patient Portal</span>
-          </Link>
+              <Link
+                href="/patient/dashboard"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname.startsWith("/patient/dashboard") ? "active" : ""}`}
+              >
+                <UserCheck size={17} />
+                <span>My Appointments</span>
+              </Link>
+            </nav>
+          </>
+        ) : user?.role === "DOCTOR" ? (
+          <>
+            <div className="nav-label">PHYSICIAN CARE</div>
+            <nav>
+              <Link
+                href="/"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname === "/" ? "active" : ""}`}
+              >
+                <LayoutDashboard size={17} />
+                <span>Dashboard</span>
+              </Link>
 
-          <Link
-            href="/doctor/dashboard"
-            onClick={() => setSidebarOpen(false)}
-            className={`nav-item ${pathname.startsWith("/doctor/dashboard") ? "active" : ""}`}
-          >
-            <ClipboardList size={17} />
-            <span>Doctor Agenda</span>
-          </Link>
+              <Link
+                href="/doctor/dashboard"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname.startsWith("/doctor/dashboard") ? "active" : ""}`}
+              >
+                <ClipboardList size={17} />
+                <span>Doctor Agenda</span>
+              </Link>
 
-          <Link
-            href="/doctor/availability"
-            onClick={() => setSidebarOpen(false)}
-            className={`nav-item ${pathname.startsWith("/doctor/availability") ? "active" : ""}`}
-          >
-            <CalendarClock size={17} />
-            <span>Weekly Shifts</span>
-          </Link>
-        </nav>
+              <Link
+                href="/doctor/availability"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname.startsWith("/doctor/availability") ? "active" : ""}`}
+              >
+                <CalendarClock size={17} />
+                <span>Weekly Shifts</span>
+              </Link>
 
-        {/* Prototype & Ops Previews Navigation */}
-        <div className="nav-label mt-3">PROTOTYPE &amp; OPS MODULES</div>
-        <nav>
-          <Link
-            href="/queue"
-            onClick={() => setSidebarOpen(false)}
-            className={`nav-item ${pathname.startsWith("/queue") ? "active" : ""}`}
-          >
-            <Clock3 size={17} />
-            <span>Live Queue</span>
-          </Link>
+              <Link
+                href="/doctors"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname === "/doctors" || pathname.startsWith("/doctors/") ? "active" : ""}`}
+              >
+                <Stethoscope size={17} />
+                <span>Specialists Directory</span>
+              </Link>
+            </nav>
 
-          <Link
-            href="/reception"
-            onClick={() => setSidebarOpen(false)}
-            className={`nav-item ${pathname.startsWith("/reception") ? "active" : ""}`}
-          >
-            <Users size={17} />
-            <span>Reception Desk</span>
-          </Link>
+            {/* Prototype & Staff Ops Previews */}
+            <div className="nav-label mt-3">HOSPITAL OPS PREVIEWS</div>
+            <nav>
+              <Link
+                href="/queue"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname.startsWith("/queue") ? "active" : ""}`}
+              >
+                <Clock3 size={17} />
+                <span>Live Queue</span>
+              </Link>
 
-          <Link
-            href="/schedule"
-            onClick={() => setSidebarOpen(false)}
-            className={`nav-item ${pathname.startsWith("/schedule") ? "active" : ""}`}
-          >
-            <CalendarDays size={17} />
-            <span>Schedule</span>
-          </Link>
+              <Link
+                href="/reception"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname.startsWith("/reception") ? "active" : ""}`}
+              >
+                <Users size={17} />
+                <span>Reception Desk</span>
+              </Link>
 
-          <Link
-            href="/encounters"
-            onClick={() => setSidebarOpen(false)}
-            className={`nav-item ${pathname.startsWith("/encounters") ? "active" : ""}`}
-          >
-            <HeartPulse size={17} />
-            <span>Encounters &amp; Vitals</span>
-          </Link>
+              <Link
+                href="/schedule"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname.startsWith("/schedule") ? "active" : ""}`}
+              >
+                <CalendarDays size={17} />
+                <span>Schedule Matrix</span>
+              </Link>
 
-          <Link
-            href="/reports"
-            onClick={() => setSidebarOpen(false)}
-            className={`nav-item ${pathname.startsWith("/reports") ? "active" : ""}`}
-          >
-            <FileBarChart size={17} />
-            <span>Reports &amp; Analytics</span>
-          </Link>
+              <Link
+                href="/encounters"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname.startsWith("/encounters") ? "active" : ""}`}
+              >
+                <HeartPulse size={17} />
+                <span>Encounters &amp; Vitals</span>
+              </Link>
 
-          <Link
-            href="/settings"
-            onClick={() => setSidebarOpen(false)}
-            className={`nav-item ${pathname.startsWith("/settings") ? "active" : ""}`}
-          >
-            <Settings size={17} />
-            <span>Facility Settings</span>
-          </Link>
-        </nav>
+              <Link
+                href="/reports"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname.startsWith("/reports") ? "active" : ""}`}
+              >
+                <FileBarChart size={17} />
+                <span>Reports &amp; Analytics</span>
+              </Link>
+
+              <Link
+                href="/settings"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname.startsWith("/settings") ? "active" : ""}`}
+              >
+                <Settings size={17} />
+                <span>Facility Settings</span>
+              </Link>
+            </nav>
+          </>
+        ) : (
+          <>
+            <div className="nav-label">OUTPATIENT SERVICES</div>
+            <nav>
+              <Link
+                href="/"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname === "/" ? "active" : ""}`}
+              >
+                <LayoutDashboard size={17} />
+                <span>Overview</span>
+              </Link>
+
+              <Link
+                href="/doctors"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname === "/doctors" || pathname.startsWith("/doctors/") ? "active" : ""}`}
+              >
+                <Stethoscope size={17} />
+                <span>Find Specialists</span>
+              </Link>
+
+              <Link
+                href="/patient/dashboard"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname.startsWith("/patient/dashboard") ? "active" : ""}`}
+              >
+                <UserCheck size={17} />
+                <span>Patient Portal</span>
+              </Link>
+            </nav>
+          </>
+        )}
 
         {/* Sidebar Footer */}
         <div className="sidebar-bottom">
@@ -352,7 +410,7 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
           <span>
             <span className="live-dot" /> All clinical scheduling services operational
           </span>
-          <span className="hidden md:inline">HIPAA Compliant · Privacy · v1.2.0</span>
+          <span className="hidden md:inline">Outpatient Care Systems · v1.2.0</span>
         </footer>
       </main>
     </div>

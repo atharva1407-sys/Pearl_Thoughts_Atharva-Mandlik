@@ -160,14 +160,21 @@ class MedrellaRepository {
     this.checkProductionDatabase();
     const newUser: UserEntity = { ...user, email: user.email.toLowerCase(), createdAt: new Date() };
     if (db) {
-      await db.insert(schema.users).values({
-        id: newUser.id,
-        email: newUser.email,
-        passwordHash: newUser.passwordHash,
-        role: newUser.role,
-        isActive: newUser.isActive,
-      });
-      return newUser;
+      try {
+        await db.insert(schema.users).values({
+          id: newUser.id,
+          email: newUser.email,
+          passwordHash: newUser.passwordHash,
+          role: newUser.role,
+          isActive: newUser.isActive,
+        });
+        return newUser;
+      } catch (err: any) {
+        if (err?.code === "23505") {
+          throw new Error("An account with this email already exists.");
+        }
+        throw err;
+      }
     }
     this.memUsers.push(newUser);
     return newUser;

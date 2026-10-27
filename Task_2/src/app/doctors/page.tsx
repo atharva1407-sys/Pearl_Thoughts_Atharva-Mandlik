@@ -109,7 +109,7 @@ export default async function DoctorsPage({
                   <span>
                     Consultation:{" "}
                     <strong className="text-slate-900 font-bold">
-                      ${doctor.consultationFee}
+                      ₹{doctor.consultationFee}
                     </strong>
                   </span>
                   <span>

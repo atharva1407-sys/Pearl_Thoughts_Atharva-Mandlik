@@ -127,6 +127,7 @@ export default async function DoctorAvailabilityPage() {
                     <input
                       type="checkbox"
                       name="isActive"
+                      value="true"
                       defaultChecked={shift.isActive}
                       className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
                     />

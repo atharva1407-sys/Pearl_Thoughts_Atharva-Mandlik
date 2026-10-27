@@ -40,7 +40,7 @@ export default async function DoctorDashboard() {
           <div className="eyebrow">PHYSICIAN AGENDA · OPD CLINICAL QUEUE</div>
           <h1>Dr. {doctor?.firstName} {doctor?.lastName}</h1>
           <p>
-            {doctor?.specialization} Department · License #{doctor?.licenseNumber} · Fee: ${doctor?.consultationFee} · Ruby Hall, Pune
+            {doctor?.specialization} Department · License #{doctor?.licenseNumber} · Fee: ₹{doctor?.consultationFee} · Ruby Hall, Pune
           </p>
         </div>
         <div className="heading-actions">

@@ -141,6 +141,37 @@ export async function cancelAppointmentAction(appointmentId: string) {
     };
   }
 
+  if (appointment.status === "COMPLETED") {
+    return {
+      success: false,
+      error: "Cannot cancel an appointment that has already been completed.",
+    };
+  }
+
+  if (appointment.status === "CANCELLED") {
+    return {
+      success: false,
+      error: "This appointment is already cancelled.",
+    };
+  }
+
+  // Clinical Rule: Cancellations are permitted up to 1 hour prior to appointment start time
+  if (user.role === "PATIENT") {
+    const [year, month, day] = appointment.appointmentDate.split("-").map(Number);
+    const [hours, minutes] = appointment.startTime.split(":").map(Number);
+    const appointmentDateTime = new Date(year, month - 1, day, hours, minutes);
+    const now = new Date();
+    const diffMs = appointmentDateTime.getTime() - now.getTime();
+    const oneHourMs = 60 * 60 * 1000;
+
+    if (diffMs < oneHourMs) {
+      return {
+        success: false,
+        error: "Cancellations are only permitted up to 1 hour prior to appointment start time. Please contact Ruby Hall clinic desk (+91 20 6645 5100) for late assistance.",
+      };
+    }
+  }
+
   const success = await dbRepo.updateAppointmentStatus(appointmentId, "CANCELLED");
   if (!success) {
     return { success: false, error: "Failed to update appointment status." };
@@ -167,6 +198,33 @@ export async function completeAppointmentAction(appointmentId: string) {
     return {
       success: false,
       error: "Forbidden: You can only complete consultations assigned to your own schedule.",
+    };
+  }
+
+  if (appointment.status === "CANCELLED") {
+    return {
+      success: false,
+      error: "Cannot complete a cancelled appointment.",
+    };
+  }
+
+  if (appointment.status === "COMPLETED") {
+    return {
+      success: false,
+      error: "Appointment is already marked as completed.",
+    };
+  }
+
+  // Clinical Rule: Doctor cannot complete a future appointment before its start time
+  const [year, month, day] = appointment.appointmentDate.split("-").map(Number);
+  const [hours, minutes] = appointment.startTime.split(":").map(Number);
+  const appointmentDateTime = new Date(year, month - 1, day, hours, minutes);
+  const now = new Date();
+
+  if (now.getTime() < appointmentDateTime.getTime()) {
+    return {
+      success: false,
+      error: "Cannot mark a future appointment as completed before its scheduled consultation time.",
     };
   }
 

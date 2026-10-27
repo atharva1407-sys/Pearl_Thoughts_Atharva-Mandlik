@@ -27,6 +27,13 @@ interface Slot {
   isBooked: boolean;
 }
 
+function formatLocalDate(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function SlotPicker({
   doctorId,
   doctorName,
@@ -36,7 +43,7 @@ export function SlotPicker({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  // Generate next 7 dates starting from today
+  // Generate next 7 dates starting from today in local time
   const [availableDates] = useState(() => {
     const list: {
       dateString: string;
@@ -48,7 +55,7 @@ export function SlotPicker({
     for (let i = 0; i < 7; i++) {
       const d = new Date(now);
       d.setDate(d.getDate() + i);
-      const dateString = d.toISOString().split("T")[0];
+      const dateString = formatLocalDate(d);
       const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
       const dayNum = d.getDate().toString();
       list.push({

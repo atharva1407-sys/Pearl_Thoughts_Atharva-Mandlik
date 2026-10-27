@@ -62,7 +62,10 @@ export default async function ReportsPage() {
   for (let i = 4; i >= 0; i--) {
     const d = new Date(now);
     d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().split("T")[0];
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    const dateStr = `${year}-${month}-${day}`;
     const label = i === 0 ? "Today" : d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
     const count = allAppointments.filter((a) => a.appointmentDate === dateStr).length;
     last5Days.push({ dateStr, label, count });
