@@ -1,5 +1,33 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
+
+@font-face {
+  font-family: 'Helvetica Neue LT Pro';
+  src: url('/fonts/HelveticaNeueLTProLt.woff2') format('woff2');
+  font-weight: 300;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Helvetica Neue LT Pro';
+  src: url('/fonts/HelveticaNeueLTProRoman.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Helvetica Neue LT Pro';
+  src: url('/fonts/HelveticaNeueLTProMd.woff2') format('woff2');
+  font-weight: 500 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Helvetica Neue LT Pro';
+  src: url('/fonts/HelveticaNeueLTProBd.woff2') format('woff2');
+  font-weight: 650 900;
+  font-display: swap;
+}
 
 :root {
   --ink: #14243d;
@@ -16,6 +44,7 @@
   --card: #ffffff;
   --card-foreground: #14243d;
   --border: #e5ebf3;
+  --font-sans: 'Helvetica Neue LT Pro', 'Helvetica Neue', Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 * {
@@ -25,7 +54,7 @@
 html, body {
   margin: 0;
   min-height: 100%;
-  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Helvetica Neue LT Pro', 'Helvetica Neue', Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   color: var(--ink);
   background: #f6f8fb;
   font-size: 13px;
@@ -33,7 +62,8 @@ html, body {
 }
 
 h1, h2, h3, h4, .brand, .stat-value, .token {
-  font-family: 'Manrope', 'DM Sans', sans-serif;
+  font-family: 'Helvetica Neue LT Pro', 'Helvetica Neue', Arial, -apple-system, sans-serif;
+  letter-spacing: -0.3px;
 }
 
 button, input, select, textarea {
@@ -443,7 +473,9 @@ a {
 }
 
 .page-heading h1 {
-  font: 800 26px Manrope, sans-serif;
+  font-family: 'Helvetica Neue LT Pro', 'Helvetica Neue', Arial, sans-serif;
+  font-weight: 800;
+  font-size: 26px;
   letter-spacing: -0.8px;
   margin: 0 0 5px;
   color: #152742;
@@ -607,7 +639,9 @@ a {
 }
 
 .stat-value {
-  font: 800 28px Manrope, sans-serif;
+  font-family: 'Helvetica Neue LT Pro', 'Helvetica Neue', Arial, sans-serif;
+  font-weight: 800;
+  font-size: 28px;
   letter-spacing: -0.6px;
   margin-top: 13px;
   color: #14243d;
@@ -647,7 +681,9 @@ a {
 }
 
 .card-head h2, .queue-toolbar h2 {
-  font: 800 16px Manrope, sans-serif;
+  font-family: 'Helvetica Neue LT Pro', 'Helvetica Neue', Arial, sans-serif;
+  font-weight: 800;
+  font-size: 16px;
   margin: 0 0 4px;
   letter-spacing: -0.25px;
   color: #152742;
@@ -788,7 +824,9 @@ td small {
 }
 
 .queue-summary strong {
-  font: 800 24px Manrope;
+  font-family: 'Helvetica Neue LT Pro', 'Helvetica Neue', Arial, sans-serif;
+  font-weight: 800;
+  font-size: 24px;
   color: #14243d;
 }
 
@@ -979,7 +1017,9 @@ td small {
   color: #334d70;
   display: grid;
   place-items: center;
-  font: 800 16px Manrope;
+  font-family: 'Helvetica Neue LT Pro', 'Helvetica Neue', Arial, sans-serif;
+  font-weight: 800;
+  font-size: 16px;
   flex-shrink: 0;
 }
 
