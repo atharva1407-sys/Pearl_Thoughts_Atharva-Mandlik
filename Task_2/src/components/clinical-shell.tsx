@@ -90,29 +90,19 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
       {/* Left Clinical Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
         {/* Brand Header */}
-        <div className="sidebar-brand-row">
-          <Link href="/" className="brand" onClick={() => setSidebarOpen(false)}>
-            <Image
-              src="/images/medrella-logo.png"
-              alt="Medrella"
-              width={30}
-              height={30}
-              className="brand-logo-img"
-              priority
-            />
-            <span>
-              medrella<span className="brand-dot">.</span>
-            </span>
-          </Link>
-          <button
-            type="button"
-            className="icon-btn sidebar-close-btn"
-            onClick={() => setSidebarOpen(false)}
-            aria-label="Close navigation drawer"
-          >
-            <X size={18} />
-          </button>
-        </div>
+        <Link href="/" className="brand" onClick={() => setSidebarOpen(false)}>
+          <Image
+            src="/images/medrella-logo.png"
+            alt="Medrella"
+            width={30}
+            height={30}
+            className="brand-logo-img"
+            priority
+          />
+          <span>
+            medrella<span className="brand-dot">.</span>
+          </span>
+        </Link>
 
         {/* Hospital Facility Switcher */}
         <div className="hospital-switch">

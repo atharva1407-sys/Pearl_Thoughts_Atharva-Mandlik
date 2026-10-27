@@ -87,7 +87,7 @@ export default async function DoctorsPage({
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <span className="badge blue text-[10px]">
+                      <span className="badge blue">
                         {doctor.specialization}
                       </span>
                       <span className="live-dot" title="Available for appointments" />

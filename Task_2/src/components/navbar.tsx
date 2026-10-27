@@ -36,7 +36,7 @@ export async function Navbar() {
         </Link>
 
         {/* Live Facility Indicator */}
-        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zinc-900/90 border border-zinc-800/80 text-[11px] text-zinc-400">
+        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zinc-900/90 border border-zinc-800/80 text-xs text-zinc-400">
           <Building2 className="w-3 h-3 text-zinc-500" />
           <span>Ruby Hall, Pune</span>
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse ml-0.5" title="Connected"></span>
@@ -61,7 +61,7 @@ export async function Navbar() {
             >
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
               <span>{user.name}</span>
-              <span className="text-[10px] text-zinc-500 font-mono uppercase">({user.role})</span>
+              <span className="text-xs text-zinc-500 font-mono uppercase">({user.role})</span>
             </Link>
             <form action={logoutAction}>
               <button

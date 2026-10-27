@@ -60,7 +60,7 @@ export default async function DoctorDashboard() {
             <span className="stat-icon">
               <Users />
             </span>
-            <span className="badge amber text-[10px]">Queue</span>
+            <span className="badge amber">Queue</span>
           </div>
           <div className="stat-value">{activeBookings.length}</div>
           <div className="stat-label">Active Bookings</div>
@@ -72,7 +72,7 @@ export default async function DoctorDashboard() {
             <span className="stat-icon text-emerald-600 bg-emerald-50">
               <CheckCircle2 />
             </span>
-            <span className="badge green text-[10px]">Done</span>
+            <span className="badge green">Done</span>
           </div>
           <div className="stat-value">{completedBookings.length}</div>
           <div className="stat-label">Completed Consults</div>
@@ -84,7 +84,7 @@ export default async function DoctorDashboard() {
             <span className="stat-icon text-blue-600 bg-blue-50">
               <CalendarClock />
             </span>
-            <span className="badge blue text-[10px]">Shifts</span>
+            <span className="badge blue">Shifts</span>
           </div>
           <div className="stat-value">{activeShifts.length} Days</div>
           <div className="stat-label">Weekly Schedule</div>
@@ -98,7 +98,7 @@ export default async function DoctorDashboard() {
             <span className="stat-icon text-purple-600 bg-purple-50">
               <Clock3 />
             </span>
-            <span className="badge green text-[10px]">On Track</span>
+            <span className="badge green">On Track</span>
           </div>
           <div className="stat-value">30m</div>
           <div className="stat-label">Slot Duration</div>

@@ -61,7 +61,7 @@ export default async function DoctorProfilePage({
             </div>
             <div className="flex justify-between items-center">
               <span className="text-slate-500">Active Shift Days</span>
-              <span className="badge sky text-[10px]">
+              <span className="badge sky">
                 {activeDays.length > 0 ? activeDays.join(", ") : "Mon - Fri"}
               </span>
             </div>
@@ -85,7 +85,7 @@ export default async function DoctorProfilePage({
               <ShieldCheck size={15} className="text-blue-600" />
               <span>Conflict-Free OPD Scheduling</span>
             </div>
-            <p className="text-slate-600 text-[11px] leading-relaxed">
+            <p className="text-slate-600 text-xs leading-relaxed">
               Real-time slot locking guarantees no double-booking. Cancellations are permitted up to 1 hour prior to appointment.
             </p>
           </div>

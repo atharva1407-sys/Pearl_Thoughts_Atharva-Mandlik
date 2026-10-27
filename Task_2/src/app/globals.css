@@ -61,7 +61,8 @@ html, body {
   font-family: 'Helvetica Neue LT Pro', 'Helvetica Neue', Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   color: var(--ink);
   background: #f6f8fb;
-  font-size: 13px;
+  font-size: 15px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -98,7 +99,7 @@ a {
 }
 
 .sidebar {
-  width: 240px;
+  width: 252px;
   position: fixed;
   inset: 0 auto 0 0;
   background: #ffffff;
@@ -109,18 +110,15 @@ a {
   z-index: 50;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.sidebar-brand-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 4px;
-}
-
-.sidebar-close-btn {
+.sidebar::-webkit-scrollbar {
   display: none;
+  width: 0;
+  height: 0;
 }
 
 .sidebar-backdrop {
@@ -142,7 +140,7 @@ a {
   align-items: center;
   gap: 9px;
   font-weight: 800;
-  font-size: 22px;
+  font-size: 24px;
   letter-spacing: -0.8px;
   padding: 0 10px 22px;
   color: #17263d;
@@ -236,21 +234,21 @@ a {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 150px;
+  max-width: 155px;
 }
 
 .hospital-switch b {
-  font-size: 11px;
+  font-size: 12.5px;
 }
 
 .hospital-switch small {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--muted);
   margin-top: 3px;
 }
 
 .nav-label, .eyebrow {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 1px;
   color: #95a2b6;
@@ -266,7 +264,7 @@ a {
 }
 
 .nav-item {
-  height: 38px;
+  height: 40px;
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -274,7 +272,7 @@ a {
   padding: 0 12px;
   color: #596981;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 13.5px;
   transition: 0.15s;
   cursor: pointer;
   border: none;
@@ -299,8 +297,8 @@ a {
   border-radius: 6px;
   background: #e3edfb;
   color: #2567c3;
-  padding: 2px 6px;
-  font-size: 10px;
+  padding: 2px 7px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -326,12 +324,12 @@ a {
 }
 
 .help-card b {
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .help-card small {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 11.5px;
   line-height: 1.5;
   margin: 5px 0 9px;
 }
@@ -344,7 +342,7 @@ a {
   align-items: center;
   gap: 5px;
   font-weight: 700;
-  font-size: 11px;
+  font-size: 12px;
   padding: 0;
 }
 
@@ -360,12 +358,12 @@ a {
   background: #d8f4f1;
   color: #087d81;
   border-radius: 50%;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
   font-weight: 700;
-  font-size: 11px;
+  font-size: 12px;
   flex-shrink: 0;
 }
 
@@ -379,18 +377,18 @@ a {
 }
 
 .user-mini b {
-  font-size: 11px;
+  font-size: 12.5px;
 }
 
 .user-mini small {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
   margin-top: 3px;
 }
 
 .main-area {
-  margin-left: 240px;
-  width: calc(100% - 240px);
+  margin-left: 252px;
+  width: calc(100% - 252px);
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -400,7 +398,7 @@ a {
 }
 
 .topbar {
-  height: 64px;
+  height: 68px;
   background: #ffffff;
   border-bottom: 1px solid var(--line);
   display: flex;
@@ -419,7 +417,7 @@ a {
   align-items: center;
   gap: 8px;
   color: #8693a6;
-  font-size: 12px;
+  font-size: 13.5px;
   white-space: nowrap;
   min-width: 0;
 }
@@ -430,6 +428,7 @@ a {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 13.5px;
 }
 
 .top-actions {
@@ -440,7 +439,7 @@ a {
 }
 
 .global-search {
-  height: 36px;
+  height: 38px;
   width: min(370px, 33vw);
   display: flex;
   align-items: center;
@@ -459,11 +458,11 @@ a {
   min-width: 0;
   flex: 1;
   color: var(--ink);
-  font-size: 11px;
+  font-size: 12.5px;
 }
 
 .global-search kbd {
-  font-size: 9px;
+  font-size: 10px;
   background: #f0f3f8;
   border: 1px solid #e3e8f0;
   border-radius: 4px;
@@ -472,8 +471,8 @@ a {
 }
 
 .icon-btn {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   display: inline-grid;
   place-items: center;
   border: 0;
@@ -516,19 +515,19 @@ a {
 }
 
 .profile-button b {
-  font-size: 11px;
+  font-size: 12.5px;
 }
 
 .profile-button small {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--muted);
   margin-top: 2px;
 }
 
 .small-avatar {
-  width: 30px;
-  height: 30px;
-  font-size: 10px;
+  width: 32px;
+  height: 32px;
+  font-size: 11px;
 }
 
 .page-content {
@@ -551,7 +550,7 @@ a {
 .page-heading h1 {
   font-family: 'Helvetica Neue LT Pro', 'Helvetica Neue', Arial, sans-serif;
   font-weight: 800;
-  font-size: 26px;
+  font-size: 29px;
   letter-spacing: -0.8px;
   margin: 0 0 5px;
   color: #152742;
@@ -560,7 +559,7 @@ a {
 .page-heading p, .card-head p, .queue-toolbar p {
   margin: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13.5px;
 }
 
 .heading-actions {
@@ -573,13 +572,13 @@ a {
   align-items: center;
   justify-content: center;
   gap: 7px;
-  min-height: 34px;
-  padding: 0 13px;
+  min-height: 36px;
+  padding: 0 14px;
   border: 1px solid #dce5f0;
   border-radius: 7px;
   background: #ffffff;
   color: #455671;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
   box-shadow: 0 1px 1px rgba(20, 36, 61, 0.04);
@@ -618,7 +617,7 @@ a {
   border-bottom: 2px solid transparent;
   color: #74829a;
   padding: 0 0 12px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -647,11 +646,11 @@ a {
 }
 
 .alert-banner b {
-  font-size: 12px;
+  font-size: 13.5px;
 }
 
 .alert-banner span {
-  font-size: 11px;
+  font-size: 12.5px;
   color: #996a2b;
 }
 
@@ -702,7 +701,7 @@ a {
 }
 
 .trend {
-  font-size: 10px;
+  font-size: 11.5px;
   color: #119666;
   display: flex;
   align-items: center;
@@ -717,20 +716,20 @@ a {
 .stat-value {
   font-family: 'Helvetica Neue LT Pro', 'Helvetica Neue', Arial, sans-serif;
   font-weight: 800;
-  font-size: 28px;
+  font-size: 32px;
   letter-spacing: -0.6px;
   margin-top: 13px;
   color: #14243d;
 }
 
 .stat-label {
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 700;
   margin-top: 2px;
 }
 
 .stat-note {
-  font-size: 10px;
+  font-size: 11.5px;
   color: #8a97aa;
   margin-top: 4px;
 }
@@ -759,7 +758,7 @@ a {
 .card-head h2, .queue-toolbar h2 {
   font-family: 'Helvetica Neue LT Pro', 'Helvetica Neue', Arial, sans-serif;
   font-weight: 800;
-  font-size: 16px;
+  font-size: 18px;
   margin: 0 0 4px;
   letter-spacing: -0.25px;
   color: #152742;
@@ -771,7 +770,7 @@ a {
   gap: 5px;
   color: #1769e8;
   font-weight: 700;
-  font-size: 11px;
+  font-size: 12.5px;
   white-space: nowrap;
 }
 
@@ -805,22 +804,22 @@ table {
 }
 
 th {
-  font-size: 10px;
+  font-size: 11.5px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: #8391a5;
   font-weight: 700;
   background: #f8fafd;
-  padding: 11px 12px;
+  padding: 12px 14px;
   border-top: 1px solid #edf1f6;
   border-bottom: 1px solid #e9eef5;
 }
 
 td {
-  padding: 12px 12px;
+  padding: 13px 14px;
   border-bottom: 1px solid #edf1f6;
   color: #61718a;
-  font-size: 11px;
+  font-size: 13px;
 }
 
 tbody tr:last-child td {
@@ -833,13 +832,13 @@ tbody tr:hover {
 
 td b {
   color: #263750;
-  font-size: 12px;
+  font-size: 13.5px;
 }
 
 td small {
   display: block;
   color: #9aa5b6;
-  font-size: 10px;
+  font-size: 11.5px;
   margin-top: 3px;
 }
 
@@ -850,8 +849,8 @@ td small {
   border-radius: 5px;
   background: #edf4ff;
   color: #2368bd;
-  padding: 4px 8px;
-  font-size: 10px;
+  padding: 4px 9px;
+  font-size: 11.5px;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -919,13 +918,13 @@ td small {
 .queue-summary strong {
   font-family: 'Helvetica Neue LT Pro', 'Helvetica Neue', Arial, sans-serif;
   font-weight: 800;
-  font-size: 24px;
+  font-size: 28px;
   color: #14243d;
 }
 
 .queue-summary span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12.5px;
 }
 
 .mini-progress {
@@ -946,11 +945,11 @@ td small {
 
 .muted {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12.5px;
 }
 
 .tiny {
-  font-size: 10px;
+  font-size: 11.5px;
 }
 
 .full-link {
@@ -962,7 +961,7 @@ td small {
   align-items: center;
   color: #1769e8;
   font-weight: 700;
-  font-size: 12px;
+  font-size: 13.5px;
 }
 
 .activity-item {
@@ -996,16 +995,16 @@ td small {
 }
 
 .activity-item b {
-  font-size: 12px;
+  font-size: 13.5px;
 }
 
 .activity-item small {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
 }
 
 .activity-item time {
-  font-size: 10px;
+  font-size: 11.5px;
   color: #8b98ab;
 }
 
@@ -1048,12 +1047,12 @@ td small {
 }
 
 .quick-action b {
-  font-size: 11px;
+  font-size: 13px;
   display: block;
 }
 
 .quick-action small {
-  font-size: 10px;
+  font-size: 11.5px;
   color: var(--muted);
   display: block;
   margin-top: 3px;
@@ -1064,7 +1063,7 @@ td small {
   border-top: 1px solid #e7ecf3;
   background: #ffffff;
   color: #8b98aa;
-  font-size: 11px;
+  font-size: 12.5px;
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -1103,8 +1102,8 @@ td small {
 }
 
 .token {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 9px;
   background: #f1f6fd;
   color: #334d70;
@@ -1112,7 +1111,7 @@ td small {
   place-items: center;
   font-family: 'Helvetica Neue LT Pro', 'Helvetica Neue', Arial, sans-serif;
   font-weight: 800;
-  font-size: 16px;
+  font-size: 18px;
   flex-shrink: 0;
 }
 
@@ -1122,7 +1121,7 @@ td small {
 }
 
 .patient-main > strong {
-  font-size: 13px;
+  font-size: 15px;
   display: block;
   color: #17263d;
 }
@@ -1130,14 +1129,14 @@ td small {
 .patient-main > small {
   display: block;
   color: #8997aa;
-  font-size: 11px;
+  font-size: 12.5px;
   margin: 3px 0;
 }
 
 .patient-main > span {
   display: block;
   color: #53647e;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.45;
 }
 
@@ -1157,7 +1156,7 @@ td small {
 
 .patient-end small {
   white-space: nowrap;
-  font-size: 11px;
+  font-size: 12.5px;
 }
 
 .urgent-row {
@@ -1178,29 +1177,29 @@ td small {
   background: #fff0f1;
   border: 1px solid #ffdadd;
   border-radius: 8px;
-  padding: 11px;
+  padding: 12px;
   color: #c42e43;
-  font-size: 11px;
+  font-size: 12.5px;
   line-height: 1.55;
   margin-bottom: 17px;
 }
 
 .info-line {
   display: grid;
-  grid-template-columns: 100px minmax(0, 1fr);
+  grid-template-columns: 110px minmax(0, 1fr);
   gap: 12px;
-  padding: 10px 0;
+  padding: 11px 0;
   border-bottom: 1px solid #edf1f5;
   align-items: start;
 }
 
 .info-line > span {
-  font-size: 11px;
+  font-size: 12.5px;
   color: #8996a8;
 }
 
 .info-line > b {
-  font-size: 11px;
+  font-size: 13.5px;
   line-height: 1.5;
   font-weight: 600;
   color: #33435c;
@@ -1244,7 +1243,7 @@ td small {
 }
 
 .calendar-head {
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 700;
   text-align: center;
   padding: 13px 4px;
@@ -1260,7 +1259,7 @@ td small {
 }
 
 .time-cell {
-  font-size: 10px;
+  font-size: 11.5px;
   color: #8290a4;
   padding: 14px 8px;
   border-bottom: 1px solid #edf1f5;
@@ -1288,13 +1287,13 @@ td small {
 }
 
 .event b {
-  font-size: 10px;
+  font-size: 11.5px;
   white-space: normal;
 }
 
 .event small {
-  font-size: 9px;
-  opacity: 0.8;
+  font-size: 10.5px;
+  opacity: 0.85;
 }
 
 .event-1 {
@@ -1322,7 +1321,7 @@ td small {
   padding: 15px 0 5px;
   flex-wrap: wrap;
   color: #77869b;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .legend span {
@@ -1363,7 +1362,7 @@ td small {
 }
 
 .form-field > span {
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 700;
   color: #51627a;
 }
@@ -1372,11 +1371,11 @@ td small {
   width: 100%;
   border: 1px solid #dfe6ef;
   border-radius: 7px;
-  padding: 10px 11px;
+  padding: 11px 12px;
   color: #32445e;
   background: #ffffff;
   outline: none;
-  font-size: 12px;
+  font-size: 13.5px;
 }
 
 .form-field > input:focus, .form-field > select:focus, .form-field > textarea:focus {
@@ -1427,9 +1426,6 @@ td small {
   .sidebar.open {
     transform: translateX(0);
   }
-  .sidebar-close-btn {
-    display: inline-grid;
-  }
   .mobile-menu-btn {
     display: inline-grid;
   }
@@ -1466,7 +1462,7 @@ td small {
     margin-bottom: 20px;
   }
   .page-heading h1 {
-    font-size: 22px;
+    font-size: 24px;
     line-height: 1.25;
   }
   .heading-actions {
@@ -1499,7 +1495,7 @@ td small {
     text-align: center;
     gap: 8px;
     padding: 16px 14px;
-    font-size: 11px;
+    font-size: 12.5px;
   }
 }
 
@@ -1513,7 +1509,7 @@ td small {
     display: none;
   }
   .breadcrumb-current {
-    font-size: 13px;
+    font-size: 14px;
     max-width: 150px;
   }
   .page-content {
@@ -1524,7 +1520,7 @@ td small {
     gap: 10px;
   }
   .stat-value {
-    font-size: 24px;
+    font-size: 26px;
     margin-top: 8px;
   }
   .stat-card {
@@ -1547,7 +1543,7 @@ td small {
     padding: 10px 0 4px;
   }
   .queue-summary strong {
-    font-size: 18px;
+    font-size: 20px;
   }
   .card {
     padding: 14px 12px;
@@ -1557,14 +1553,14 @@ td small {
     gap: 10px;
   }
   .card-head h2 {
-    font-size: 15px;
+    font-size: 16.5px;
   }
   .subnav {
     gap: 14px;
     margin-bottom: 16px;
   }
   .subnav button {
-    font-size: 11px;
+    font-size: 12.5px;
     padding-bottom: 8px;
   }
   .hospital-switch b {
@@ -1576,7 +1572,7 @@ td small {
   }
   th, td {
     padding: 9px 8px;
-    font-size: 10.5px;
+    font-size: 12px;
   }
 }
 
@@ -1589,11 +1585,11 @@ td small {
   }
   .breadcrumb-current {
     max-width: 120px;
-    font-size: 12px;
+    font-size: 13px;
   }
   .btn {
     padding: 0 9px;
-    font-size: 11px;
+    font-size: 12px;
   }
   .top-actions {
     gap: 6px;
@@ -1736,7 +1732,7 @@ td small {
   align-items: center;
   gap: 9px;
   margin-top: 29px;
-  font-size: 10px;
+  font-size: 11.5px;
   font-weight: 700;
   letter-spacing: 2.3px;
   color: #c2d8f6;
@@ -1756,7 +1752,7 @@ td small {
 }
 
 .hero-copy .eyebrow {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 3px;
   font-weight: 800;
   color: #9bc8ff;
@@ -1777,7 +1773,7 @@ td small {
 }
 
 .hero-description {
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.65;
   color: #d6e5f8;
   max-width: 360px;
@@ -1824,7 +1820,7 @@ td small {
 }
 
 .auth-feature strong {
-  font-size: 13px;
+  font-size: 14.5px;
   font-weight: 700;
   color: #ffffff;
 }
@@ -1832,14 +1828,14 @@ td small {
 .auth-feature small {
   margin-top: 3px;
   color: #bfd1e8;
-  font-size: 11px;
+  font-size: 12.5px;
 }
 
 .auth-hero blockquote {
   margin: 25px 0 0;
   padding-left: 15px;
   border-left: 2px solid #53a7ff;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.6;
   color: #dceaff;
   font-style: italic;
@@ -1849,7 +1845,7 @@ td small {
   margin-top: auto;
   padding-top: 28px;
   color: #b5cce8;
-  font-size: 11px;
+  font-size: 12.5px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1886,7 +1882,7 @@ td small {
   border-radius: 11px;
   padding: 9px 13px;
   color: #243b5d;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 650;
   text-decoration: none;
   background: rgba(255, 255, 255, 0.85);
@@ -1909,7 +1905,7 @@ td small {
 }
 
 .form-kicker {
-  font-size: 10px;
+  font-size: 11.5px;
   letter-spacing: 2.4px;
   color: #1763ee;
   font-weight: 800;
@@ -1918,7 +1914,7 @@ td small {
 
 .form-heading h2 {
   margin: 0;
-  font-size: 30px;
+  font-size: 32px;
   letter-spacing: -1.2px;
   color: #12233f;
   font-weight: 800;
@@ -1927,7 +1923,7 @@ td small {
 .form-heading p {
   margin: 8px 0 0;
   color: #61738f;
-  font-size: 13px;
+  font-size: 14.5px;
   line-height: 1.55;
   max-width: 400px;
 }
@@ -1948,8 +1944,8 @@ td small {
   display: flex;
   align-items: center;
   gap: 11px;
-  height: 48px;
-  padding: 0 13px;
+  height: 50px;
+  padding: 0 14px;
   border: 1px solid #dce5f1;
   border-radius: 10px;
   background: #ffffff;
@@ -1970,7 +1966,7 @@ td small {
   background: transparent;
   color: #152947;
   font: inherit;
-  font-size: 12.5px;
+  font-size: 14px;
 }
 
 .input-wrap input::placeholder {
@@ -2005,7 +2001,7 @@ td small {
   align-items: center;
   gap: 8px;
   color: #667791;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
   cursor: pointer;
 }
@@ -2021,7 +2017,7 @@ td small {
   border: 0;
   background: none;
   color: #145de8;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   padding: 5px 0;
@@ -2044,7 +2040,7 @@ td small {
 }
 
 .primary-button {
-  height: 48px;
+  height: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2053,7 +2049,7 @@ td small {
   border-radius: 10px;
   background: linear-gradient(100deg, #1559ed, #0876f9);
   color: white;
-  font-size: 13.5px;
+  font-size: 15px;
   font-weight: 750;
   cursor: pointer;
   box-shadow: 0 9px 18px rgba(23, 99, 238, 0.16);
@@ -2076,7 +2072,7 @@ td small {
   gap: 12px;
   margin: 20px 0 16px;
   color: #7b8ca6;
-  font-size: 11.5px;
+  font-size: 12.5px;
 }
 
 .divider span {
@@ -2097,7 +2093,7 @@ td small {
 }
 
 .social-row button {
-  height: 44px;
+  height: 46px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2106,7 +2102,7 @@ td small {
   border-radius: 10px;
   background: #ffffff;
   color: #2d4160;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
@@ -2144,7 +2140,7 @@ td small {
   text-align: center;
   margin: 20px 0 0;
   color: #71819a;
-  font-size: 12px;
+  font-size: 13.5px;
 }
 
 .switch-auth a {
@@ -2161,7 +2157,7 @@ td small {
   border-radius: 9px;
   background: #eff6ff;
   color: #1e40af;
-  font-size: 11.5px;
+  font-size: 13px;
   line-height: 1.5;
 }
 
@@ -2185,7 +2181,7 @@ td small {
   justify-content: space-between;
   gap: 12px;
   color: #91a0b5;
-  font-size: 10.5px;
+  font-size: 12px;
   padding-top: 16px;
 }
 
@@ -2245,21 +2241,21 @@ td small {
     padding: 18px 14px 20px;
   }
   .mobile-brand {
-    font-size: 20px;
+    font-size: 22px;
   }
   .mobile-brand-logo-img {
     width: 28px;
     height: 28px;
   }
   .help-link {
-    padding: 6px 9px;
-    font-size: 11px;
+    padding: 6px 10px;
+    font-size: 12px;
   }
   .help-link-text {
     display: none;
   }
   .form-heading h2 {
-    font-size: 24px;
+    font-size: 26px;
   }
   .name-row {
     grid-template-columns: 1fr;
@@ -2290,6 +2286,6 @@ td small {
     gap: 6px;
   }
   .input-wrap {
-    height: 44px;
+    height: 46px;
   }
 }
