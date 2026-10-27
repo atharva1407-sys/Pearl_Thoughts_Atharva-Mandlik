@@ -38,17 +38,14 @@ A full-stack clinical outpatient management platform built for **Pearl Thoughts 
 
 ---
 
-## 🔑 Pre-Seeded Evaluation Credentials
+## 🔑 Sample Test Data (Preserved in Backup)
 
-Both demo accounts are pre-seeded with appointments, shifts, and medical records:
+Per project requirements, sample test users have been removed from active displays and safely backed up in `src/db/test-data-backup.ts` and `scratch/test-data-backup.json`.
 
-| Role | Email | Password | Details |
-|---|---|---|---|
-| **Doctor** | `doctor.smith@medrella.com` | `password123` | Cardiologist • 12 years exp • Active consultation queue |
-| **Doctor** | `doctor.chen@medrella.com` | `password123` | Dermatologist • 9 years exp • Configured shifts |
-| **Patient** | `patient.john@medrella.com` | `password123` | John Doe • Active scheduled upcoming appointment |
-
-*(You can also register brand-new Patient or Doctor accounts directly from `/register`)*
+- To restore all sample specialists, patients, and queue appointments on demand:
+  - Visit **`/settings`** and click **Restore Sample Test Data**, or
+  - Start the app with `ENABLE_SEED_DATA="true" npm run dev`.
+- Or register real, custom accounts directly via **`/register`** (Patient or Doctor).
 
 ---
 

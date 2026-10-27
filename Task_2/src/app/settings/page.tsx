@@ -1,16 +1,39 @@
 "use client";
 
 import Link from "next/link";
+import { useState, useTransition } from "react";
 import {
   Settings,
   ShieldCheck,
   CheckCircle,
   Database,
   Building,
-  Save
+  Save,
+  RotateCcw,
+  Trash2
 } from "lucide-react";
+import { restoreTestDataAction, clearTestDataAction } from "@/actions/seed";
 
 export default function SettingsPage() {
+  const [isPending, startTransition] = useTransition();
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  const handleRestore = () => {
+    startTransition(async () => {
+      const res = await restoreTestDataAction();
+      setStatusMessage(res.message);
+      setTimeout(() => setStatusMessage(null), 3500);
+    });
+  };
+
+  const handleClear = () => {
+    startTransition(async () => {
+      const res = await clearTestDataAction();
+      setStatusMessage(res.message);
+      setTimeout(() => setStatusMessage(null), 3500);
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Page Heading */}
@@ -21,6 +44,12 @@ export default function SettingsPage() {
           <p>Configure facility profiles, OPD contact information, and infrastructure connections.</p>
         </div>
       </div>
+
+      {statusMessage && (
+        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-xs font-bold">
+          {statusMessage}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Hospital Configuration Form */}
@@ -114,49 +143,75 @@ export default function SettingsPage() {
           </form>
         </div>
 
-        {/* System Health Card */}
-        <div className="card space-y-4">
-          <div className="card-head">
-            <div>
-              <h2>System Health & Status</h2>
-              <p>Operational infrastructure</p>
-            </div>
-            <span className="badge green">Live</span>
-          </div>
-
-          <div className="space-y-3 text-xs">
-            <div className="flex justify-between items-center py-2 border-b border-slate-100">
-              <span className="text-slate-500">Service Status</span>
-              <span className="badge green">Operational</span>
+        {/* System Health & Test Data Controls */}
+        <div className="space-y-5">
+          <div className="card space-y-4">
+            <div className="card-head">
+              <div>
+                <h2>System Health & Status</h2>
+                <p>Operational infrastructure</p>
+              </div>
+              <span className="badge green">Live</span>
             </div>
 
-            <div className="flex justify-between items-center py-2 border-b border-slate-100">
-              <span className="text-slate-500">Database Engine</span>
-              <span className="font-bold text-slate-800 font-mono">PostgreSQL (Neon)</span>
-            </div>
+            <div className="space-y-3 text-xs">
+              <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                <span className="text-slate-500">Service Status</span>
+                <span className="badge green">Operational</span>
+              </div>
 
-            <div className="flex justify-between items-center py-2 border-b border-slate-100">
-              <span className="text-slate-500">ORM & Query Layer</span>
-              <span className="font-bold text-slate-800 font-mono">Drizzle ORM</span>
-            </div>
+              <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                <span className="text-slate-500">Database Engine</span>
+                <span className="font-bold text-slate-800 font-mono">PostgreSQL (Neon)</span>
+              </div>
 
-            <div className="flex justify-between items-center py-2 border-b border-slate-100">
-              <span className="text-slate-500">Session Security</span>
-              <span className="font-bold text-emerald-700">JWT (HttpOnly Cookie)</span>
-            </div>
+              <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                <span className="text-slate-500">ORM & Query Layer</span>
+                <span className="font-bold text-slate-800 font-mono">Drizzle ORM</span>
+              </div>
 
-            <div className="flex justify-between items-center py-2">
-              <span className="text-slate-500">Registered Doctors</span>
-              <b className="text-slate-900">5 Active Specialists</b>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-slate-500">Session Security</span>
+                <span className="font-bold text-emerald-700">JWT (HttpOnly Cookie)</span>
+              </div>
             </div>
           </div>
 
-          <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-900">
-            <div className="flex items-center gap-1.5 font-bold mb-1">
-              <ShieldCheck size={16} className="text-blue-600" />
-              <span>HIPAA Compliant Session Store</span>
+          {/* Test Data Backup & On-Demand Restore Control */}
+          <div className="card space-y-3">
+            <div className="card-head">
+              <div>
+                <h2>Sample Test Data</h2>
+                <p>Preserved safely in backup</p>
+              </div>
+              <span className="badge sky">Secured</span>
             </div>
-            <span>All appointments, doctor shifts, and patient records are validated with Zod schemas.</span>
+
+            <p className="text-xs text-slate-500 m-0 leading-relaxed">
+              Test users and mock patients have been removed from active displays. All records are safely preserved in <code>test-data-backup.ts</code> and can be restored on demand whenever you request.
+            </p>
+
+            <div className="flex flex-col gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={handleRestore}
+                className="btn primary text-xs justify-center"
+              >
+                <RotateCcw size={14} />
+                <span>{isPending ? "Processing..." : "Restore Sample Test Data"}</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={handleClear}
+                className="btn text-xs justify-center text-slate-600 hover:text-red-600"
+              >
+                <Trash2 size={14} />
+                <span>Clear All Active Data</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

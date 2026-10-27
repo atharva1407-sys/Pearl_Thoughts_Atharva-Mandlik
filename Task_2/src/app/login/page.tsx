@@ -7,19 +7,13 @@ import { ShieldCheck, LogIn, AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
   const [role, setRole] = useState<"PATIENT" | "DOCTOR">("PATIENT");
-  const [email, setEmail] = useState("patient.john@medrella.com");
-  const [password, setPassword] = useState("password123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const handleRoleChange = (newRole: "PATIENT" | "DOCTOR") => {
     setRole(newRole);
-    if (newRole === "PATIENT") {
-      setEmail("patient.john@medrella.com");
-    } else {
-      setEmail("doctor.smith@medrella.com");
-    }
-    setPassword("password123");
     setError(null);
   };
 
@@ -95,6 +89,7 @@ export default function LoginPage() {
             <input
               type="email"
               required
+              placeholder={role === "PATIENT" ? "patient@example.com" : "doctor@medrella.com"}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full p-2.5 rounded-lg border border-slate-200 text-xs text-slate-800 bg-white"
@@ -108,6 +103,7 @@ export default function LoginPage() {
             <input
               type="password"
               required
+              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full p-2.5 rounded-lg border border-slate-200 text-xs text-slate-800 bg-white"
@@ -125,17 +121,6 @@ export default function LoginPage() {
             <span>{isPending ? "Authenticating..." : `Sign In as ${role}`}</span>
           </button>
         </form>
-
-        {/* Pre-seeded credentials tip */}
-        <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs space-y-1">
-          <div className="font-bold text-blue-900">Pre-seeded Test Credentials:</div>
-          <div className="text-[11px] text-slate-600">
-            Click the role switcher above to test either account. Password:{" "}
-            <code className="bg-white border border-blue-200 px-1 py-0.5 rounded font-mono text-blue-700">
-              password123
-            </code>
-          </div>
-        </div>
 
         <div className="text-center text-xs text-slate-500 pt-1">
           Don&apos;t have an account yet?{" "}

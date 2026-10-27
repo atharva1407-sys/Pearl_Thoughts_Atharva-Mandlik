@@ -117,7 +117,6 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
           >
             <Clock3 size={17} />
             <span>Live Queue</span>
-            <span className="nav-count text-red-600 bg-red-50">5</span>
           </Link>
 
           <Link

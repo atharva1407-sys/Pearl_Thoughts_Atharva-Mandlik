@@ -1,34 +1,45 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import {
   Stethoscope,
   HeartPulse,
   ClipboardList,
   FileText,
   CalendarDays,
-  AlertCircle,
   Check,
-  ChevronRight,
-  ArrowRight
+  User,
+  Plus
 } from "lucide-react";
 
 export default function EncountersPage() {
+  const [patientName, setPatientName] = useState("");
+  const [complaint, setComplaint] = useState("");
+  const [notes, setNotes] = useState("");
+  const [diagnosis, setDiagnosis] = useState("");
+  const [plan, setPlan] = useState("");
+
+  const handleComplete = () => {
+    if (!patientName.trim()) {
+      alert("Please specify the patient name or ID.");
+      return;
+    }
+    alert(`Consultation completed for ${patientName} and saved to EHR!`);
+  };
+
   return (
     <div className="space-y-6">
-      {/* Patient Banner */}
-      <div className="card flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-l-4 border-l-red-500">
-        <div className="flex items-center gap-4">
-          <div className="avatar w-12 h-12 bg-red-100 text-red-700 font-bold text-base">
-            GK
+      {/* Patient Header Card */}
+      <div className="card flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="avatar w-11 h-11 bg-blue-100 text-blue-700 font-bold">
+            <User size={20} />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-slate-900 m-0">Gomathi Krishnan</h2>
-              <span className="badge red">High-Risk Pregnancy</span>
-            </div>
-            <p className="text-xs text-slate-500 m-0 mt-0.5">
-              P-10026 · 34 years · Female · Token #9 · T. Nagar, Chennai
+            <h2 className="text-base font-bold text-slate-900 m-0">Clinical Encounter Workspace</h2>
+            <p className="text-xs text-slate-400 m-0 mt-0.5">
+              Doctor consultation charting, SOAP progress notes, and vitals recording
             </p>
           </div>
         </div>
@@ -37,8 +48,8 @@ export default function EncountersPage() {
           <Link href="/queue" className="btn text-xs">
             Back to Queue
           </Link>
-          <Link href="/reports" className="btn text-xs">
-            Visit History
+          <Link href="/doctors" className="btn primary text-xs">
+            Browse Specialists
           </Link>
         </div>
       </div>
@@ -63,20 +74,30 @@ export default function EncountersPage() {
             <FileText size={15} />
             <span>Prescriptions</span>
           </button>
-          <button className="nav-item text-xs">
-            <CalendarDays size={15} />
-            <span>Follow-up Booking</span>
-          </button>
         </div>
 
         {/* Center: SOAP Charting Form */}
         <div className="lg:col-span-2 card space-y-4">
           <div className="card-head">
             <div>
-              <h2>Clinical Consultation Notes (SOAP)</h2>
-              <p>Doctor Divya Nair · Obstetric Consultation</p>
+              <h2>SOAP Progress Notes</h2>
+              <p>Clinical record entry</p>
             </div>
-            <span className="badge amber">In Progress</span>
+            <span className="badge sky">New Visit</span>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-slate-700 block mb-1">
+              Patient Name / ID *
+            </label>
+            <input
+              type="text"
+              required
+              placeholder="Enter patient full name or Patient ID..."
+              value={patientName}
+              onChange={(e) => setPatientName(e.target.value)}
+              className="w-full p-2.5 border border-slate-200 rounded-lg text-xs"
+            />
           </div>
 
           <div>
@@ -85,19 +106,23 @@ export default function EncountersPage() {
             </label>
             <textarea
               rows={2}
+              placeholder="Record the patient's primary symptoms and reason for visit..."
+              value={complaint}
+              onChange={(e) => setComplaint(e.target.value)}
               className="w-full p-2.5 border border-slate-200 rounded-lg text-xs"
-              defaultValue="Severe frontal headache, epigastric discomfort, and intermittent blurred vision since this morning. 33 weeks pregnant."
             />
           </div>
 
           <div>
             <label className="text-xs font-bold text-slate-700 block mb-1">
-              Objective & Clinical Examination Notes
+              Objective & Examination Notes
             </label>
             <textarea
               rows={4}
+              placeholder="Clinical examination findings, heart sounds, lung sounds, reflexes..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
               className="w-full p-2.5 border border-slate-200 rounded-lg text-xs"
-              defaultValue="BP 168/110 mmHg on repeated measurement. Fetal heart rate 144 bpm regular. Trace pedal edema present. Advised urgent admission and obstetric monitoring."
             />
           </div>
 
@@ -108,18 +133,20 @@ export default function EncountersPage() {
               </label>
               <input
                 type="text"
+                placeholder="e.g. I10 - Essential hypertension"
+                value={diagnosis}
+                onChange={(e) => setDiagnosis(e.target.value)}
                 className="w-full p-2 border border-slate-200 rounded-lg text-xs"
-                defaultValue="O14.1 - Severe pre-eclampsia"
               />
             </div>
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1">
-                Triage Level
+                Triage Priority
               </label>
               <select className="w-full p-2 border border-slate-200 rounded-lg text-xs bg-white">
-                <option>Emergency Level 1 (Immediate)</option>
-                <option>Urgent Level 2</option>
                 <option>Routine Level 3</option>
+                <option>Urgent Level 2</option>
+                <option>Emergency Level 1</option>
               </select>
             </div>
           </div>
@@ -130,19 +157,25 @@ export default function EncountersPage() {
             </label>
             <textarea
               rows={3}
+              placeholder="Prescribed medications, dosage instructions, and follow-up guidance..."
+              value={plan}
+              onChange={(e) => setPlan(e.target.value)}
               className="w-full p-2.5 border border-slate-200 rounded-lg text-xs"
-              defaultValue="Labetalol 100 mg orally stat. Urine dipstick for proteinuria. Emergency obstetric admission to Wing B."
             />
           </div>
 
           <div className="form-actions flex justify-end gap-2 pt-3 border-t border-slate-100">
-            <Link href="/queue" className="btn text-xs">
+            <button
+              type="button"
+              className="btn text-xs"
+              onClick={() => alert("Draft saved locally.")}
+            >
               Save Draft
-            </Link>
+            </button>
             <button
               type="button"
               className="btn primary text-xs"
-              onClick={() => alert("Encounter completed and saved to EHR!")}
+              onClick={handleComplete}
             >
               <Check size={14} />
               <span>Complete Consultation</span>
@@ -150,57 +183,72 @@ export default function EncountersPage() {
           </div>
         </div>
 
-        {/* Right Side: Vitals Display */}
+        {/* Right Side: Vitals Entry */}
         <div className="card space-y-4">
           <div className="card-head">
             <div>
               <h2>Patient Vitals</h2>
-              <p>Recorded 9:24 am</p>
+              <p>Entry panel</p>
             </div>
-            <span className="badge red">Critical</span>
+            <span className="badge green">Triage</span>
           </div>
 
-          <div className="space-y-2 text-xs">
-            <div className="flex justify-between items-center py-2 border-b border-slate-100">
-              <span className="text-slate-500">Blood Pressure</span>
-              <span className="font-bold text-red-600 font-mono text-sm">
-                168 / 110 mmHg
-              </span>
+          <div className="space-y-3 text-xs">
+            <div>
+              <label className="text-[11px] font-bold text-slate-600 block mb-1">
+                Blood Pressure (mmHg)
+              </label>
+              <input
+                type="text"
+                placeholder="120 / 80"
+                className="w-full p-2 border border-slate-200 rounded-lg font-mono text-xs"
+              />
             </div>
 
-            <div className="flex justify-between items-center py-2 border-b border-slate-100">
-              <span className="text-slate-500">Heart Rate</span>
-              <span className="font-bold text-slate-800">102 bpm</span>
+            <div>
+              <label className="text-[11px] font-bold text-slate-600 block mb-1">
+                Heart Rate (bpm)
+              </label>
+              <input
+                type="text"
+                placeholder="72"
+                className="w-full p-2 border border-slate-200 rounded-lg font-mono text-xs"
+              />
             </div>
 
-            <div className="flex justify-between items-center py-2 border-b border-slate-100">
-              <span className="text-slate-500">Temperature</span>
-              <span className="font-bold text-slate-800">99.1 °F</span>
+            <div>
+              <label className="text-[11px] font-bold text-slate-600 block mb-1">
+                Temperature (°F)
+              </label>
+              <input
+                type="text"
+                placeholder="98.6"
+                className="w-full p-2 border border-slate-200 rounded-lg font-mono text-xs"
+              />
             </div>
 
-            <div className="flex justify-between items-center py-2 border-b border-slate-100">
-              <span className="text-slate-500">SpO₂ Oxygen</span>
-              <span className="font-bold text-slate-800">98 %</span>
+            <div>
+              <label className="text-[11px] font-bold text-slate-600 block mb-1">
+                SpO₂ Oxygen (%)
+              </label>
+              <input
+                type="text"
+                placeholder="99"
+                className="w-full p-2 border border-slate-200 rounded-lg font-mono text-xs"
+              />
             </div>
 
-            <div className="flex justify-between items-center py-2 border-b border-slate-100">
-              <span className="text-slate-500">Weight</span>
-              <span className="font-bold text-slate-800">72 kg</span>
-            </div>
-
-            <div className="flex justify-between items-center py-2">
-              <span className="text-slate-500">Height</span>
-              <span className="font-bold text-slate-800">162 cm</span>
+            <div>
+              <label className="text-[11px] font-bold text-slate-600 block mb-1">
+                Weight (kg)
+              </label>
+              <input
+                type="text"
+                placeholder="70"
+                className="w-full p-2 border border-slate-200 rounded-lg font-mono text-xs"
+              />
             </div>
           </div>
-
-          <button
-            type="button"
-            className="btn w-full text-xs justify-center"
-            onClick={() => alert("Vitals editor opened")}
-          >
-            + Update Vitals
-          </button>
         </div>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { hashPassword } from "@/lib/auth-crypto";
+import { MEDRELLA_TEST_DATA } from "./test-data-backup";
 
 export interface UserEntity {
   id: string;
@@ -64,102 +65,17 @@ class MedrellaStore {
   private appointments: AppointmentEntity[] = [];
 
   constructor() {
-    this.seed();
+    if (process.env.ENABLE_SEED_DATA === "true") {
+      this.seed();
+    }
   }
 
-  private seed() {
+  public seed() {
+    this.clearAll();
     const defaultPasswordHash = hashPassword("password123");
 
-    // 1. Seed Doctors
-    const doctorData = [
-      {
-        id: "doc-1",
-        userId: "user-doc-1",
-        email: "doctor.smith@medrella.com",
-        firstName: "David",
-        lastName: "Smith",
-        specialization: "Cardiology",
-        phone: "+1 (555) 234-5678",
-        licenseNumber: "CARD-88219",
-        experienceYears: 12,
-        consultationFee: 120,
-        bio: "Specialist in cardiovascular diagnostics, blood pressure management, echocardiograms, and preventive heart care.",
-        days: ["MON", "TUE", "WED", "FRI"] as const,
-        start: "09:00",
-        end: "17:00",
-        duration: 30,
-      },
-      {
-        id: "doc-2",
-        userId: "user-doc-2",
-        email: "doctor.chen@medrella.com",
-        firstName: "Emily",
-        lastName: "Chen",
-        specialization: "Dermatology",
-        phone: "+1 (555) 876-5432",
-        licenseNumber: "DERM-44102",
-        experienceYears: 9,
-        consultationFee: 95,
-        bio: "Board-certified dermatologist specializing in adult & pediatric skin conditions, acne management, and cosmetic dermatology.",
-        days: ["MON", "TUE", "THU", "FRI"] as const,
-        start: "10:00",
-        end: "18:00",
-        duration: 30,
-      },
-      {
-        id: "doc-3",
-        userId: "user-doc-3",
-        email: "doctor.ross@medrella.com",
-        firstName: "Michael",
-        lastName: "Ross",
-        specialization: "Pediatrics",
-        phone: "+1 (555) 345-6789",
-        licenseNumber: "PED-19342",
-        experienceYears: 14,
-        consultationFee: 85,
-        bio: "Compassionate pediatric care focusing on newborn health, wellness visits, routine immunizations, and developmental tracking.",
-        days: ["TUE", "WED", "THU", "SAT"] as const,
-        start: "09:00",
-        end: "16:00",
-        duration: 20,
-      },
-      {
-        id: "doc-4",
-        userId: "user-doc-4",
-        email: "doctor.patel@medrella.com",
-        firstName: "Anita",
-        lastName: "Patel",
-        specialization: "Orthopedics",
-        phone: "+1 (555) 456-7890",
-        licenseNumber: "ORTHO-55219",
-        experienceYears: 11,
-        consultationFee: 130,
-        bio: "Orthopedic surgery and joint restoration consultant with focus on sports injuries, spine care, and arthritis therapy.",
-        days: ["MON", "WED", "FRI"] as const,
-        start: "08:30",
-        end: "16:30",
-        duration: 30,
-      },
-      {
-        id: "doc-5",
-        userId: "user-doc-5",
-        email: "doctor.williams@medrella.com",
-        firstName: "Robert",
-        lastName: "Williams",
-        specialization: "General Medicine",
-        phone: "+1 (555) 567-8901",
-        licenseNumber: "GEN-33019",
-        experienceYears: 16,
-        consultationFee: 75,
-        bio: "Comprehensive primary healthcare physician managing acute illnesses, health screenings, and chronic medical disorders.",
-        days: ["MON", "TUE", "WED", "THU", "FRI"] as const,
-        start: "08:00",
-        end: "15:00",
-        duration: 20,
-      },
-    ];
-
-    doctorData.forEach((d) => {
+    // 1. Seed Doctors from Backup
+    MEDRELLA_TEST_DATA.doctors.forEach((d) => {
       this.users.push({
         id: d.userId,
         email: d.email,
@@ -182,7 +98,6 @@ class MedrellaStore {
         bio: d.bio,
       });
 
-      // Add availability for all 7 days (active for specified days, inactive for others)
       const allDays: Array<"MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN"> = [
         "MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"
       ];
@@ -201,33 +116,8 @@ class MedrellaStore {
       });
     });
 
-    // 2. Seed Patients
-    const patientData = [
-      {
-        id: "pat-1",
-        userId: "user-pat-1",
-        email: "patient.john@medrella.com",
-        firstName: "John",
-        lastName: "Doe",
-        phone: "+1 (555) 901-2345",
-        dateOfBirth: "1990-05-15",
-        gender: "Male",
-        address: "742 Evergreen Terrace, Springfield",
-      },
-      {
-        id: "pat-2",
-        userId: "user-pat-2",
-        email: "patient.sarah@medrella.com",
-        firstName: "Sarah",
-        lastName: "Jenkins",
-        phone: "+1 (555) 012-3456",
-        dateOfBirth: "1995-11-22",
-        gender: "Female",
-        address: "123 Elm Street, Metropolis",
-      },
-    ];
-
-    patientData.forEach((p) => {
+    // 2. Seed Patients from Backup
+    MEDRELLA_TEST_DATA.patients.forEach((p) => {
       this.users.push({
         id: p.userId,
         email: p.email,
@@ -249,45 +139,37 @@ class MedrellaStore {
       });
     });
 
-    // 3. Seed Sample Appointments
-    const today = new Date().toISOString().split("T")[0];
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+    // 3. Seed Appointments from Backup
+    const today = new Date();
+    MEDRELLA_TEST_DATA.appointments.forEach((apt) => {
+      const d = new Date(today);
+      d.setDate(today.getDate() + apt.dateOffsetDays);
+      const dateString = d.toISOString().split("T")[0];
 
-    this.appointments.push(
-      {
-        id: "apt-1",
-        patientId: "pat-1",
-        doctorId: "doc-1",
-        appointmentDate: today,
-        startTime: "09:30",
-        endTime: "10:00",
-        status: "BOOKED",
-        reason: "Routine blood pressure review & checkup",
+      this.appointments.push({
+        id: apt.id,
+        patientId: apt.patientId,
+        doctorId: apt.doctorId,
+        appointmentDate: dateString,
+        startTime: apt.startTime,
+        endTime: apt.endTime,
+        status: apt.status,
+        reason: apt.reason,
         createdAt: new Date(),
-      },
-      {
-        id: "apt-2",
-        patientId: "pat-2",
-        doctorId: "doc-1",
-        appointmentDate: today,
-        startTime: "11:00",
-        endTime: "11:30",
-        status: "BOOKED",
-        reason: "Follow-up cardiovascular evaluation",
-        createdAt: new Date(),
-      },
-      {
-        id: "apt-3",
-        patientId: "pat-1",
-        doctorId: "doc-2",
-        appointmentDate: tomorrow,
-        startTime: "14:00",
-        endTime: "14:30",
-        status: "BOOKED",
-        reason: "Annual skin and mole examination",
-        createdAt: new Date(),
-      }
-    );
+      });
+    });
+  }
+
+  public clearAll() {
+    this.users = [];
+    this.patients = [];
+    this.doctors = [];
+    this.availabilities = [];
+    this.appointments = [];
+  }
+
+  public getAllPatients(): PatientEntity[] {
+    return [...this.patients];
   }
 
   // --- User Operations ---
