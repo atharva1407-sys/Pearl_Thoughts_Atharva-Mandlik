@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getCurrentUser } from "@/actions/auth";
 import { updateAvailabilityAction } from "@/actions/availability";
 import { dbRepo } from "@/db/repo";
+import { ArrowLeft, Clock3, Save, CalendarDays, Check } from "lucide-react";
 
 export default async function DoctorAvailabilityPage() {
   const user = await getCurrentUser();
@@ -14,35 +15,45 @@ export default async function DoctorAvailabilityPage() {
   const availabilities = dbRepo.getAvailabilitiesByDoctorId(user.profileId);
 
   const days: Array<"MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN"> = [
-    "MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"
+    "MON",
+    "TUE",
+    "WED",
+    "THU",
+    "FRI",
+    "SAT",
+    "SUN"
   ];
 
   return (
-    <div className="space-y-8">
-      <div>
-        <Link
-          href="/doctor/dashboard"
-          className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors mb-3"
-        >
-          ← Back to Doctor Dashboard
-        </Link>
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-indigo-800/60 bg-indigo-950/40 text-indigo-300 text-xs font-medium ml-4">
-          <span>●</span>
-          <span>Shift Configurator</span>
+    <div className="space-y-6">
+      <Link
+        href="/doctor/dashboard"
+        className="inline-flex items-center gap-1.5 text-xs text-blue-600 font-bold hover:underline"
+      >
+        <ArrowLeft size={14} />
+        <span>Back to Doctor Agenda</span>
+      </Link>
+
+      <div className="page-heading">
+        <div>
+          <div className="eyebrow">PHYSICIAN SCHEDULE · RECURRING OPD SHIFTS</div>
+          <h1>Weekly Shift Management</h1>
+          <p>
+            Configure recurring clinic shifts, start/end hours, and appointment window durations for Dr. {doctor?.firstName} {doctor?.lastName}.
+          </p>
         </div>
-        <h1 className="text-3xl font-extrabold text-white mt-1">Weekly Shift Management</h1>
-        <p className="text-xs text-zinc-400">
-          Configure recurring clinic shifts and consultation window durations for Dr. {doctor?.firstName} {doctor?.lastName}.
-        </p>
       </div>
 
-      <div className="p-6 rounded-xl border border-zinc-800/80 bg-zinc-900/40 backdrop-blur-sm space-y-4">
-        <h2 className="font-bold text-white text-base">Recurring Weekly Shifts</h2>
-        <p className="text-xs text-zinc-500">
-          Time slots will automatically calculate for patients based on your active days and slot durations.
-        </p>
+      <div className="card space-y-4">
+        <div className="card-head">
+          <div>
+            <h2>7-Day Weekly Shift Roster</h2>
+            <p>Patients will only see booking slots for days marked as Active.</p>
+          </div>
+          <span className="badge blue">Auto-Calculated Slots</span>
+        </div>
 
-        <div className="divide-y divide-zinc-800/80">
+        <div className="divide-y divide-slate-100">
           {days.map((day) => {
             const shift = availabilities.find((a) => a.dayOfWeek === day) || {
               dayOfWeek: day,
@@ -59,50 +70,54 @@ export default async function DoctorAvailabilityPage() {
                   "use server";
                   await updateAvailabilityAction(formData);
                 }}
-                className="py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
+                className="py-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
               >
                 <input type="hidden" name="dayOfWeek" value={day} />
 
-                <div className="w-24">
-                  <div className="font-bold text-white text-sm">{day}</div>
-                  <div className="text-[11px] text-zinc-500">
-                    {shift.isActive ? "Holding Shifts" : "Off Day"}
+                <div className="w-28">
+                  <div className="font-bold text-slate-900 text-sm">{day}</div>
+                  <div className="text-[11px] text-slate-400">
+                    {shift.isActive ? (
+                      <span className="text-emerald-600 font-semibold">● Active Shift</span>
+                    ) : (
+                      <span className="text-slate-400">○ Off Day</span>
+                    )}
                   </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="text-zinc-500">Start:</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-500 font-medium">Start:</span>
                     <input
                       type="time"
                       name="startTime"
                       defaultValue={shift.startTime}
-                      className="px-2.5 py-1.5 rounded-lg border border-zinc-800 bg-zinc-950 text-white font-mono text-xs focus:outline-none"
+                      className="px-2 py-1 rounded-md border border-slate-200 text-slate-800 font-mono text-xs focus:outline-none"
                     />
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <span className="text-zinc-500">End:</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-500 font-medium">End:</span>
                     <input
                       type="time"
                       name="endTime"
                       defaultValue={shift.endTime}
-                      className="px-2.5 py-1.5 rounded-lg border border-zinc-800 bg-zinc-950 text-white font-mono text-xs focus:outline-none"
+                      className="px-2 py-1 rounded-md border border-slate-200 text-slate-800 font-mono text-xs focus:outline-none"
                     />
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <span className="text-zinc-500">Slot:</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-500 font-medium">Duration:</span>
                     <select
                       name="slotDurationMinutes"
                       defaultValue={shift.slotDurationMinutes}
-                      className="px-2.5 py-1.5 rounded-lg border border-zinc-800 bg-zinc-950 text-white text-xs focus:outline-none"
+                      className="px-2 py-1 rounded-md border border-slate-200 text-slate-800 text-xs bg-white focus:outline-none"
                     >
-                      <option value="15">15 mins</option>
-                      <option value="20">20 mins</option>
-                      <option value="30">30 mins</option>
-                      <option value="45">45 mins</option>
-                      <option value="60">60 mins</option>
+                      <option value="15">15 min</option>
+                      <option value="20">20 min</option>
+                      <option value="30">30 min</option>
+                      <option value="45">45 min</option>
+                      <option value="60">60 min</option>
                     </select>
                   </div>
 
@@ -110,19 +125,19 @@ export default async function DoctorAvailabilityPage() {
                     <input
                       type="checkbox"
                       name="isActive"
-                      value="true"
                       defaultChecked={shift.isActive}
-                      className="rounded border-zinc-800 bg-zinc-950 text-indigo-500 focus:ring-0"
+                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
                     />
-                    <span className="text-xs text-zinc-300 font-medium">Shift Active</span>
+                    <span className="text-xs font-semibold text-slate-700">Open for Bookings</span>
                   </label>
                 </div>
 
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold border border-zinc-700 transition-colors cursor-pointer"
+                  className="btn primary text-xs py-1 px-3 self-end md:self-auto"
                 >
-                  Save Shift
+                  <Save size={13} />
+                  <span>Update Shift</span>
                 </button>
               </form>
             );

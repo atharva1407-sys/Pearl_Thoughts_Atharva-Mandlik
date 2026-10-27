@@ -1,6 +1,6 @@
-# Task 2: Medrella Hospital Appointment Booking Application
+# Task 2: Medrella Hospital Appointment & Clinical Management System
 
-An outpatient appointment scheduling platform built for **Pearl Thoughts (Task 2)**. Matches the **Task 1 ER Diagram** specification (User $\rightarrow$ Patient $\rightarrow$ Doctor $\rightarrow$ Availability $\rightarrow$ Appointment) and adopts the sleek **Dark Mode** visual design of Task 1.
+A full-stack clinical outpatient management platform built for **Pearl Thoughts (Task 2)**. Incorporates the **Medrella Hospital Design System** (`medrella-ui` light clinical medical theme, 238px operational sidebar, and sticky breadcrumb topbar) backed by **Next.js 16 App Router**, **TypeScript**, **Drizzle ORM**, **Zod**, and signed **JWT** authentication.
 
 ---
 
@@ -8,50 +8,45 @@ An outpatient appointment scheduling platform built for **Pearl Thoughts (Task 2
 
 - **Framework**: [Next.js 16](https://nextjs.org) (App Router + Turbopack)
 - **Language**: [TypeScript 5](https://www.typescriptlang.org/) (Strict Mode)
-- **Styling**: [Tailwind CSS 4](https://tailwindcss.com/)
-- **ORM & Database**: [Drizzle ORM](https://orm.drizzle.team/) + PostgreSQL (Neon Serverless compatible)
+- **Styling**: [Tailwind CSS 4](https://tailwindcss.com/) + Medrella Clinical Healthcare Theme (`#f6f8fb` clinical background, `#14243d` ink, `#1769e8` Medrella royal blue)
+- **Typography**: Google Fonts (`DM Sans` + `Manrope` + `JetBrains Mono`)
+- **ORM & Database**: [Drizzle ORM](https://orm.drizzle.team/) + PostgreSQL (Neon Serverless compatible schema)
 - **Validation**: [Zod](https://zod.dev/)
 - **Authentication**: Role-based signed JWT session via HttpOnly cookies (Offline-ready, zero external dependency failures)
 
 ---
 
-## ⚡ Core Features
+## ⚡ Core Pages & Modules
 
-1. **Specialist Directory & Filtering (`/doctors`)**:
-   - Filter physicians by clinical department (Cardiology, Dermatology, Pediatrics, Orthopedics, General Medicine).
-   - View doctor credentials, experience years, license number, and consultation fee.
+### 1. Clinical Operations Workspace
+- **Dashboard (`/`)**: Daily outpatient census, 20-min delay alert banner, today's appointments table, live token queue summary, recent activity feed, and quick-action shortcuts.
+- **Live Queue (`/queue`)**: Token-by-token live waiting board with triage badges (`Emergency`, `In consult`, `Waiting`), emergency override alert for obstetric pre-eclampsia (BP 168/110), and next-patient vitals panel.
+- **Reception Desk (`/reception`)**: Outpatient search, walk-in token allocation, and real-time OPD shift monitoring across consulting specialists.
+- **Weekly Schedule Matrix (`/schedule`)**: 7-day multi-column calendar grid (8:00 AM – 5:00 PM) with color-coded appointment blocks (Consultation, Antenatal, Procedure, Follow-up).
+- **Doctor Encounters & Vitals (`/encounters`)**: Doctor consultation workspace with Chief Complaint, SOAP clinical notes, ICD-10 diagnosis selector, and live recorded vitals (BP `168/110`, HR `102`, Temp `99.1°F`, SpO₂ `98%`, Weight `72kg`).
+- **Reports & Analytics (`/reports`)**: Outpatient census charts, 5-day daily visit bar charts, appointment type breakdown progress bars, and CSV report export.
+- **Hospital Settings (`/settings`)**: Facility profile for `SP Delta Hospital, T. Nagar (Chennai)` and infrastructure health monitor.
 
-2. **Dynamic Conflict-Proof Slot Picker (`/doctors/[id]`)**:
-   - 7-day interactive date selector strip.
-   - Dynamic time-slot computation based on each doctor's shift window and slot duration (e.g. 30m intervals between 09:00 and 17:00).
-   - Real-time conflict prevention: already booked slots are disabled and crossed out.
-   - Instant booking via Next.js Server Actions.
+### 2. Specialist Booking & Patient Care
+- **Specialist Directory (`/doctors`)**: Search and filter physicians by department (Cardiology, Dermatology, Pediatrics, Orthopedics, General Medicine).
+- **Interactive Conflict-Proof Slot Picker (`/doctors/[id]`)**: 7-day date selector, dynamic shift window calculation, real-time conflict locking, and booking summary.
+- **Patient Dashboard (`/patient/dashboard`)**: Patient care portal showing upcoming appointments, past consultation history, and one-click cancellation.
 
-3. **Patient Portal & Dashboard (`/patient/dashboard`)**:
-   - Overview metrics: scheduled visits, completed visits, patient contact info.
-   - Chronological appointment queue with doctor details, date, time slot, and status pill.
-   - One-click cancellation with real-time slot liberation.
-
-4. **Doctor Portal & Shifts (`/doctor/dashboard`, `/doctor/availability`)**:
-   - Today's patient consultation queue with chronological order and reason for visit.
-   - Status actions: "Mark Completed" and "Cancel".
-   - Weekly shift manager: configure consultation hours (start time, end time, 15m/20m/30m/45m/60m durations) and toggle off-days.
-
-5. **Role-Based Authentication (`/login`, `/register`)**:
-   - Instant role switcher: **Patient** vs **Doctor**.
-   - Pre-seeded test accounts for instant evaluation.
+### 3. Physician Agenda & Shifts
+- **Doctor Agenda (`/doctor/dashboard`)**: Live consultation queue, chronological patient list with chief complaints, "Done" completion action, and cancellation controls.
+- **Weekly Shift Configurator (`/doctor/availability`)**: 7-day shift roster to toggle working days, set consultation start/end hours, and configure slot durations (15m, 20m, 30m, 45m, 60m).
 
 ---
 
 ## 🔑 Pre-Seeded Evaluation Credentials
 
-Both demo accounts are pre-loaded with realistic appointments and shifts:
+Both demo accounts are pre-seeded with appointments, shifts, and medical records:
 
 | Role | Email | Password | Details |
 |---|---|---|---|
-| **Doctor** | `doctor.smith@medrella.com` | `password123` | Cardiologist • 12 years exp • Active queue |
-| **Doctor** | `doctor.chen@medrella.com` | `password123` | Dermatologist • 9 years exp • Active shifts |
-| **Patient** | `patient.john@medrella.com` | `password123` | John Doe • Has scheduled upcoming appointment |
+| **Doctor** | `doctor.smith@medrella.com` | `password123` | Cardiologist • 12 years exp • Active consultation queue |
+| **Doctor** | `doctor.chen@medrella.com` | `password123` | Dermatologist • 9 years exp • Configured shifts |
+| **Patient** | `patient.john@medrella.com` | `password123` | John Doe • Active scheduled upcoming appointment |
 
 *(You can also register brand-new Patient or Doctor accounts directly from `/register`)*
 
@@ -69,14 +64,15 @@ Both demo accounts are pre-loaded with realistic appointments and shifts:
    npm run dev
    ```
 
-3. Open **http://localhost:3000** (or http://localhost:3001 if port 3000 is occupied) in your browser.
+3. Open **http://localhost:3000** in your browser.
 
 ---
 
 ## 📦 Production Build
 
-To test the production build:
+To run the production build:
 ```bash
 npm run build
 npm run start
 ```
+All 15 routes are fully optimized and type-checked with zero compilation errors.

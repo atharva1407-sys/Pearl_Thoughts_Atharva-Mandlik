@@ -4,7 +4,16 @@ import { getCurrentUser } from "@/actions/auth";
 import { cancelAppointmentAction } from "@/actions/appointments";
 import { dbRepo } from "@/db/repo";
 import { formatDate } from "@/lib/utils";
-import { Building2, ArrowUpRight } from "lucide-react";
+import {
+  CalendarDays,
+  Clock3,
+  CheckCircle2,
+  AlertCircle,
+  Plus,
+  ArrowRight,
+  User,
+  XCircle
+} from "lucide-react";
 
 export default async function PatientDashboard() {
   const user = await getCurrentUser();
@@ -19,163 +28,188 @@ export default async function PatientDashboard() {
   const past = appointments.filter((a) => a.status !== "BOOKED");
 
   return (
-    <div className="space-y-8">
-      {/* Header with Medrella Eyebrow & Facility Tag */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-zinc-800/80 pb-6">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="page-heading">
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-[11px] uppercase tracking-[0.14em] font-semibold text-indigo-400">
-              Patient Care • Outpatient Portal
-            </span>
-            <span className="text-zinc-600">•</span>
-            <span className="text-xs text-zinc-400 flex items-center gap-1">
-              <Building2 className="w-3 h-3 text-zinc-500" />
-              SP Delta Hospital
-            </span>
-          </div>
-          <h1 className="text-3xl font-extrabold text-white">Welcome, {patient?.firstName} {patient?.lastName}</h1>
-          <p className="text-xs text-zinc-400 mt-0.5">Manage your scheduled hospital consultations and clinical records</p>
+          <div className="eyebrow">PATIENT CARE · OUTPATIENT PORTAL</div>
+          <h1>Welcome, {patient?.firstName} {patient?.lastName}</h1>
+          <p>Manage your upcoming hospital consultations and clinical records at SP Delta Hospital.</p>
         </div>
-        <Link
-          href="/doctors"
-          className="px-5 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-semibold text-xs transition-colors shadow-md flex items-center gap-1.5 group"
-        >
-          <span>+ Book New Consultation</span>
-          <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-        </Link>
+        <div className="heading-actions">
+          <Link href="/doctors" className="btn primary">
+            <Plus size={15} />
+            <span>Book New Appointment</span>
+          </Link>
+        </div>
       </div>
 
-      {/* Metrics Row (Matching Task 1 screenshot cards) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-5 rounded-xl border border-zinc-800/80 bg-zinc-900/40 backdrop-blur-sm">
-          <div className="text-xs text-zinc-500 mb-1">Upcoming Visits</div>
-          <div className="font-bold text-2xl text-white">{upcoming.length} Scheduled</div>
-          <div className="text-[11px] text-emerald-400 font-semibold mt-1">
+      {/* Metrics Row */}
+      <div className="stat-grid">
+        <div className="card stat-card">
+          <div className="stat-top">
+            <span className="stat-icon">
+              <CalendarDays />
+            </span>
+            <span className="badge blue text-[10px]">Active</span>
+          </div>
+          <div className="stat-value">{upcoming.length}</div>
+          <div className="stat-label">Upcoming Visits</div>
+          <div className="stat-note">
             {upcoming.length > 0 ? `Next: ${upcoming[0].appointmentDate}` : "No pending visits"}
           </div>
         </div>
 
-        <div className="p-5 rounded-xl border border-zinc-800/80 bg-zinc-900/40 backdrop-blur-sm">
-          <div className="text-xs text-zinc-500 mb-1">Completed Consultations</div>
-          <div className="font-bold text-2xl text-white">{past.filter(a => a.status === 'COMPLETED').length} Visits</div>
-          <div className="text-[11px] text-zinc-500 mt-1">Patient records synchronized</div>
+        <div className="card stat-card">
+          <div className="stat-top">
+            <span className="stat-icon text-emerald-600 bg-emerald-50">
+              <CheckCircle2 />
+            </span>
+            <span className="badge green text-[10px]">Completed</span>
+          </div>
+          <div className="stat-value">{past.filter((a) => a.status === "COMPLETED").length}</div>
+          <div className="stat-label">Past Consultations</div>
+          <div className="stat-note">Medical history recorded</div>
         </div>
 
-        <div className="p-5 rounded-xl border border-zinc-800/80 bg-zinc-900/40 backdrop-blur-sm">
-          <div className="text-xs text-zinc-500 mb-1">Patient Identity</div>
-          <div className="font-bold text-lg text-white">{patient?.firstName} {patient?.lastName}</div>
-          <div className="text-[11px] text-zinc-400 mt-1">Contact: {patient?.phone}</div>
+        <div className="card stat-card">
+          <div className="stat-top">
+            <span className="stat-icon text-blue-600 bg-blue-50">
+              <User />
+            </span>
+            <span className="badge sky text-[10px]">Verified</span>
+          </div>
+          <div className="stat-value text-lg mt-3 truncate">{patient?.firstName} {patient?.lastName}</div>
+          <div className="stat-label">Patient Record</div>
+          <div className="stat-note">Phone: {patient?.phone}</div>
+        </div>
+
+        <div className="card stat-card">
+          <div className="stat-top">
+            <span className="stat-icon text-amber-600 bg-amber-50">
+              <Clock3 />
+            </span>
+            <span className="badge amber text-[10px]">T. Nagar</span>
+          </div>
+          <div className="stat-value text-lg mt-3">SP Delta</div>
+          <div className="stat-label">Assigned Facility</div>
+          <div className="stat-note">Chennai, Tamil Nadu</div>
         </div>
       </div>
 
-      {/* Upcoming Appointments List */}
-      <div className="p-6 rounded-xl border border-zinc-800/80 bg-zinc-900/40 backdrop-blur-sm space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="font-bold text-white text-base">Upcoming Hospital Consultations</h2>
-          <span className="text-xs font-mono text-zinc-500 bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">
-            {upcoming.length} Active
-          </span>
+      {/* Upcoming Appointments Card */}
+      <div className="card space-y-4">
+        <div className="card-head">
+          <div>
+            <h2>Upcoming Hospital Consultations</h2>
+            <p>{upcoming.length} scheduled appointment{upcoming.length === 1 ? "" : "s"}</p>
+          </div>
+          <Link href="/doctors" className="btn text-xs">
+            + Schedule Another
+          </Link>
         </div>
 
         {upcoming.length === 0 ? (
-          <div className="py-8 text-center text-xs text-zinc-500 border border-dashed border-zinc-800 rounded-xl">
-            You have no upcoming consultations scheduled.{" "}
-            <Link href="/doctors" className="text-indigo-400 font-semibold hover:underline">
-              Browse available doctors
+          <div className="py-8 text-center text-xs text-slate-500 border border-dashed border-slate-200 rounded-lg bg-slate-50">
+            You currently have no upcoming visits.{" "}
+            <Link href="/doctors" className="text-blue-600 font-bold hover:underline">
+              Browse available specialists
             </Link>
           </div>
         ) : (
-          <div className="divide-y divide-zinc-800/80">
-            {upcoming.map((apt) => (
-              <div
-                key={apt.id}
-                className="py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-950/60 border border-indigo-800/60 text-indigo-300 flex items-center justify-center font-bold text-xs">
-                    {apt.doctor.firstName[0]}{apt.doctor.lastName[0]}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-white text-sm">
-                        Dr. {apt.doctor.firstName} {apt.doctor.lastName}
-                      </h3>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-950/60 text-indigo-300 border border-indigo-800/60">
-                        {apt.doctor.specialization}
-                      </span>
-                    </div>
-                    <div className="text-xs text-zinc-400 mt-0.5">
-                      📅 <strong>{formatDate(apt.appointmentDate)}</strong> • ⏰ <strong>{apt.startTime} - {apt.endTime}</strong> • Fee: ${apt.doctor.consultationFee}
-                    </div>
-                    <div className="text-xs text-zinc-500 mt-0.5">
-                      Reason: <span className="text-zinc-300">{apt.reason}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-950/60 border border-emerald-800/60 text-emerald-300">
-                    BOOKED
-                  </span>
-
-                  <form action={async () => {
-                    "use server";
-                    await cancelAppointmentAction(apt.id);
-                  }}>
-                    <button
-                      type="submit"
-                      className="px-3 py-1.5 rounded-lg border border-rose-900/60 text-rose-400 hover:bg-rose-950/40 text-xs font-medium transition-colors cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                  </form>
-                </div>
-              </div>
-            ))}
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date & Time</th>
+                  <th>Consulting Specialist</th>
+                  <th>Specialty</th>
+                  <th>Reason</th>
+                  <th>Fee</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {upcoming.map((apt) => (
+                  <tr key={apt.id}>
+                    <td>
+                      <b className="text-slate-800">{formatDate(apt.appointmentDate)}</b>
+                      <small className="font-mono text-blue-600">{apt.startTime} – {apt.endTime}</small>
+                    </td>
+                    <td>
+                      <b>Dr. {apt.doctor.firstName} {apt.doctor.lastName}</b>
+                      <small>SP Delta Hospital</small>
+                    </td>
+                    <td>
+                      <span className="badge blue text-[10px]">{apt.doctor.specialization}</span>
+                    </td>
+                    <td>{apt.reason}</td>
+                    <td className="font-bold text-slate-900">${apt.doctor.consultationFee}</td>
+                    <td>
+                      <span className="badge green">Confirmed</span>
+                    </td>
+                    <td>
+                      <form
+                        action={async () => {
+                          "use server";
+                          await cancelAppointmentAction(apt.id);
+                        }}
+                      >
+                        <button
+                          type="submit"
+                          className="px-2.5 py-1 text-xs text-red-600 border border-red-200 hover:bg-red-50 rounded-md transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
 
-      {/* Past Consultations */}
+      {/* Past Appointments Card */}
       {past.length > 0 && (
-        <div className="p-6 rounded-xl border border-zinc-800/80 bg-zinc-900/40 backdrop-blur-sm space-y-4">
-          <h2 className="font-bold text-white text-base">Past Consultations</h2>
-          <div className="divide-y divide-zinc-800/80">
-            {past.map((apt) => (
-              <div
-                key={apt.id}
-                className="py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 opacity-70"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="w-10 h-10 rounded-xl bg-zinc-800 text-zinc-400 flex items-center justify-center font-bold text-xs">
-                    {apt.doctor.firstName[0]}{apt.doctor.lastName[0]}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-white text-sm">
-                        Dr. {apt.doctor.firstName} {apt.doctor.lastName}
-                      </h3>
-                      <span className="text-xs text-zinc-500">
-                        ({apt.doctor.specialization})
-                      </span>
-                    </div>
-                    <div className="text-xs text-zinc-400 mt-0.5">
-                      {formatDate(apt.appointmentDate)} • {apt.startTime} - {apt.endTime}
-                    </div>
-                  </div>
-                </div>
+        <div className="card space-y-4">
+          <div className="card-head">
+            <div>
+              <h2>Past Consultation History</h2>
+              <p>{past.length} previous visit records</p>
+            </div>
+          </div>
 
-                <span
-                  className={`px-2.5 py-1 rounded-md text-xs font-medium border ${
-                    apt.status === "COMPLETED"
-                      ? "bg-zinc-800/80 text-zinc-300 border-zinc-700"
-                      : "bg-rose-950/40 text-rose-400 border-rose-900/60"
-                  }`}
-                >
-                  {apt.status}
-                </span>
-              </div>
-            ))}
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Specialist</th>
+                  <th>Reason</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {past.map((apt) => (
+                  <tr key={apt.id}>
+                    <td>
+                      <b>{formatDate(apt.appointmentDate)}</b>
+                      <small>{apt.startTime}</small>
+                    </td>
+                    <td>Dr. {apt.doctor.firstName} {apt.doctor.lastName} ({apt.doctor.specialization})</td>
+                    <td>{apt.reason}</td>
+                    <td>
+                      <span className={`badge ${apt.status === "COMPLETED" ? "blue" : "red"}`}>
+                        {apt.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

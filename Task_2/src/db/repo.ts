@@ -461,6 +461,10 @@ class MedrellaStore {
     return { success: true, message: "Appointment booked successfully!", appointment: newAppointment };
   }
 
+  public getAllAppointments(): AppointmentEntity[] {
+    return [...this.appointments];
+  }
+
   public getAppointmentsByPatientId(patientId: string): (AppointmentEntity & { doctor: DoctorEntity })[] {
     return this.appointments
       .filter((a) => a.patientId === patientId)

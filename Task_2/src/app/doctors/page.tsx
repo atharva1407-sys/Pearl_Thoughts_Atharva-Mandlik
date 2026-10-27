@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { dbRepo } from "@/db/repo";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowRight, Stethoscope, CheckCircle2 } from "lucide-react";
 
 export default async function DoctorsPage({
   searchParams,
@@ -8,20 +8,34 @@ export default async function DoctorsPage({
   searchParams: Promise<{ specialization?: string }>;
 }) {
   const { specialization } = await searchParams;
-  const allSpecializations = ["All", "Cardiology", "Dermatology", "Pediatrics", "Orthopedics", "General Medicine"];
+  const allSpecializations = [
+    "All",
+    "Cardiology",
+    "Dermatology",
+    "Pediatrics",
+    "Orthopedics",
+    "General Medicine"
+  ];
   const selectedSpec = specialization || "All";
-  const doctors = dbRepo.getAllDoctors(selectedSpec === "All" ? undefined : selectedSpec);
+  const doctors = dbRepo.getAllDoctors(
+    selectedSpec === "All" ? undefined : selectedSpec
+  );
+
+  const getDoctorInitials = (first: string, last: string) => {
+    return `${first[0]}${last[0]}`.toUpperCase();
+  };
 
   return (
-    <div className="space-y-8">
-      <div>
-        <span className="text-[11px] uppercase tracking-[0.14em] font-semibold text-indigo-400 block mb-2">
-          Clinical Staff • Outpatient Departments
-        </span>
-        <h1 className="text-3xl font-extrabold text-white">Find a Medical Specialist</h1>
-        <p className="text-xs sm:text-sm text-zinc-400 mt-1">
-          Select a clinical specialty to view physician schedules and reserve your outpatient consultation at SP Delta Hospital.
-        </p>
+    <div className="space-y-6">
+      {/* Page Heading */}
+      <div className="page-heading">
+        <div>
+          <div className="eyebrow">CLINICAL STAFF & OUTPATIENT DIRECTORY</div>
+          <h1>Find a Medical Specialist</h1>
+          <p>
+            Browse verified hospital physicians and reserve conflict-free appointment time slots at SP Delta Hospital.
+          </p>
+        </div>
       </div>
 
       {/* Specialization Filter Pills */}
@@ -32,10 +46,10 @@ export default async function DoctorsPage({
             <Link
               key={spec}
               href={spec === "All" ? "/doctors" : `/doctors?specialization=${spec}`}
-              className={`px-3.5 py-2 rounded-xl transition-all font-medium ${
+              className={`px-3.5 py-1.5 rounded-lg transition-all font-semibold ${
                 isActive
-                  ? "bg-white text-zinc-950 font-bold shadow-md"
-                  : "border border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:text-white hover:border-zinc-700"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "border border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-700"
               }`}
             >
               {spec}
@@ -49,36 +63,56 @@ export default async function DoctorsPage({
         {doctors.map((doctor) => (
           <div
             key={doctor.id}
-            className="p-5 rounded-xl border border-zinc-800/80 bg-zinc-900/40 backdrop-blur-sm hover:border-zinc-700 transition-all flex flex-col justify-between space-y-4 shadow-xs"
+            className="card flex flex-col justify-between space-y-4 hover:border-blue-200 transition-all"
           >
             <div className="space-y-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-950/60 text-indigo-300 border border-indigo-800/60 mb-2">
-                    {doctor.specialization}
-                  </span>
-                  <h3 className="font-bold text-white text-base">Dr. {doctor.firstName} {doctor.lastName}</h3>
-                  <div className="text-xs text-zinc-500">License: #{doctor.licenseNumber}</div>
+              <div className="flex items-start gap-3">
+                <div className="avatar w-12 h-12 text-sm bg-blue-100 text-blue-700 font-bold flex-shrink-0">
+                  {getDoctorInitials(doctor.firstName, doctor.lastName)}
                 </div>
-                <span className="flex h-2 w-2 rounded-full bg-emerald-400 mt-1.5" title="Available"></span>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="badge blue text-[10px]">
+                      {doctor.specialization}
+                    </span>
+                    <span className="live-dot" title="Available for appointments" />
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-base mt-1">
+                    Dr. {doctor.firstName} {doctor.lastName}
+                  </h3>
+                  <div className="text-xs text-slate-400">
+                    License: #{doctor.licenseNumber}
+                  </div>
+                </div>
               </div>
 
-              <p className="text-xs text-zinc-400 leading-relaxed line-clamp-3">
+              <p className="text-xs text-slate-600 leading-relaxed line-clamp-3">
                 {doctor.bio}
               </p>
 
-              <div className="pt-2 border-t border-zinc-800/80 flex items-center justify-between text-xs text-zinc-400">
-                <span>Consultation: <strong className="text-white font-semibold">${doctor.consultationFee}</strong></span>
-                <span>Experience: <strong className="text-zinc-200">{doctor.experienceYears} yrs</strong></span>
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                <span>
+                  Consultation:{" "}
+                  <strong className="text-slate-900 font-bold">
+                    ${doctor.consultationFee}
+                  </strong>
+                </span>
+                <span>
+                  Experience:{" "}
+                  <strong className="text-slate-800">
+                    {doctor.experienceYears} yrs
+                  </strong>
+                </span>
               </div>
             </div>
 
             <Link
               href={`/doctors/${doctor.id}`}
-              className="w-full py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-medium text-xs text-center transition-colors border border-zinc-700 flex items-center justify-center gap-1 group"
+              className="btn primary w-full justify-center text-xs"
             >
               <span>Select & View Time Slots</span>
-              <ArrowUpRight className="w-3.5 h-3.5 text-zinc-400 group-hover:text-white transition-colors" />
+              <ArrowRight size={14} />
             </Link>
           </div>
         ))}
