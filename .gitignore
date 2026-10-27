@@ -1,0 +1,19 @@
+# Dependencies
+**/node_modules/
+**/.pnp
+**/.pnp.*
+
+# Next.js build and dev cache
+**/.next/
+**/out/
+**/build/
+**/.turbo/
+
+# Environment files
+**/.env*.local
+**/.env
+
+# Logs and runtime files
+**/*.log
+**/*.tsbuildinfo
+.DS_Store

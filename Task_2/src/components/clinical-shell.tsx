@@ -41,6 +41,15 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const isAuthPage =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/register") ||
+    pathname.startsWith("/signup");
+
+  if (isAuthPage) {
+    return <main className="w-full min-h-screen">{children}</main>;
+  }
+
   const getBreadcrumb = () => {
     if (pathname === "/") return "Dashboard";
     if (pathname.startsWith("/queue")) return "Live Token Queue";
