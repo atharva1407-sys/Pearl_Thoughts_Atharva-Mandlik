@@ -67,7 +67,7 @@ export default async function HomePage() {
             <span className="stat-icon">
               <Users />
             </span>
-            <span className="badge sky text-[10px]">Registered</span>
+            <span className="badge sky">Registered</span>
           </div>
           <div className="stat-value">{allPatients.length}</div>
           <div className="stat-label">Total Patients</div>
@@ -79,7 +79,7 @@ export default async function HomePage() {
             <span className="stat-icon text-amber-600 bg-amber-50">
               <Clock3 />
             </span>
-            <span className="badge amber text-[10px]">Queue</span>
+            <span className="badge amber">Queue</span>
           </div>
           <div className="stat-value">{bookedAppointments.length}</div>
           <div className="stat-label">Waiting in Queue</div>
@@ -91,7 +91,7 @@ export default async function HomePage() {
             <span className="stat-icon text-emerald-600 bg-emerald-50">
               <Stethoscope />
             </span>
-            <span className="badge green text-[10px]">Completed</span>
+            <span className="badge green">Completed</span>
           </div>
           <div className="stat-value">{completedAppointments.length}</div>
           <div className="stat-label">Completed Consults</div>
@@ -103,7 +103,7 @@ export default async function HomePage() {
             <span className="stat-icon text-purple-600 bg-purple-50">
               <HeartPulse />
             </span>
-            <span className="badge blue text-[10px]">Staff</span>
+            <span className="badge blue">Staff</span>
           </div>
           <div className="stat-value">{doctors.length}</div>
           <div className="stat-label">Specialists Available</div>

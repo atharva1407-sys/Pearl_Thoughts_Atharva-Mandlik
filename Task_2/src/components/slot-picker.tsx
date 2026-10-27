@@ -167,13 +167,13 @@ export function SlotPicker({
                     : "bg-white border-slate-200 text-slate-700 hover:border-blue-300"
                 }`}
               >
-                <span className="block text-[10px] uppercase font-bold tracking-wider">
+                <span className="block text-xs uppercase font-bold tracking-wider">
                   {item.dayName}
                 </span>
                 <span className="block text-base font-extrabold my-0.5">
                   {item.dayNum}
                 </span>
-                <span className="block text-[9px] opacity-80">
+                <span className="block text-[11px] opacity-80">
                   {item.isToday ? "Today" : "Open"}
                 </span>
               </button>
@@ -280,15 +280,15 @@ export function SlotPicker({
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-slate-600 pt-1">
             <div>
-              <span className="block text-slate-400 text-[10px]">Doctor</span>
+              <span className="block text-slate-400 text-xs">Doctor</span>
               <b className="text-slate-800">Dr. {doctorName}</b>
             </div>
             <div>
-              <span className="block text-slate-400 text-[10px]">Date</span>
+              <span className="block text-slate-400 text-xs">Date</span>
               <b className="text-slate-800">{selectedDate || "Not selected"}</b>
             </div>
             <div>
-              <span className="block text-slate-400 text-[10px]">Time Slot</span>
+              <span className="block text-slate-400 text-xs">Time Slot</span>
               <b className="text-slate-800">
                 {selectedSlot ? `${selectedSlot.startTime} – ${selectedSlot.endTime}` : "Not selected"}
               </b>

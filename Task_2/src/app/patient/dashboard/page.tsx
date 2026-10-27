@@ -51,7 +51,7 @@ export default async function PatientDashboard() {
             <span className="stat-icon">
               <CalendarDays />
             </span>
-            <span className="badge blue text-[10px]">Active</span>
+            <span className="badge blue">Active</span>
           </div>
           <div className="stat-value">{upcoming.length}</div>
           <div className="stat-label">Upcoming Visits</div>
@@ -65,7 +65,7 @@ export default async function PatientDashboard() {
             <span className="stat-icon text-emerald-600 bg-emerald-50">
               <CheckCircle2 />
             </span>
-            <span className="badge green text-[10px]">Completed</span>
+            <span className="badge green">Completed</span>
           </div>
           <div className="stat-value">{past.filter((a) => a.status === "COMPLETED").length}</div>
           <div className="stat-label">Past Consultations</div>
@@ -77,7 +77,7 @@ export default async function PatientDashboard() {
             <span className="stat-icon text-blue-600 bg-blue-50">
               <User />
             </span>
-            <span className="badge sky text-[10px]">Verified</span>
+            <span className="badge sky">Verified</span>
           </div>
           <div className="stat-value text-lg mt-3 truncate">{patient?.firstName} {patient?.lastName}</div>
           <div className="stat-label">Patient Record</div>
@@ -89,7 +89,7 @@ export default async function PatientDashboard() {
             <span className="stat-icon text-amber-600 bg-amber-50">
               <Clock3 />
             </span>
-            <span className="badge amber text-[10px]">Pune</span>
+            <span className="badge amber">Pune</span>
           </div>
           <div className="stat-value text-lg mt-3">Ruby Hall</div>
           <div className="stat-label">Assigned Facility</div>
@@ -142,7 +142,7 @@ export default async function PatientDashboard() {
                       <small>Ruby Hall, Pune</small>
                     </td>
                     <td>
-                      <span className="badge blue text-[10px]">{apt.doctor.specialization}</span>
+                      <span className="badge blue">{apt.doctor.specialization}</span>
                     </td>
                     <td>{apt.reason}</td>
                     <td className="font-bold text-slate-900">${apt.doctor.consultationFee}</td>

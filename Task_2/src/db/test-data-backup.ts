@@ -245,3 +245,26 @@ export const MEDRELLA_TEST_DATA: TestBackupDataset = {
     },
   ],
 };
+
+/**
+ * Backup of static test metrics formerly displayed on the Reports & Analytics page.
+ */
+export const MEDRELLA_REPORTS_TEST_METRICS = {
+  totalVisits: 182,
+  consultations: 124,
+  procedures: 28,
+  followups: 30,
+  dailyVolume: [
+    { date: "1 Oct", count: 31 },
+    { date: "2 Oct", count: 42 },
+    { date: "3 Oct", count: 28 },
+    { date: "4 Oct", count: 35 },
+    { date: "5 Oct", count: 46 },
+  ],
+  breakdown: [
+    { category: "Consultation", percent: 68 },
+    { category: "Antenatal / OB", percent: 18 },
+    { category: "Follow-up", percent: 9 },
+    { category: "Procedures", percent: 5 },
+  ],
+};

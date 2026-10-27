@@ -195,7 +195,7 @@ export default function EncountersPage() {
 
           <div className="space-y-3 text-xs">
             <div>
-              <label className="text-[11px] font-bold text-slate-600 block mb-1">
+              <label className="text-xs font-bold text-slate-600 block mb-1">
                 Blood Pressure (mmHg)
               </label>
               <input
@@ -206,7 +206,7 @@ export default function EncountersPage() {
             </div>
 
             <div>
-              <label className="text-[11px] font-bold text-slate-600 block mb-1">
+              <label className="text-xs font-bold text-slate-600 block mb-1">
                 Heart Rate (bpm)
               </label>
               <input
@@ -217,7 +217,7 @@ export default function EncountersPage() {
             </div>
 
             <div>
-              <label className="text-[11px] font-bold text-slate-600 block mb-1">
+              <label className="text-xs font-bold text-slate-600 block mb-1">
                 Temperature (°F)
               </label>
               <input
@@ -228,7 +228,7 @@ export default function EncountersPage() {
             </div>
 
             <div>
-              <label className="text-[11px] font-bold text-slate-600 block mb-1">
+              <label className="text-xs font-bold text-slate-600 block mb-1">
                 SpO₂ Oxygen (%)
               </label>
               <input
@@ -239,7 +239,7 @@ export default function EncountersPage() {
             </div>
 
             <div>
-              <label className="text-[11px] font-bold text-slate-600 block mb-1">
+              <label className="text-xs font-bold text-slate-600 block mb-1">
                 Weight (kg)
               </label>
               <input
