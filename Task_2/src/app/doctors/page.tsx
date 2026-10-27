@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { dbRepo } from "@/db/repo";
+import { ArrowUpRight } from "lucide-react";
 
 export default async function DoctorsPage({
   searchParams,
@@ -14,13 +15,12 @@ export default async function DoctorsPage({
   return (
     <div className="space-y-8">
       <div>
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-indigo-800/60 bg-indigo-950/40 text-indigo-300 text-xs font-medium mb-3">
-          <span>●</span>
-          <span>Verified Specialists Directory</span>
-        </div>
-        <h1 className="text-3xl font-extrabold text-white">Find a Doctor</h1>
+        <span className="text-[11px] uppercase tracking-[0.14em] font-semibold text-indigo-400 block mb-2">
+          Clinical Staff • Outpatient Departments
+        </span>
+        <h1 className="text-3xl font-extrabold text-white">Find a Medical Specialist</h1>
         <p className="text-xs sm:text-sm text-zinc-400 mt-1">
-          Select a clinical specialty to view physician schedules and reserve your consultation.
+          Select a clinical specialty to view physician schedules and reserve your outpatient consultation at SP Delta Hospital.
         </p>
       </div>
 
@@ -75,9 +75,10 @@ export default async function DoctorsPage({
 
             <Link
               href={`/doctors/${doctor.id}`}
-              className="w-full py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-medium text-xs text-center transition-colors border border-zinc-700 block"
+              className="w-full py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-medium text-xs text-center transition-colors border border-zinc-700 flex items-center justify-center gap-1 group"
             >
-              Select & View Time Slots →
+              <span>Select & View Time Slots</span>
+              <ArrowUpRight className="w-3.5 h-3.5 text-zinc-400 group-hover:text-white transition-colors" />
             </Link>
           </div>
         ))}
