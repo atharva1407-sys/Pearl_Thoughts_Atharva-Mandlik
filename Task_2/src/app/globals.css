@@ -1318,7 +1318,7 @@ td small {
 .auth-page {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: minmax(430px, 0.95fr) minmax(520px, 1.05fr);
+  grid-template-columns: minmax(460px, 1fr) minmax(480px, 1fr);
   background: #f8fbff;
   color: #14233f;
   font-family: 'Helvetica Neue LT Pro', 'Helvetica Neue', Arial, sans-serif;
@@ -1328,7 +1328,7 @@ td small {
   position: relative;
   min-height: 100vh;
   overflow: hidden;
-  background: #091a32;
+  background: #08172c;
   color: #fff;
 }
 
@@ -1342,16 +1342,12 @@ td small {
 
 .auth-hero-bg-img {
   object-fit: cover !important;
-  object-position: center center !important;
+  object-position: 62% 40% !important;
   width: 100% !important;
   height: 100% !important;
-  transform: scale(1.02);
-  transition: transform 1.4s cubic-bezier(0.16, 1, 0.3, 1), filter 0.6s ease;
-  filter: saturate(1.06) brightness(0.92);
-}
-
-.auth-hero:hover .auth-hero-bg-img {
-  transform: scale(1.06);
+  aspect-ratio: auto !important;
+  transform: none !important;
+  filter: saturate(1.04) brightness(0.94);
 }
 
 .auth-hero-shade {
@@ -1359,16 +1355,22 @@ td small {
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  background: linear-gradient(90deg, rgba(6, 21, 45, 0.94) 0%, rgba(8, 30, 60, 0.82) 46%, rgba(10, 39, 74, 0.48) 82%, rgba(10, 34, 65, 0.28) 100%),
-              linear-gradient(0deg, rgba(5, 17, 36, 0.72) 0%, transparent 65%);
+  background: linear-gradient(90deg, 
+    rgba(6, 21, 45, 0.96) 0%, 
+    rgba(7, 26, 54, 0.90) 38%, 
+    rgba(8, 32, 64, 0.60) 58%, 
+    rgba(9, 36, 70, 0.22) 78%, 
+    rgba(10, 36, 70, 0.06) 100%
+  ),
+  linear-gradient(0deg, rgba(5, 17, 36, 0.70) 0%, transparent 45%);
 }
 
 .hero-content {
   position: relative;
   z-index: 2;
-  max-width: 640px;
-  margin: 0 auto;
-  padding: 38px clamp(30px, 4vw, 66px) 28px;
+  max-width: 440px;
+  margin: 0;
+  padding: 38px clamp(28px, 3.5vw, 54px) 28px;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
