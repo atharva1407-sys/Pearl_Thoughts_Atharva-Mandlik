@@ -1,0 +1,230 @@
+"use server";
+
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { dbRepo } from "@/db/repo";
+import { hashPassword, verifyPassword, createSessionToken, verifySessionToken, type SessionPayload } from "@/lib/auth-crypto";
+import { loginSchema, registerPatientSchema, registerDoctorSchema } from "@/lib/validators";
+
+const COOKIE_NAME = "medrella_session";
+
+export async function getCurrentUser(): Promise<SessionPayload | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(COOKIE_NAME)?.value;
+  if (!token) return null;
+  return verifySessionToken(token);
+}
+
+export async function loginAction(formData: FormData) {
+  const rawData = {
+    email: formData.get("email"),
+    password: formData.get("password"),
+    role: formData.get("role"),
+  };
+
+  const parsed = loginSchema.safeParse(rawData);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0].message };
+  }
+
+  const { email, password, role } = parsed.data;
+  const user = dbRepo.getUserByEmail(email);
+
+  if (!user || user.role !== role) {
+    return { success: false, error: "Invalid email or role selection." };
+  }
+
+  const isPasswordValid = verifyPassword(password, user.passwordHash);
+  if (!isPasswordValid) {
+    return { success: false, error: "Incorrect password." };
+  }
+
+  let profileId = "";
+  let name = "";
+
+  if (role === "PATIENT") {
+    const patient = dbRepo.getPatientByUserId(user.id);
+    if (!patient) return { success: false, error: "Patient profile not found." };
+    profileId = patient.id;
+    name = `${patient.firstName} ${patient.lastName}`;
+  } else {
+    const doctor = dbRepo.getDoctorByUserId(user.id);
+    if (!doctor) return { success: false, error: "Doctor profile not found." };
+    profileId = doctor.id;
+    name = `Dr. ${doctor.firstName} ${doctor.lastName}`;
+  }
+
+  const token = createSessionToken({
+    userId: user.id,
+    email: user.email,
+    role: user.role,
+    profileId,
+    name,
+  });
+
+  const cookieStore = await cookies();
+  cookieStore.set(COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 7, // 7 days
+  });
+
+  if (role === "PATIENT") {
+    redirect("/patient/dashboard");
+  } else {
+    redirect("/doctor/dashboard");
+  }
+}
+
+export async function registerPatientAction(formData: FormData) {
+  const rawData = {
+    email: formData.get("email"),
+    password: formData.get("password"),
+    firstName: formData.get("firstName"),
+    lastName: formData.get("lastName"),
+    phone: formData.get("phone"),
+    dateOfBirth: formData.get("dateOfBirth") || undefined,
+    gender: formData.get("gender") || undefined,
+    address: formData.get("address") || undefined,
+  };
+
+  const parsed = registerPatientSchema.safeParse(rawData);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0].message };
+  }
+
+  const existing = dbRepo.getUserByEmail(parsed.data.email);
+  if (existing) {
+    return { success: false, error: "An account with this email already exists." };
+  }
+
+  const userId = `user-${Date.now()}`;
+  const patientId = `pat-${Date.now()}`;
+
+  dbRepo.createUser({
+    id: userId,
+    email: parsed.data.email,
+    passwordHash: hashPassword(parsed.data.password),
+    role: "PATIENT",
+    isActive: true,
+  });
+
+  dbRepo.createPatient({
+    id: patientId,
+    userId,
+    firstName: parsed.data.firstName,
+    lastName: parsed.data.lastName,
+    phone: parsed.data.phone,
+    dateOfBirth: parsed.data.dateOfBirth,
+    gender: parsed.data.gender,
+    address: parsed.data.address,
+  });
+
+  const token = createSessionToken({
+    userId,
+    email: parsed.data.email,
+    role: "PATIENT",
+    profileId: patientId,
+    name: `${parsed.data.firstName} ${parsed.data.lastName}`,
+  });
+
+  const cookieStore = await cookies();
+  cookieStore.set(COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 7,
+  });
+
+  redirect("/patient/dashboard");
+}
+
+export async function registerDoctorAction(formData: FormData) {
+  const rawData = {
+    email: formData.get("email"),
+    password: formData.get("password"),
+    firstName: formData.get("firstName"),
+    lastName: formData.get("lastName"),
+    specialization: formData.get("specialization"),
+    phone: formData.get("phone"),
+    licenseNumber: formData.get("licenseNumber"),
+    experienceYears: formData.get("experienceYears"),
+    consultationFee: formData.get("consultationFee"),
+    bio: formData.get("bio") || undefined,
+  };
+
+  const parsed = registerDoctorSchema.safeParse(rawData);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0].message };
+  }
+
+  const existing = dbRepo.getUserByEmail(parsed.data.email);
+  if (existing) {
+    return { success: false, error: "An account with this email already exists." };
+  }
+
+  const userId = `user-${Date.now()}`;
+  const doctorId = `doc-${Date.now()}`;
+
+  dbRepo.createUser({
+    id: userId,
+    email: parsed.data.email,
+    passwordHash: hashPassword(parsed.data.password),
+    role: "DOCTOR",
+    isActive: true,
+  });
+
+  dbRepo.createDoctor({
+    id: doctorId,
+    userId,
+    firstName: parsed.data.firstName,
+    lastName: parsed.data.lastName,
+    specialization: parsed.data.specialization,
+    phone: parsed.data.phone,
+    licenseNumber: parsed.data.licenseNumber,
+    experienceYears: parsed.data.experienceYears,
+    consultationFee: parsed.data.consultationFee,
+    bio: parsed.data.bio,
+  });
+
+  // Default Mon-Fri shifts
+  const days: Array<"MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN"> = [
+    "MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"
+  ];
+  days.forEach((day) => {
+    dbRepo.updateDoctorAvailability(doctorId, day, {
+      startTime: "09:00",
+      endTime: "17:00",
+      slotDurationMinutes: 30,
+      isActive: ["MON", "TUE", "WED", "THU", "FRI"].includes(day),
+    });
+  });
+
+  const token = createSessionToken({
+    userId,
+    email: parsed.data.email,
+    role: "DOCTOR",
+    profileId: doctorId,
+    name: `Dr. ${parsed.data.firstName} ${parsed.data.lastName}`,
+  });
+
+  const cookieStore = await cookies();
+  cookieStore.set(COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 7,
+  });
+
+  redirect("/doctor/dashboard");
+}
+
+export async function logoutAction() {
+  const cookieStore = await cookies();
+  cookieStore.delete(COOKIE_NAME);
+  redirect("/login");
+}
