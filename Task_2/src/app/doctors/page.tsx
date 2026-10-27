@@ -59,64 +59,79 @@ export default async function DoctorsPage({
       </div>
 
       {/* Doctor Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {doctors.map((doctor) => (
-          <div
-            key={doctor.id}
-            className="card flex flex-col justify-between space-y-4 hover:border-blue-200 transition-all"
-          >
-            <div className="space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="avatar w-12 h-12 text-sm bg-blue-100 text-blue-700 font-bold flex-shrink-0">
-                  {getDoctorInitials(doctor.firstName, doctor.lastName)}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <span className="badge blue text-[10px]">
-                      {doctor.specialization}
-                    </span>
-                    <span className="live-dot" title="Available for appointments" />
-                  </div>
-                  <h3 className="font-bold text-slate-900 text-base mt-1">
-                    Dr. {doctor.firstName} {doctor.lastName}
-                  </h3>
-                  <div className="text-xs text-slate-400">
-                    License: #{doctor.licenseNumber}
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-xs text-slate-600 leading-relaxed line-clamp-3">
-                {doctor.bio}
-              </p>
-
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                <span>
-                  Consultation:{" "}
-                  <strong className="text-slate-900 font-bold">
-                    ${doctor.consultationFee}
-                  </strong>
-                </span>
-                <span>
-                  Experience:{" "}
-                  <strong className="text-slate-800">
-                    {doctor.experienceYears} yrs
-                  </strong>
-                </span>
-              </div>
-            </div>
-
-            <Link
-              href={`/doctors/${doctor.id}`}
-              className="btn primary w-full justify-center text-xs"
-            >
-              <span>Select & View Time Slots</span>
-              <ArrowRight size={14} />
+      {doctors.length === 0 ? (
+        <div className="card py-12 text-center text-xs text-slate-500 space-y-2">
+          <Stethoscope size={28} className="mx-auto text-slate-300" />
+          <div className="font-bold text-slate-800 text-sm">No specialists currently listed</div>
+          <p className="text-slate-400 max-w-md mx-auto m-0">
+            Physicians will appear here as doctors register their hospital profiles, or when sample clinical staff data is activated.
+          </p>
+          <div className="pt-2">
+            <Link href="/register" className="btn primary text-xs">
+              + Register Doctor Profile
             </Link>
           </div>
-        ))}
-      </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {doctors.map((doctor) => (
+            <div
+              key={doctor.id}
+              className="card flex flex-col justify-between space-y-4 hover:border-blue-200 transition-all"
+            >
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="avatar w-12 h-12 text-sm bg-blue-100 text-blue-700 font-bold flex-shrink-0">
+                    {getDoctorInitials(doctor.firstName, doctor.lastName)}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span className="badge blue text-[10px]">
+                        {doctor.specialization}
+                      </span>
+                      <span className="live-dot" title="Available for appointments" />
+                    </div>
+                    <h3 className="font-bold text-slate-900 text-base mt-1">
+                      Dr. {doctor.firstName} {doctor.lastName}
+                    </h3>
+                    <div className="text-xs text-slate-400">
+                      License: #{doctor.licenseNumber}
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-600 leading-relaxed line-clamp-3">
+                  {doctor.bio}
+                </p>
+
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                  <span>
+                    Consultation:{" "}
+                    <strong className="text-slate-900 font-bold">
+                      ${doctor.consultationFee}
+                    </strong>
+                  </span>
+                  <span>
+                    Experience:{" "}
+                    <strong className="text-slate-800">
+                      {doctor.experienceYears} yrs
+                    </strong>
+                  </span>
+                </div>
+              </div>
+
+              <Link
+                href={`/doctors/${doctor.id}`}
+                className="btn primary w-full justify-center text-xs"
+              >
+                <span>Select & View Time Slots</span>
+                <ArrowRight size={14} />
+              </Link>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

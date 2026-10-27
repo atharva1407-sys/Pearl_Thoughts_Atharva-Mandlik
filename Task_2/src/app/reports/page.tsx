@@ -60,10 +60,11 @@ export default function ReportsPage() {
             Doctor
           </label>
           <select className="w-full p-2 border border-slate-200 rounded-lg text-xs bg-white">
-            <option>All Doctors</option>
-            <option>Dr. David Smith</option>
-            <option>Dr. Emily Chen</option>
-            <option>Dr. Michael Ross</option>
+            <option>All Doctors (Hospital-Wide)</option>
+            <option>Cardiology OPD</option>
+            <option>Dermatology OPD</option>
+            <option>Pediatrics OPD</option>
+            <option>General Medicine OPD</option>
           </select>
         </div>
         <div>

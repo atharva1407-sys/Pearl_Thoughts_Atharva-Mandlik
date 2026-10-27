@@ -5,9 +5,7 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
-  Plus,
-  Clock3,
-  Filter
+  Plus
 } from "lucide-react";
 
 export default function SchedulePage() {
@@ -60,7 +58,7 @@ export default function SchedulePage() {
           <button className="btn p-2" title="Next Week">
             <ChevronRight size={16} />
           </button>
-          <b className="font-mono text-sm px-2">5 – 11 Oct 2026</b>
+          <b className="font-mono text-sm px-2">Current Week (5 – 11 Oct 2026)</b>
           <button className="btn text-xs font-bold">Today</button>
         </div>
 
@@ -74,12 +72,9 @@ export default function SchedulePage() {
             </span>
           </div>
 
-          <select className="border border-slate-200 rounded-lg p-1.5 text-xs bg-white text-slate-800">
-            <option>All Doctors (SP Delta)</option>
-            <option>Dr. David Smith (Cardiology)</option>
-            <option>Dr. Emily Chen (Dermatology)</option>
-            <option>Dr. Michael Ross (Pediatrics)</option>
-          </select>
+          <Link href="/doctors" className="btn text-xs">
+            Filter by Doctor →
+          </Link>
         </div>
       </div>
 
@@ -93,145 +88,16 @@ export default function SchedulePage() {
             </div>
           ))}
 
-          {/* 8:00 AM */}
-          <div className="time-cell font-mono">8:00 am</div>
-          <div className="calendar-cell">
-            <div className="event event-1">
-              <b>Robert W.</b>
-              <small>Follow-up</small>
-            </div>
-          </div>
-          <div className="calendar-cell"></div>
-          <div className="calendar-cell">
-            <div className="event">
-              <b>Anita P.</b>
-              <small>Consultation</small>
-            </div>
-          </div>
-          <div className="calendar-cell"></div>
-          <div className="calendar-cell">
-            <div className="event event-1">
-              <b>Lab Review</b>
-              <small>Follow-up</small>
-            </div>
-          </div>
-          <div className="calendar-cell"></div>
-          <div className="calendar-cell"></div>
-
-          {/* 9:00 AM */}
-          <div className="time-cell font-mono">9:00 am</div>
-          <div className="calendar-cell">
-            <div className="event">
-              <b>Meena Joseph</b>
-              <small>Pre-op · 30m</small>
-            </div>
-          </div>
-          <div className="calendar-cell">
-            <div className="event event-1">
-              <b>Priya Sharma</b>
-              <small>Follow-up</small>
-            </div>
-          </div>
-          <div className="calendar-cell">
-            <div className="event">
-              <b>Ravi Kumar</b>
-              <small>Consultation</small>
-            </div>
-          </div>
-          <div className="calendar-cell">
-            <div className="event event-3">
-              <b>Pre-Op Review</b>
-              <small>Procedure</small>
-            </div>
-          </div>
-          <div className="calendar-cell">
-            <div className="event">
-              <b>Sara Fathima</b>
-              <small>Consultation</small>
-            </div>
-          </div>
-          <div className="calendar-cell"></div>
-          <div className="calendar-cell"></div>
-
-          {/* 9:30 AM / 10:00 AM */}
-          <div className="time-cell font-mono">10:00 am</div>
-          <div className="calendar-cell">
-            <div className="event event-2">
-              <b>Gomathi K.</b>
-              <small>Emergency BP</small>
-            </div>
-          </div>
-          <div className="calendar-cell">
-            <div className="event">
-              <b>Arun Prakash</b>
-              <small>Consultation</small>
-            </div>
-          </div>
-          <div className="calendar-cell">
-            <div className="event event-1">
-              <b>Diya Natarajan</b>
-              <small>Follow-up</small>
-            </div>
-          </div>
-          <div className="calendar-cell"></div>
-          <div className="calendar-cell">
-            <div className="event">
-              <b>Sameer Joshi</b>
-              <small>Consultation</small>
-            </div>
-          </div>
-          <div className="calendar-cell"></div>
-          <div className="calendar-cell"></div>
-
-          {/* 11:00 AM */}
-          <div className="time-cell font-mono">11:00 am</div>
-          <div className="calendar-cell">
-            <div className="event">
-              <b>Diya Natarajan</b>
-              <small>Consultation</small>
-            </div>
-          </div>
-          <div className="calendar-cell">
-            <div className="event">
-              <b>Farah Khan</b>
-              <small>Consultation</small>
-            </div>
-          </div>
-          <div className="calendar-cell"></div>
-          <div className="calendar-cell">
-            <div className="event event-3">
-              <b>Joint Injection</b>
-              <small>Procedure</small>
-            </div>
-          </div>
-          <div className="calendar-cell"></div>
-          <div className="calendar-cell"></div>
-          <div className="calendar-cell"></div>
-
-          {/* 12:00 PM */}
-          <div className="time-cell font-mono">12:00 pm</div>
-          <div className="calendar-cell">
-            <div className="event event-1">
-              <b>Rohit Kumar</b>
-              <small>Follow-up</small>
-            </div>
-          </div>
-          <div className="calendar-cell"></div>
-          <div className="calendar-cell">
-            <div className="event">
-              <b>Aisha Begum</b>
-              <small>Consultation</small>
-            </div>
-          </div>
-          <div className="calendar-cell"></div>
-          <div className="calendar-cell">
-            <div className="event event-1">
-              <b>Kavitha Rao</b>
-              <small>Follow-up</small>
-            </div>
-          </div>
-          <div className="calendar-cell"></div>
-          <div className="calendar-cell"></div>
+          {timeRows.map((t) => (
+            <React.Fragment key={t}>
+              <div className="time-cell font-mono">{t}</div>
+              {days.map((d) => (
+                <div key={`${t}-${d}`} className="calendar-cell">
+                  {/* Clean open slot */}
+                </div>
+              ))}
+            </React.Fragment>
+          ))}
         </div>
 
         {/* Legend */}
@@ -240,7 +106,7 @@ export default function SchedulePage() {
             <i className="dot blue-dot" /> Consultation
           </span>
           <span>
-            <i className="dot red-dot" /> Antenatal / Urgent
+            <i className="dot red-dot" /> Urgent Triage
           </span>
           <span>
             <i className="dot purple-dot" /> Procedure
@@ -249,10 +115,11 @@ export default function SchedulePage() {
             <i className="dot green-dot" /> Follow-up
           </span>
           <span>
-            <i className="dot gray-dot" /> Unassigned
+            <i className="dot gray-dot" /> Open Slot
           </span>
         </div>
       </div>
     </div>
   );
 }
+import React from "react";
