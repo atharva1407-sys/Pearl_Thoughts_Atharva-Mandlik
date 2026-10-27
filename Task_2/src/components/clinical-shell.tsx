@@ -346,17 +346,19 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
             </div>
           ) : (
             <div className="user-mini">
-              <div className="avatar bg-slate-100 text-slate-600">GU</div>
+              <div className="avatar bg-slate-100 text-slate-600">
+                <LogIn size={15} />
+              </div>
               <div>
-                <b>Guest User</b>
-                <small>Public Hospital Portal</small>
+                <b>Clinical Portal</b>
+                <small>Sign in required</small>
               </div>
               <Link
                 href="/login"
-                className="icon-btn text-blue-600 hover:bg-blue-50"
+                className="btn primary text-xs py-1 px-2.5"
                 title="Sign In"
               >
-                <LogIn size={16} />
+                Sign In
               </Link>
             </div>
           )}

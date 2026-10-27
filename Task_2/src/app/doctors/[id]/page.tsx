@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { dbRepo } from "@/db/repo";
 import { getCurrentUser } from "@/actions/auth";
@@ -20,6 +20,9 @@ export default async function DoctorProfilePage({
   }
 
   const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    redirect(`/login?redirectTo=/doctors/${doctor.id}`);
+  }
   const isLoggedInPatient = currentUser?.role === "PATIENT";
   const availabilities = await dbRepo.getAvailabilitiesByDoctorId(doctor.id);
   const activeDays = availabilities.filter((a) => a.isActive).map((a) => a.dayOfWeek);

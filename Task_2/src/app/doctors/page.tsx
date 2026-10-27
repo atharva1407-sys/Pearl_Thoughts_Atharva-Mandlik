@@ -1,12 +1,21 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { dbRepo } from "@/db/repo";
+import { getCurrentUser } from "@/actions/auth";
 import { ArrowRight, Stethoscope, CheckCircle2 } from "lucide-react";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function DoctorsPage({
   searchParams,
 }: {
   searchParams: Promise<{ specialization?: string }>;
 }) {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login?redirectTo=/doctors");
+  }
   const { specialization } = await searchParams;
   const allSpecializations = [
     "All",
