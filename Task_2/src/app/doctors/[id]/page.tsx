@@ -23,7 +23,7 @@ export default async function DoctorProfilePage({
   if (!currentUser) {
     redirect(`/login?redirectTo=/doctors/${doctor.id}`);
   }
-  const isLoggedInPatient = currentUser?.role === "PATIENT";
+  const isLoggedIn = Boolean(currentUser);
   const availabilities = await dbRepo.getAvailabilitiesByDoctorId(doctor.id);
   const activeDays = availabilities.filter((a) => a.isActive).map((a) => a.dayOfWeek);
 
@@ -103,7 +103,7 @@ export default async function DoctorProfilePage({
             doctorId={doctor.id}
             doctorName={`${doctor.firstName} ${doctor.lastName}`}
             consultationFee={doctor.consultationFee}
-            isLoggedInPatient={isLoggedInPatient}
+            isLoggedIn={isLoggedIn}
           />
         </div>
       </div>

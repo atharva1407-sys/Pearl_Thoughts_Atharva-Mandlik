@@ -443,7 +443,17 @@ export default function AuthPage({ mode }: AuthPageProps) {
 
           <p className="switch-auth">
             {isSignup ? "Already have an account?" : "Don't have an account?"}{" "}
-            <Link href={isSignup ? "/login" : "/signup"}>
+            <Link
+              href={
+                isSignup
+                  ? redirectTo
+                    ? `/login?redirectTo=${encodeURIComponent(redirectTo)}`
+                    : "/login"
+                  : redirectTo
+                  ? `/signup?redirectTo=${encodeURIComponent(redirectTo)}`
+                  : "/signup"
+              }
+            >
               {isSignup ? "Login" : "Sign up"}
             </Link>
           </p>
