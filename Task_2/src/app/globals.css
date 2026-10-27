@@ -1315,13 +1315,49 @@ td small {
 /* ==========================================================================
    MEDRELLA AUTHENTICATION DESIGN SYSTEM (Login & Sign-Up Hero Split)
    ========================================================================== */
+.auth-page,
+.auth-page * {
+  font-family: 'Helvetica Neue LT Pro', 'Helvetica Neue', Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+}
+
 .auth-page {
   min-height: 100vh;
   display: grid;
   grid-template-columns: minmax(460px, 1fr) minmax(480px, 1fr);
   background: #f8fbff;
   color: #14233f;
-  font-family: 'Helvetica Neue LT Pro', 'Helvetica Neue', Arial, sans-serif;
+}
+
+.auth-page h1,
+.auth-page h2,
+.auth-page h3,
+.auth-brand,
+.hero-copy h1,
+.form-heading h2 {
+  font-family: 'Helvetica Neue LT Pro', 'Helvetica Neue', Arial, sans-serif !important;
+  font-weight: 800;
+}
+
+.auth-page button,
+.auth-page input,
+.auth-page select,
+.auth-page textarea,
+.primary-button,
+.social-row button {
+  font-family: 'Helvetica Neue LT Pro', 'Helvetica Neue', Arial, sans-serif !important;
+}
+
+.auth-page .form-kicker,
+.auth-page .eyebrow,
+.auth-page .hospital-label {
+  font-family: 'Helvetica Neue LT Pro', 'Helvetica Neue', Arial, sans-serif !important;
+  font-weight: 700;
+}
+
+.auth-page .feature-list strong,
+.auth-page .feature-list small,
+.auth-page blockquote {
+  font-family: 'Helvetica Neue LT Pro', 'Helvetica Neue', Arial, sans-serif !important;
 }
 
 .auth-hero {
