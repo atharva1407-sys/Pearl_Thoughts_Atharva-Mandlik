@@ -6,6 +6,10 @@ import { ClinicalShell } from "@/components/clinical-shell";
 export const metadata: Metadata = {
   title: "Medrella Healthcare — Clinical Appointment System",
   description: "Next.js outpatient hospital appointment scheduling application for Pearl Thoughts Task 2",
+  icons: {
+    icon: "/images/medrella-logo.png",
+    apple: "/images/medrella-logo.png",
+  },
 };
 
 export default async function RootLayout({
