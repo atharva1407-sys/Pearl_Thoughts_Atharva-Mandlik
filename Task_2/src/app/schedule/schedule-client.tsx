@@ -9,15 +9,21 @@ import {
 } from "lucide-react";
 
 export function ScheduleClient() {
-  const days = [
-    "Mon 5 Oct",
-    "Tue 6 Oct",
-    "Wed 7 Oct",
-    "Thu 8 Oct",
-    "Fri 9 Oct",
-    "Sat 10 Oct",
-    "Sun 11 Oct"
-  ];
+  const today = new Date();
+  const currentDay = today.getDay(); // 0 is Sun, 1 is Mon
+  const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() + mondayOffset);
+
+  const days = Array.from({ length: 7 }).map((_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return d.toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" });
+  });
+
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const weekLabel = `Current Week (${monday.toLocaleDateString("en-US", { day: "numeric", month: "short" })} – ${sunday.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })})`;
 
   const timeRows = [
     "8:00 am",
@@ -58,7 +64,7 @@ export function ScheduleClient() {
           <button className="btn p-2" title="Next Week">
             <ChevronRight size={16} />
           </button>
-          <b className="font-mono text-sm px-2">Current Week (5 – 11 Oct 2026)</b>
+          <b className="font-mono text-sm px-2">{weekLabel}</b>
           <button className="btn text-xs font-bold">Today</button>
         </div>
 

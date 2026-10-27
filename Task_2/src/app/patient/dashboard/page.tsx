@@ -147,7 +147,7 @@ export default async function PatientDashboard() {
                       <span className="badge blue">{apt.doctor.specialization}</span>
                     </td>
                     <td>{apt.reason}</td>
-                    <td className="font-bold text-slate-900">${apt.doctor.consultationFee}</td>
+                    <td className="font-bold text-slate-900">₹{apt.doctor.consultationFee}</td>
                     <td>
                       <span className="badge green">Confirmed</span>
                     </td>

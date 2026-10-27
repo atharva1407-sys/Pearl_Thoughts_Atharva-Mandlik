@@ -26,12 +26,15 @@ export async function updateAvailabilityAction(formData: FormData) {
     return { success: false, error: "Physician profile not found." };
   }
 
+  const rawIsActive = formData.get("isActive");
+  const isActive = rawIsActive === "true" || rawIsActive === "on" || rawIsActive === "1";
+
   const raw = {
     dayOfWeek: formData.get("dayOfWeek"),
     startTime: formData.get("startTime"),
     endTime: formData.get("endTime"),
     slotDurationMinutes: formData.get("slotDurationMinutes"),
-    isActive: formData.get("isActive") === "true",
+    isActive,
   };
 
   const parsed = availabilitySchema.safeParse(raw);

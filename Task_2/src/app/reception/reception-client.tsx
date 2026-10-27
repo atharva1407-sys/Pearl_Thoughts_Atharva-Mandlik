@@ -27,7 +27,10 @@ export function ReceptionClient() {
     <div className="space-y-6">
       <div className="page-heading">
         <div>
-          <div className="eyebrow">FRONT DESK &amp; REGISTRATION</div>
+          <div className="eyebrow flex items-center gap-2">
+            <span>FRONT DESK &amp; REGISTRATION</span>
+            <span className="badge amber text-[10px] px-1.5 py-0.5">Ops Preview</span>
+          </div>
           <h1>Reception Desk</h1>
           <p>Walk-in patient registration, token printing, and OPD doctor shift coordination.</p>
         </div>

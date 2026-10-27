@@ -362,7 +362,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
                   type="button"
                   className="text-button"
                   onClick={() =>
-                    setNotice("Password reset: please contact your Ruby Hall clinical administrator.")
+                    setNotice("Password assistance: please visit Ruby Hall hospital reception (+91 20 6645 5100) for credentials assistance.")
                   }
                 >
                   Forgot password?
@@ -384,7 +384,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
                     href="#terms"
                     onClick={(e) => {
                       e.preventDefault();
-                      setNotice("Medrella Clinical Terms of Service: Patient data is protected under HIPAA/NABH guidelines.");
+                      setNotice("Medrella Clinical Terms of Service: Patient data is protected under hospital clinical confidentiality standards.");
                     }}
                   >
                     Terms of Service
@@ -417,35 +417,6 @@ export default function AuthPage({ mode }: AuthPageProps) {
               )}
             </button>
           </form>
-
-          <div className="divider">
-            <span /> <em>or continue with</em> <span />
-          </div>
-
-          <div className="social-row">
-            <button
-              type="button"
-              onClick={() =>
-                setNotice("Google OAuth integration: Single Sign-On configured for Medrella clinical workspace.")
-              }
-            >
-              <span className="google-g">G</span> Google
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                setNotice("Microsoft Azure AD integration: Hospital SSO configured for Ruby Hall staff accounts.")
-              }
-            >
-              <span className="microsoft-mark">
-                <i />
-                <i />
-                <i />
-                <i />
-              </span>{" "}
-              Microsoft
-            </button>
-          </div>
 
           <p className="switch-auth">
             {isSignup ? "Already have an account?" : "Don't have an account?"}{" "}
