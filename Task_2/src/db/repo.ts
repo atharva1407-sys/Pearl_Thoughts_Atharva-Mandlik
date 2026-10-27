@@ -687,6 +687,57 @@ class MedrellaRepository {
     this.seedMemory();
   }
 
+  public async deleteUserComplete(userId: string): Promise<boolean> {
+    this.checkProductionDatabase();
+    if (db) {
+      // Look up user role and corresponding profile
+      const userRows = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+      if (!userRows[0]) return false;
+      const user = userRows[0];
+
+      if (user.role === "PATIENT") {
+        const patientRows = await db.select().from(schema.patients).where(eq(schema.patients.userId, userId)).limit(1);
+        if (patientRows[0]) {
+          await db.delete(schema.appointments).where(eq(schema.appointments.patientId, patientRows[0].id));
+          await db.delete(schema.patients).where(eq(schema.patients.id, patientRows[0].id));
+        }
+      } else if (user.role === "DOCTOR") {
+        const doctorRows = await db.select().from(schema.doctors).where(eq(schema.doctors.userId, userId)).limit(1);
+        if (doctorRows[0]) {
+          await db.delete(schema.appointments).where(eq(schema.appointments.doctorId, doctorRows[0].id));
+          await db.delete(schema.availabilities).where(eq(schema.availabilities.doctorId, doctorRows[0].id));
+          await db.delete(schema.doctors).where(eq(schema.doctors.id, doctorRows[0].id));
+        }
+      }
+
+      await db.delete(schema.users).where(eq(schema.users.id, userId));
+      return true;
+    }
+
+    // In-memory removal
+    const uIdx = this.memUsers.findIndex((u) => u.id === userId);
+    if (uIdx === -1) return false;
+    const user = this.memUsers[uIdx];
+
+    if (user.role === "PATIENT") {
+      const p = this.memPatients.find((pt) => pt.userId === userId);
+      if (p) {
+        this.memAppointments = this.memAppointments.filter((a) => a.patientId !== p.id);
+        this.memPatients = this.memPatients.filter((pt) => pt.id !== p.id);
+      }
+    } else if (user.role === "DOCTOR") {
+      const d = this.memDoctors.find((doc) => doc.userId === userId);
+      if (d) {
+        this.memAppointments = this.memAppointments.filter((a) => a.doctorId !== d.id);
+        this.memAvailabilities = this.memAvailabilities.filter((av) => av.doctorId !== d.id);
+        this.memDoctors = this.memDoctors.filter((doc) => doc.id !== d.id);
+      }
+    }
+
+    this.memUsers.splice(uIdx, 1);
+    return true;
+  }
+
   public async clearAll(): Promise<void> {
     if (db) {
       await db.delete(schema.appointments);

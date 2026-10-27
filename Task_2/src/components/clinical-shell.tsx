@@ -25,12 +25,13 @@ import {
   Menu,
   X,
   LogOut,
+  Trash2,
   Plus,
   LogIn,
   UserPlus
 } from "lucide-react";
 import type { SessionPayload } from "@/lib/auth-crypto";
-import { logoutAction } from "@/actions/auth";
+import { logoutAction, deleteAccountAction } from "@/actions/auth";
 
 interface ClinicalShellProps {
   user: SessionPayload | null;
@@ -41,6 +42,25 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const handleDeleteAccount = async () => {
+    const roleLabel = user?.role === "DOCTOR" ? "Doctor" : "Patient";
+    const confirmed = window.confirm(
+      `⚠️ PERMANENT ACCOUNT DELETION\n\nAre you sure you want to permanently delete your ${roleLabel} account?\n\nAll personal information, active bookings, and associated clinical records will be completely removed from the database.\n\nYou will be logged out and redirected to the signup page.`
+    );
+    if (!confirmed) return;
+
+    try {
+      const res = await deleteAccountAction();
+      if (res && res.success) {
+        window.location.href = res.redirectPath || "/signup";
+      } else {
+        alert(res?.error || "Failed to delete account. Please try again.");
+      }
+    } catch {
+      window.location.href = "/signup";
+    }
+  };
 
   const isAuthPage =
     pathname.startsWith("/login") ||
@@ -304,15 +324,25 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
                   {user.role === "DOCTOR" ? "Doctor · Admin access" : "Patient · Verified"}
                 </small>
               </div>
-              <form action={logoutAction}>
+              <div className="flex items-center gap-1 shrink-0">
                 <button
-                  type="submit"
-                  title="Sign out of hospital account"
-                  className="icon-btn text-slate-400 hover:text-red-600 cursor-pointer"
+                  type="button"
+                  onClick={handleDeleteAccount}
+                  title="Permanently delete account and all records from database"
+                  className="icon-btn text-slate-400 hover:text-red-600 hover:bg-red-50 cursor-pointer p-1.5 rounded-md transition-colors"
                 >
-                  <LogOut size={16} />
+                  <Trash2 size={16} />
                 </button>
-              </form>
+                <form action={logoutAction}>
+                  <button
+                    type="submit"
+                    title="Sign out of hospital account"
+                    className="icon-btn text-slate-400 hover:text-slate-700 cursor-pointer p-1.5 rounded-md"
+                  >
+                    <LogOut size={16} />
+                  </button>
+                </form>
+              </div>
             </div>
           ) : (
             <div className="user-mini">

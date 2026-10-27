@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 import { dbRepo } from "@/db/repo";
 import {
@@ -250,4 +251,25 @@ export async function logoutAction() {
   const cookieStore = await cookies();
   cookieStore.delete(COOKIE_NAME);
   redirect("/login");
+}
+
+export async function deleteAccountAction() {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { success: false, error: "No active session found." };
+  }
+
+  await dbRepo.deleteUserComplete(user.userId);
+
+  const cookieStore = await cookies();
+  cookieStore.delete(COOKIE_NAME);
+
+  revalidatePath("/");
+  revalidatePath("/doctors");
+  revalidatePath("/queue");
+  revalidatePath("/reports");
+  revalidatePath("/patient/dashboard");
+  revalidatePath("/doctor/dashboard");
+
+  return { success: true, redirectPath: "/signup" };
 }
