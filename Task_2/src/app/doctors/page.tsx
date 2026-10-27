@@ -17,7 +17,7 @@ export default async function DoctorsPage({
     "General Medicine"
   ];
   const selectedSpec = specialization || "All";
-  const doctors = dbRepo.getAllDoctors(
+  const doctors = await dbRepo.getAllDoctors(
     selectedSpec === "All" ? undefined : selectedSpec
   );
 

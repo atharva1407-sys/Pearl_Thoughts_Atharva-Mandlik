@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/actions/auth";
 import { dbRepo } from "@/db/repo";
 import {
   Clock3,
@@ -11,12 +13,25 @@ import {
   Plus
 } from "lucide-react";
 
-export default function QueuePage() {
-  const allAppointments = dbRepo.getAllAppointments();
+export default async function QueuePage() {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "DOCTOR") {
+    redirect("/login?message=Only authorized medical staff can access the outpatient triage queue.");
+  }
+
+  const [allAppointments, allPatients, allDoctors] = await Promise.all([
+    dbRepo.getAllAppointments(),
+    dbRepo.getAllPatients(),
+    dbRepo.getAllDoctors(),
+  ]);
+
+  const patientMap = new Map(allPatients.map((p) => [p.id, p]));
+  const doctorMap = new Map(allDoctors.map((d) => [d.id, d]));
+
   const queueAppointments = allAppointments.filter((a) => a.status === "BOOKED");
   const nextPatient = queueAppointments[0];
-  const nextPatientDetails = nextPatient ? dbRepo.getPatientById(nextPatient.patientId) : null;
-  const nextDoctorDetails = nextPatient ? dbRepo.getDoctorById(nextPatient.doctorId) : null;
+  const nextPatientDetails = nextPatient ? patientMap.get(nextPatient.patientId) : null;
+  const nextDoctorDetails = nextPatient ? doctorMap.get(nextPatient.doctorId) : null;
 
   return (
     <div className="space-y-6">
@@ -55,8 +70,8 @@ export default function QueuePage() {
           ) : (
             <div className="space-y-1">
               {queueAppointments.map((apt, index) => {
-                const patient = dbRepo.getPatientById(apt.patientId);
-                const doctor = dbRepo.getDoctorById(apt.doctorId);
+                const patient = patientMap.get(apt.patientId);
+                const doctor = doctorMap.get(apt.doctorId);
 
                 return (
                   <div key={apt.id} className="patient-row">

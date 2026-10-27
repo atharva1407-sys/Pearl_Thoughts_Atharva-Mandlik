@@ -11,14 +11,14 @@ export default async function DoctorProfilePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const doctor = dbRepo.getDoctorById(id);
+  const doctor = await dbRepo.getDoctorById(id);
   if (!doctor) {
     notFound();
   }
 
   const currentUser = await getCurrentUser();
   const isLoggedInPatient = currentUser?.role === "PATIENT";
-  const availabilities = dbRepo.getAvailabilitiesByDoctorId(doctor.id);
+  const availabilities = await dbRepo.getAvailabilitiesByDoctorId(doctor.id);
   const activeDays = availabilities.filter((a) => a.isActive).map((a) => a.dayOfWeek);
 
   return (

@@ -22,9 +22,11 @@ export default async function DoctorDashboard() {
     redirect("/login?message=Please sign in to access the doctor dashboard.");
   }
 
-  const doctor = dbRepo.getDoctorById(user.profileId);
-  const appointments = dbRepo.getAppointmentsByDoctorId(user.profileId);
-  const availabilities = dbRepo.getAvailabilitiesByDoctorId(user.profileId);
+  const [doctor, appointments, availabilities] = await Promise.all([
+    dbRepo.getDoctorById(user.profileId),
+    dbRepo.getAppointmentsByDoctorId(user.profileId),
+    dbRepo.getAvailabilitiesByDoctorId(user.profileId),
+  ]);
 
   const activeShifts = availabilities.filter((a) => a.isActive);
   const activeBookings = appointments.filter((a) => a.status === "BOOKED");

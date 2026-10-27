@@ -117,7 +117,8 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
         </div>
 
         {/* Workspace Navigation */}
-        <div className="nav-label">CLINICAL WORKSPACE</div>
+        {/* Primary Core Outpatient Care Navigation */}
+        <div className="nav-label">CORE OUTPATIENT CARE</div>
         <nav>
           <Link
             href="/"
@@ -129,24 +130,6 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
           </Link>
 
           <Link
-            href="/queue"
-            onClick={() => setSidebarOpen(false)}
-            className={`nav-item ${pathname.startsWith("/queue") ? "active" : ""}`}
-          >
-            <Clock3 size={17} />
-            <span>Live Queue</span>
-          </Link>
-
-          <Link
-            href="/reception"
-            onClick={() => setSidebarOpen(false)}
-            className={`nav-item ${pathname.startsWith("/reception") ? "active" : ""}`}
-          >
-            <Users size={17} />
-            <span>Reception Desk</span>
-          </Link>
-
-          <Link
             href="/doctors"
             onClick={() => setSidebarOpen(false)}
             className={`nav-item ${pathname === "/doctors" || pathname.startsWith("/doctors/") ? "active" : ""}`}
@@ -155,37 +138,6 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
             <span>Specialists</span>
           </Link>
 
-          <Link
-            href="/schedule"
-            onClick={() => setSidebarOpen(false)}
-            className={`nav-item ${pathname.startsWith("/schedule") ? "active" : ""}`}
-          >
-            <CalendarDays size={17} />
-            <span>Schedule</span>
-          </Link>
-
-          <Link
-            href="/encounters"
-            onClick={() => setSidebarOpen(false)}
-            className={`nav-item ${pathname.startsWith("/encounters") ? "active" : ""}`}
-          >
-            <HeartPulse size={17} />
-            <span>Encounters & Vitals</span>
-          </Link>
-
-          <Link
-            href="/reports"
-            onClick={() => setSidebarOpen(false)}
-            className={`nav-item ${pathname.startsWith("/reports") ? "active" : ""}`}
-          >
-            <FileBarChart size={17} />
-            <span>Reports & Analytics</span>
-          </Link>
-        </nav>
-
-        {/* Portals & Management Navigation */}
-        <div className="nav-label mt-3">PORTALS & ACCESS</div>
-        <nav>
           <Link
             href="/patient/dashboard"
             onClick={() => setSidebarOpen(false)}
@@ -212,6 +164,55 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
             <CalendarClock size={17} />
             <span>Weekly Shifts</span>
           </Link>
+        </nav>
+
+        {/* Prototype & Ops Previews Navigation */}
+        <div className="nav-label mt-3">PROTOTYPE &amp; OPS MODULES</div>
+        <nav>
+          <Link
+            href="/queue"
+            onClick={() => setSidebarOpen(false)}
+            className={`nav-item ${pathname.startsWith("/queue") ? "active" : ""}`}
+          >
+            <Clock3 size={17} />
+            <span>Live Queue</span>
+          </Link>
+
+          <Link
+            href="/reception"
+            onClick={() => setSidebarOpen(false)}
+            className={`nav-item ${pathname.startsWith("/reception") ? "active" : ""}`}
+          >
+            <Users size={17} />
+            <span>Reception Desk</span>
+          </Link>
+
+          <Link
+            href="/schedule"
+            onClick={() => setSidebarOpen(false)}
+            className={`nav-item ${pathname.startsWith("/schedule") ? "active" : ""}`}
+          >
+            <CalendarDays size={17} />
+            <span>Schedule</span>
+          </Link>
+
+          <Link
+            href="/encounters"
+            onClick={() => setSidebarOpen(false)}
+            className={`nav-item ${pathname.startsWith("/encounters") ? "active" : ""}`}
+          >
+            <HeartPulse size={17} />
+            <span>Encounters &amp; Vitals</span>
+          </Link>
+
+          <Link
+            href="/reports"
+            onClick={() => setSidebarOpen(false)}
+            className={`nav-item ${pathname.startsWith("/reports") ? "active" : ""}`}
+          >
+            <FileBarChart size={17} />
+            <span>Reports &amp; Analytics</span>
+          </Link>
 
           <Link
             href="/settings"
@@ -219,7 +220,7 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
             className={`nav-item ${pathname.startsWith("/settings") ? "active" : ""}`}
           >
             <Settings size={17} />
-            <span>Hospital Settings</span>
+            <span>Facility Settings</span>
           </Link>
         </nav>
 

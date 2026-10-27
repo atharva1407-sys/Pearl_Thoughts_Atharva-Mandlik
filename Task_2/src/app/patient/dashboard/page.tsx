@@ -21,8 +21,10 @@ export default async function PatientDashboard() {
     redirect("/login?message=Please sign in to access the patient dashboard.");
   }
 
-  const patient = dbRepo.getPatientById(user.profileId);
-  const appointments = dbRepo.getAppointmentsByPatientId(user.profileId);
+  const [patient, appointments] = await Promise.all([
+    dbRepo.getPatientById(user.profileId),
+    dbRepo.getAppointmentsByPatientId(user.profileId),
+  ]);
 
   const upcoming = appointments.filter((a) => a.status === "BOOKED");
   const past = appointments.filter((a) => a.status !== "BOOKED");

@@ -7,7 +7,7 @@ import { availabilitySchema } from "@/lib/validators";
 
 export async function getDoctorSlotsAction(doctorId: string, date: string) {
   try {
-    const slots = dbRepo.computeAvailableSlots(doctorId, date);
+    const slots = await dbRepo.computeAvailableSlots(doctorId, date);
     return { success: true, slots };
   } catch (err: any) {
     return { success: false, error: err.message || "Failed to calculate slots" };
@@ -17,7 +17,13 @@ export async function getDoctorSlotsAction(doctorId: string, date: string) {
 export async function updateAvailabilityAction(formData: FormData) {
   const user = await getCurrentUser();
   if (!user || user.role !== "DOCTOR") {
-    return { success: false, error: "Only doctors can update availability." };
+    return { success: false, error: "Unauthorized: Only doctors can update availability." };
+  }
+
+  // Verify physician profile exists
+  const doctor = await dbRepo.getDoctorById(user.profileId);
+  if (!doctor) {
+    return { success: false, error: "Physician profile not found." };
   }
 
   const raw = {
@@ -33,7 +39,7 @@ export async function updateAvailabilityAction(formData: FormData) {
     return { success: false, error: parsed.error.issues[0].message };
   }
 
-  dbRepo.updateDoctorAvailability(user.profileId, parsed.data.dayOfWeek, {
+  await dbRepo.updateDoctorAvailability(user.profileId, parsed.data.dayOfWeek, {
     startTime: parsed.data.startTime,
     endTime: parsed.data.endTime,
     slotDurationMinutes: parsed.data.slotDurationMinutes,

@@ -38,14 +38,69 @@ A full-stack clinical outpatient management platform built for **Pearl Thoughts 
 
 ---
 
-## 🔑 Sample Test Data (Preserved in Backup)
+## 🗄️ Database & PostgreSQL (Neon Serverless)
 
-Per project requirements, sample test users have been removed from active displays and safely backed up in `src/db/test-data-backup.ts` and `scratch/test-data-backup.json`.
+The application uses **Drizzle ORM** with native **Neon Serverless PostgreSQL** connection pooling, transactions, and partial index concurrency locking.
 
-- To restore all sample specialists, patients, and queue appointments on demand:
-  - Visit **`/settings`** and click **Restore Sample Test Data**, or
-  - Start the app with `ENABLE_SEED_DATA="true" npm run dev`.
-- Or register real, custom accounts directly via **`/register`** (Patient or Doctor).
+### 1. Database Setup & Push
+Set your Neon PostgreSQL connection string in `.env.local`:
+```bash
+DATABASE_URL="postgresql://user:password@ep-sample-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require"
+SESSION_SECRET="your-strong-random-session-secret"
+```
+
+To sync your database schema directly to Neon:
+```bash
+npm run db:push
+```
+
+### 2. Seed Initial Specialists & Shifts
+To seed initial hospital specialists and weekly shift availability into Neon PostgreSQL:
+```bash
+npm run db:seed
+```
+
+### 3. Concurrency & Double-Booking Guard
+Concurrency is enforced at the **PostgreSQL database engine level** via a partial unique index on `appointments`:
+```sql
+CREATE UNIQUE INDEX "doctor_slot_active_unique" 
+ON "appointments" ("doctor_id", "appointment_date", "start_time") 
+WHERE "status" != 'CANCELLED';
+```
+This guarantees that concurrent booking requests cannot double-book a specialist even under high traffic, while cancelled slots remain immediately available for other patients.
+
+---
+
+## 🔒 Security & Authorization Architecture
+
+- **Password Hashing**: OWASP-standard PBKDF2-HMAC-SHA256 with **600,000 iterations**, 16-byte random salt, and constant-time buffer comparison (`crypto.timingSafeEqual`).
+- **Session Tokens**: Signed HMAC-SHA256 HttpOnly session cookies. In production, startup fails if `SESSION_SECRET` is unset, preventing forgery.
+- **Resource Ownership**:
+  - `cancelAppointmentAction`: Strictly verifies that the caller is the patient who booked the appointment or the assigned doctor.
+  - `completeAppointmentAction`: Strictly verifies that the caller is a doctor assigned to that specific appointment.
+  - `updateAvailabilityAction`: Scoped strictly to the authenticated physician profile.
+- **Collision-Proof IDs**: All entity IDs are generated using 128-bit cryptographically secure UUIDs (`crypto.randomUUID()`).
+
+---
+
+## ⚡ Core Outpatient Care vs. Ops Previews
+
+1. **Core Outpatient Care** (Primary Task Requirements):
+   - **Specialist Directory (`/doctors`)**: Search and filter physicians across medical departments.
+   - **Conflict-Proof Slot Picker (`/doctors/[id]`)**: 7-day date selector, dynamic shift window calculation, real-time slot conflict locking.
+   - **Patient Care Portal (`/patient/dashboard`)**: Patient upcoming visits, past history, and cancellation.
+   - **Physician Agenda (`/doctor/dashboard`)**: Live patient queue, consultation status, and one-click completion.
+   - **Weekly Shift Configurator (`/doctor/availability`)**: Configure consultation days, working hours, and slot durations.
+   - **Authentication (`/login`, `/signup`)**: Role-based access with reactive Medrella hospital branding.
+
+2. **Prototype & Ops Modules** (Hospital System UI Showcases):
+   - **Dashboard (`/`)**: Daily census and activity overview.
+   - **Live Queue (`/queue`)**: Token-by-token triage waiting board.
+   - **Reception Desk (`/reception`)**: Walk-in registration and token assignment.
+   - **Schedule Matrix (`/schedule`)**: Weekly multi-column calendar grid.
+   - **Encounters & Vitals (`/encounters`)**: SOAP notes and vitals entry.
+   - **Reports & Analytics (`/reports`)**: Outpatient analytics and dynamic CSV export.
+   - **Facility Settings (`/settings`)**: Hospital profile for Ruby Hall, Pune.
 
 ---
 
@@ -72,4 +127,4 @@ To run the production build:
 npm run build
 npm run start
 ```
-All 15 routes are fully optimized and type-checked with zero compilation errors.
+All 17 routes are fully optimized and type-checked with zero compilation errors.
