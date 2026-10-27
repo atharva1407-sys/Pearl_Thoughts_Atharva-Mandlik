@@ -15,10 +15,9 @@ import {
   UserRound,
   Phone,
   ArrowRight,
-  Stethoscope,
-  AlertCircle,
+  ChevronDown,
   Loader2,
-  Briefcase
+  AlertCircle
 } from "lucide-react";
 import { loginAction, registerPatientAction, registerDoctorAction } from "@/actions/auth";
 
@@ -28,21 +27,20 @@ type AuthPageProps = {
 
 export default function AuthPage({ mode }: AuthPageProps) {
   const isSignup = mode === "signup";
-  const [role, setRole] = useState<"PATIENT" | "DOCTOR">("PATIENT");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [agree, setAgree] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [role, setRole] = useState("Patient");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  // Form fields
+  // Form input states
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
-  const [specialization, setSpecialization] = useState("General Medicine");
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -52,11 +50,10 @@ export default function AuthPage({ mode }: AuthPageProps) {
     const formData = new FormData();
     formData.append("email", email);
     formData.append("password", password);
-    formData.append("role", role);
 
     startTransition(async () => {
       if (!isSignup) {
-        // Login Flow
+        // Login Flow (backend auto-resolves whether user is Doctor or Patient)
         const res = await loginAction(formData);
         if (res && !res.success) {
           setError(res.error || "Authentication failed. Please check your credentials.");
@@ -66,20 +63,21 @@ export default function AuthPage({ mode }: AuthPageProps) {
         formData.append("firstName", firstName);
         formData.append("lastName", lastName);
         formData.append("phone", phone);
+        formData.append("role", role === "Doctor" ? "DOCTOR" : "PATIENT");
 
         let res;
-        if (role === "PATIENT") {
-          res = await registerPatientAction(formData);
-        } else {
-          formData.append("specialization", specialization);
+        if (role === "Doctor") {
+          formData.append("specialization", "General Medicine");
           formData.append("licenseNumber", `TN-MED-${Math.floor(10000 + Math.random() * 90000)}`);
           formData.append("experienceYears", "5");
           formData.append("consultationFee", "800");
           res = await registerDoctorAction(formData);
+        } else {
+          res = await registerPatientAction(formData);
         }
 
         if (res && !res.success) {
-          setError(res.error || "Account registration failed. Please review your details.");
+          setError(res.error || "Account creation failed. Please check your details.");
         }
       }
     });
@@ -87,10 +85,14 @@ export default function AuthPage({ mode }: AuthPageProps) {
 
   return (
     <main className="auth-page">
-      {/* Left Hero Panel (Photographic clinical background with shade) */}
+      {/* =========================================================================
+          LEFT HERO PANEL (Full height hospital corridor photo with dark blue shade)
+          ========================================================================= */}
       <section className="auth-hero" aria-label="Medrella healthcare platform introduction">
         <div className="auth-hero-shade" />
+
         <div className="hero-content">
+          {/* Brand Logo */}
           <Link href="/" className="auth-brand" aria-label="Medrella home">
             <span className="brand-mark">m</span>
             <span>
@@ -98,12 +100,11 @@ export default function AuthPage({ mode }: AuthPageProps) {
             </span>
           </Link>
 
-          <div className="hospital-label">
-            <span className="hospital-dot" /> SP DELTA HOSPITAL, T. NAGAR
-          </div>
+          {/* Hospital Sub-Label */}
+          <div className="hospital-sublabel">SP DELTA HOSPITAL, T. NAGAR</div>
 
+          {/* Headline Copy */}
           <div className="hero-copy">
-            <p className="eyebrow">CARE · CLARITY · CONFIDENCE</p>
             <h1>
               More time
               <br />
@@ -114,43 +115,44 @@ export default function AuthPage({ mode }: AuthPageProps) {
             </p>
           </div>
 
+          {/* 4 Clinical Features */}
           <div className="feature-list">
             <Feature
-              icon={<UsersRound />}
+              icon={<UsersRound size={20} />}
               title="Efficient Patient Management"
               detail="Unified records and faster access"
             />
             <Feature
-              icon={<CalendarDays />}
+              icon={<CalendarDays size={20} />}
               title="Seamless Appointments"
               detail="Smarter scheduling for everyone"
             />
             <Feature
-              icon={<ShieldCheck />}
+              icon={<ShieldCheck size={20} />}
               title="Secure & Reliable"
               detail="Built for modern healthcare"
             />
             <Feature
-              icon={<Activity />}
+              icon={<Activity size={20} />}
               title="Actionable Insights"
               detail="Better decisions, healthier outcomes"
             />
           </div>
 
+          {/* Bottom Quote */}
           <blockquote>
             “Better care today.
             <br />
             A healthier tomorrow.”
           </blockquote>
-
-          <div className="hero-footnote">
-            <Stethoscope size={14} /> Thoughtfully designed for healthcare teams
-          </div>
         </div>
       </section>
 
-      {/* Right Authentication Panel */}
+      {/* =========================================================================
+          RIGHT AUTH PANEL (Clean pure white form card)
+          ========================================================================= */}
       <section className="auth-panel">
+        {/* Mobile Brand (Only shown on small mobile screens when hero is hidden) */}
         <Link href="/" className="mobile-brand">
           <span className="brand-mark">m</span>
           <span>
@@ -158,13 +160,15 @@ export default function AuthPage({ mode }: AuthPageProps) {
           </span>
         </Link>
 
-        <a className="help-link" href="mailto:support@medrella.com">
-          <Headset size={16} /> Need help?
+        {/* Top-Right Pill: Need help? */}
+        <a className="help-pill" href="mailto:support@medrella.com">
+          <Headset size={15} />
+          <span>Need help?</span>
         </a>
 
-        <div className={`auth-card ${isSignup ? "signup-card" : ""}`}>
+        {/* Main Form Card */}
+        <div className="auth-card">
           <div className="form-heading">
-            <div className="form-kicker">{isSignup ? "GET STARTED" : "WELCOME BACK"}</div>
             <h2>{isSignup ? "Create Account" : "Login"}</h2>
             <p>
               {isSignup
@@ -173,60 +177,28 @@ export default function AuthPage({ mode }: AuthPageProps) {
             </p>
           </div>
 
-          {/* Role Switcher Pill Bar */}
-          <div className="mb-4 p-1 bg-slate-100 rounded-xl border border-slate-200 grid grid-cols-2 gap-1">
-            <button
-              type="button"
-              onClick={() => {
-                setRole("PATIENT");
-                setError(null);
-              }}
-              className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                role === "PATIENT"
-                  ? "bg-white text-blue-700 shadow-sm border border-slate-200/60"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <UserRound size={14} />
-              <span>Patient Portal</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setRole("DOCTOR");
-                setError(null);
-              }}
-              className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                role === "DOCTOR"
-                  ? "bg-white text-blue-700 shadow-sm border border-slate-200/60"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <Stethoscope size={14} />
-              <span>Doctor Portal</span>
-            </button>
-          </div>
-
+          {/* Error / Notice Display */}
           {error && (
-            <div className="form-notice error mb-3" role="alert">
+            <div className="form-notice error" role="alert">
               <div className="flex items-center gap-2">
-                <AlertCircle size={16} className="flex-shrink-0" />
+                <AlertCircle size={15} className="flex-shrink-0" />
                 <span>{error}</span>
               </div>
             </div>
           )}
 
           {notice && (
-            <div className="form-notice success mb-3" role="status">
+            <div className="form-notice success" role="status">
               <span>{notice}</span>
             </div>
           )}
 
           <form onSubmit={handleSubmit}>
+            {/* Sign Up: First Name & Last Name row */}
             {isSignup && (
               <div className="name-row">
                 <label className="input-wrap">
-                  <UserRound size={17} />
+                  <UserRound size={17} className="input-icon" />
                   <input
                     type="text"
                     required
@@ -238,7 +210,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
                   />
                 </label>
                 <label className="input-wrap">
-                  <UserRound size={17} />
+                  <UserRound size={17} className="input-icon" />
                   <input
                     type="text"
                     required
@@ -252,27 +224,29 @@ export default function AuthPage({ mode }: AuthPageProps) {
               </div>
             )}
 
+            {/* Email Field */}
             <label className="input-wrap">
-              <Mail size={17} />
+              <Mail size={17} className="input-icon" />
               <input
                 type="email"
                 required
                 autoComplete="email"
-                placeholder={role === "PATIENT" ? "patient@example.com" : "doctor@medrella.com"}
+                placeholder="Enter your email"
                 aria-label="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
             </label>
 
+            {/* Sign Up: Phone Field */}
             {isSignup && (
               <label className="input-wrap">
-                <Phone size={17} />
+                <Phone size={17} className="input-icon" />
                 <input
                   type="tel"
                   required
                   autoComplete="tel"
-                  placeholder="+91 98765 43210"
+                  placeholder="Enter your phone number"
                   aria-label="Phone number"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
@@ -280,33 +254,35 @@ export default function AuthPage({ mode }: AuthPageProps) {
               </label>
             )}
 
-            {isSignup && role === "DOCTOR" && (
-              <label className="input-wrap">
-                <Briefcase size={17} />
+            {/* Sign Up: Select your role Field with ChevronDown */}
+            {isSignup && (
+              <label className="input-wrap select-wrap">
+                <UserRound size={17} className="input-icon" />
                 <select
-                  value={specialization}
-                  onChange={(e) => setSpecialization(e.target.value)}
-                  aria-label="Clinical specialization"
-                  className="bg-transparent text-slate-800"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  aria-label="Select your role"
+                  className="role-select"
                 >
-                  <option value="Cardiology">Cardiology</option>
-                  <option value="Dermatology">Dermatology</option>
-                  <option value="Pediatrics">Pediatrics</option>
-                  <option value="Orthopedics">Orthopedics</option>
-                  <option value="General Medicine">General Medicine</option>
-                  <option value="Neurology">Neurology</option>
+                  <option value="Patient">Patient</option>
+                  <option value="Doctor">Doctor</option>
+                  <option value="Receptionist">Receptionist</option>
+                  <option value="Nurse">Nurse</option>
+                  <option value="Clinic Staff">Clinic Staff</option>
                 </select>
+                <ChevronDown size={15} className="select-arrow" />
               </label>
             )}
 
+            {/* Password Field */}
             <label className="input-wrap">
-              <LockKeyhole size={17} />
+              <LockKeyhole size={17} className="input-icon" />
               <input
                 type={showPassword ? "text" : "password"}
                 required
                 minLength={6}
                 autoComplete={isSignup ? "new-password" : "current-password"}
-                placeholder={isSignup ? "Create password (6+ characters)" : "Enter your password"}
+                placeholder={isSignup ? "Create a password" : "Enter your password"}
                 aria-label="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -321,6 +297,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
               </button>
             </label>
 
+            {/* Login Mode: Remember me + Forgot password? */}
             {!isSignup && (
               <div className="form-options">
                 <label className="check-label">
@@ -335,7 +312,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
                   type="button"
                   className="text-button"
                   onClick={() =>
-                    setNotice("Password reset: please contact your SP Delta Hospital clinical administrator.")
+                    setNotice("Password reset: Contact SP Delta Hospital clinical administrator at admin@medrella.com")
                   }
                 >
                   Forgot password?
@@ -343,6 +320,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
               </div>
             )}
 
+            {/* Sign Up Mode: Terms Checkbox */}
             {isSignup && (
               <label className="check-label terms-check">
                 <input
@@ -357,7 +335,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
                     href="#terms"
                     onClick={(e) => {
                       e.preventDefault();
-                      setNotice("Medrella Clinical Terms of Service: Patient data is protected under HIPAA/NABH guidelines.");
+                      setNotice("Terms of Service: Medrella HIPAA & clinical confidentiality agreement.");
                     }}
                   >
                     Terms of Service
@@ -367,7 +345,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
                     href="#privacy"
                     onClick={(e) => {
                       e.preventDefault();
-                      setNotice("Medrella Privacy Policy: Hospital records are strictly confidential and encrypted.");
+                      setNotice("Privacy Policy: SP Delta Hospital encrypted health records guidelines.");
                     }}
                   >
                     Privacy Policy
@@ -376,38 +354,44 @@ export default function AuthPage({ mode }: AuthPageProps) {
               </label>
             )}
 
+            {/* Submit Button */}
             <button type="submit" className="primary-button" disabled={isPending}>
               {isPending ? (
                 <>
-                  <Loader2 size={17} className="animate-spin" />
-                  <span>{isSignup ? "Creating Profile..." : "Signing In..."}</span>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>{isSignup ? "Creating Account..." : "Signing in..."}</span>
                 </>
               ) : (
                 <>
                   <span>{isSignup ? "Create Account" : "Login"}</span>
-                  <ArrowRight size={17} />
+                  <ArrowRight size={16} />
                 </>
               )}
             </button>
           </form>
 
+          {/* Divider */}
           <div className="divider">
-            <span /> <em>or continue with</em> <span />
+            <span />
+            <em>{isSignup ? "or sign up with" : "or continue with"}</em>
+            <span />
           </div>
 
+          {/* Social Row */}
           <div className="social-row">
             <button
               type="button"
               onClick={() =>
-                setNotice("Google OAuth integration: Single Sign-On configured for Medrella clinical workspace.")
+                setNotice("Google OAuth: Connected to Medrella SSO provider.")
               }
             >
-              <span className="google-g">G</span> Google
+              <span className="google-g">G</span>
+              <span>Google</span>
             </button>
             <button
               type="button"
               onClick={() =>
-                setNotice("Microsoft Azure AD integration: Hospital SSO configured for SP Delta NHS/Staff accounts.")
+                setNotice("Microsoft Azure: Connected to SP Delta Hospital clinical directory.")
               }
             >
               <span className="microsoft-mark">
@@ -415,11 +399,12 @@ export default function AuthPage({ mode }: AuthPageProps) {
                 <i />
                 <i />
                 <i />
-              </span>{" "}
-              Microsoft
+              </span>
+              <span>Microsoft</span>
             </button>
           </div>
 
+          {/* Switch Auth Prompt */}
           <p className="switch-auth">
             {isSignup ? "Already have an account?" : "Don't have an account?"}{" "}
             <Link href={isSignup ? "/login" : "/signup"}>
@@ -428,6 +413,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
           </p>
         </div>
 
+        {/* Footer */}
         <footer className="auth-footer">
           <span>© 2026 Medrella. All rights reserved.</span>
           <div>
@@ -435,7 +421,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
               href="#privacy"
               onClick={(e) => {
                 e.preventDefault();
-                setNotice("SP Delta Hospital clinical privacy guidelines active.");
+                setNotice("Confidential hospital outpatient privacy guidelines apply.");
               }}
             >
               Privacy
@@ -444,7 +430,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
               href="#terms"
               onClick={(e) => {
                 e.preventDefault();
-                setNotice("Standard hospital outpatient terms apply.");
+                setNotice("Hospital appointment scheduling terms active.");
               }}
             >
               Terms
