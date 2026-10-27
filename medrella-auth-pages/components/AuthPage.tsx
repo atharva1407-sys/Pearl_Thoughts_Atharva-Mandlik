@@ -26,7 +26,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
         <div className="auth-hero-img-wrap">
           <Image
             src="/images/hospital-auth-hero.jpg"
-            alt="SP Delta Hospital Clinical Hallway"
+            alt="Ruby Hall Clinical Hallway"
             fill
             priority
             sizes="(max-width: 900px) 100vw, 50vw"
@@ -46,7 +46,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
             />
             <span>medrella<span className="brand-dot">.</span></span>
           </Link>
-          <div className="hospital-label"><span className="hospital-dot" /> SP DELTA HOSPITAL, T. NAGAR</div>
+          <div className="hospital-label"><span className="hospital-dot" /> RUBY HALL, PUNE</div>
           <div className="hero-copy">
             <p className="eyebrow">CARE · CLARITY · CONFIDENCE</p>
             <h1>More time<br />for <span>care.</span></h1>

@@ -38,7 +38,7 @@ export async function Navbar() {
         {/* Live Facility Indicator */}
         <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zinc-900/90 border border-zinc-800/80 text-[11px] text-zinc-400">
           <Building2 className="w-3 h-3 text-zinc-500" />
-          <span>SP Delta Hospital</span>
+          <span>Ruby Hall, Pune</span>
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse ml-0.5" title="Connected"></span>
         </div>
       </div>

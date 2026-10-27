@@ -93,7 +93,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
         <div className="auth-hero-img-wrap">
           <Image
             src="/images/hospital-auth-hero.jpg"
-            alt="SP Delta Hospital Clinical Hallway"
+            alt="Ruby Hall Clinical Hallway"
             fill
             priority
             sizes="(max-width: 900px) 100vw, 50vw"
@@ -117,7 +117,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
           </Link>
 
           <div className="hospital-label">
-            <span className="hospital-dot" /> SP DELTA HOSPITAL, T. NAGAR
+            <span className="hospital-dot" /> RUBY HALL, PUNE
           </div>
 
           <div className="hero-copy">
@@ -360,7 +360,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
                   type="button"
                   className="text-button"
                   onClick={() =>
-                    setNotice("Password reset: please contact your SP Delta Hospital clinical administrator.")
+                    setNotice("Password reset: please contact your Ruby Hall clinical administrator.")
                   }
                 >
                   Forgot password?
@@ -432,7 +432,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
             <button
               type="button"
               onClick={() =>
-                setNotice("Microsoft Azure AD integration: Hospital SSO configured for SP Delta NHS/Staff accounts.")
+                setNotice("Microsoft Azure AD integration: Hospital SSO configured for Ruby Hall staff accounts.")
               }
             >
               <span className="microsoft-mark">
@@ -460,7 +460,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
               href="#privacy"
               onClick={(e) => {
                 e.preventDefault();
-                setNotice("SP Delta Hospital clinical privacy guidelines active.");
+                setNotice("Ruby Hall clinical privacy guidelines active.");
               }}
             >
               Privacy

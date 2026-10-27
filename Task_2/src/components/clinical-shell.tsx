@@ -109,8 +109,8 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
             <Home size={16} />
           </span>
           <span>
-            <b>SP Delta Hospital, T. Nagar</b>
-            <small>Chennai · Active Facility</small>
+            <b>Ruby Hall, Pune</b>
+            <small>Pune · Active Facility</small>
           </span>
           <ChevronDown size={14} className="text-slate-400" />
         </div>
@@ -297,7 +297,7 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
             {/* Facility Status Badge */}
             <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
               <span className="live-dot" />
-              <span>SP Delta Hospital · T. Nagar</span>
+              <span>Ruby Hall · Pune</span>
             </div>
 
             {/* Quick Action Button */}
@@ -345,7 +345,7 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
 
         {/* Clinical Hospital Footer */}
         <footer className="footer">
-          <span>© 2026 Medrella Healthcare Systems · SP Delta Hospital, T. Nagar</span>
+          <span>© 2026 Medrella Healthcare Systems · Ruby Hall, Pune</span>
           <span>
             <span className="live-dot" /> All clinical scheduling services operational
           </span>
