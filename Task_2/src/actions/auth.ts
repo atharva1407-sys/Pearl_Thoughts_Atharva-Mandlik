@@ -15,6 +15,23 @@ import { registerPatientSchema, registerDoctorSchema } from "@/lib/validators";
 
 const COOKIE_NAME = "medrella_session";
 
+function getCookieConfig() {
+  const isProduction = process.env.NODE_ENV === "production";
+  const isVercel = Boolean(process.env.VERCEL || process.env.NEXT_PUBLIC_VERCEL_URL);
+  // Only enforce secure cookies if on Vercel/HTTPS to avoid dropping cookies over HTTP on localhost
+  const isSecure = isProduction && isVercel;
+  const cookieExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+  return {
+    httpOnly: true,
+    secure: isSecure,
+    sameSite: "lax" as const,
+    path: "/",
+    expires: cookieExpires,
+    maxAge: 60 * 60 * 24 * 7, // 7 days
+  };
+}
+
 export async function getCurrentUser(): Promise<SessionPayload | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value;
@@ -26,6 +43,7 @@ export async function loginAction(formData: FormData) {
   const email = (formData.get("email") as string)?.trim().toLowerCase();
   const password = formData.get("password") as string;
   const rawRole = (formData.get("role") as string)?.trim().toUpperCase();
+  const rawRedirect = (formData.get("redirectTo") as string)?.trim();
 
   if (!email || !password) {
     return { success: false, error: "Please enter your email and password." };
@@ -76,16 +94,13 @@ export async function loginAction(formData: FormData) {
   });
 
   const cookieStore = await cookies();
-  cookieStore.set(COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7, // 7 days
-  });
+  cookieStore.set(COOKIE_NAME, token, getCookieConfig());
 
-  const redirectPath = role === "PATIENT" ? "/patient/dashboard" : "/doctor/dashboard";
-  redirect(redirectPath);
+  // Determine safe redirect destination
+  const safeRedirect = rawRedirect && rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : null;
+  const redirectPath = safeRedirect || (role === "PATIENT" ? "/patient/dashboard" : "/doctor/dashboard");
+
+  return { success: true, redirectPath };
 }
 
 export async function registerPatientAction(formData: FormData) {
@@ -142,15 +157,13 @@ export async function registerPatientAction(formData: FormData) {
   });
 
   const cookieStore = await cookies();
-  cookieStore.set(COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,
-  });
+  cookieStore.set(COOKIE_NAME, token, getCookieConfig());
 
-  redirect("/patient/dashboard");
+  const rawRedirect = (formData.get("redirectTo") as string)?.trim();
+  const safeRedirect = rawRedirect && rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : null;
+  const redirectPath = safeRedirect || "/patient/dashboard";
+
+  return { success: true, redirectPath };
 }
 
 export async function registerDoctorAction(formData: FormData) {
@@ -224,15 +237,13 @@ export async function registerDoctorAction(formData: FormData) {
   });
 
   const cookieStore = await cookies();
-  cookieStore.set(COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,
-  });
+  cookieStore.set(COOKIE_NAME, token, getCookieConfig());
 
-  redirect("/doctor/dashboard");
+  const rawRedirect = (formData.get("redirectTo") as string)?.trim();
+  const safeRedirect = rawRedirect && rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : null;
+  const redirectPath = safeRedirect || "/doctor/dashboard";
+
+  return { success: true, redirectPath };
 }
 
 export async function logoutAction() {

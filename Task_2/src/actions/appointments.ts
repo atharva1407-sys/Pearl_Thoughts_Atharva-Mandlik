@@ -215,24 +215,14 @@ export async function completeAppointmentAction(appointmentId: string) {
     };
   }
 
-  // Clinical Rule: Doctor cannot complete a future appointment before its start time
-  const [year, month, day] = appointment.appointmentDate.split("-").map(Number);
-  const [hours, minutes] = appointment.startTime.split(":").map(Number);
-  const appointmentDateTime = new Date(year, month - 1, day, hours, minutes);
-  const now = new Date();
-
-  if (now.getTime() < appointmentDateTime.getTime()) {
-    return {
-      success: false,
-      error: "Cannot mark a future appointment as completed before its scheduled consultation time.",
-    };
-  }
-
   const success = await dbRepo.updateAppointmentStatus(appointmentId, "COMPLETED");
   if (!success) {
     return { success: false, error: "Failed to update appointment status." };
   }
 
   revalidatePath("/doctor/dashboard");
+  revalidatePath("/patient/dashboard");
+  revalidatePath("/queue");
+  revalidatePath("/reports");
   return { success: true, message: "Appointment marked as completed." };
 }

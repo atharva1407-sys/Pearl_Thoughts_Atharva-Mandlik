@@ -2,6 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/actions/auth";
 import { dbRepo } from "@/db/repo";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 import {
   Clock3,
   AlertCircle,

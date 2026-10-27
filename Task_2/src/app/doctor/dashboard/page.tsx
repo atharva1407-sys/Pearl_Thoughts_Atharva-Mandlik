@@ -1,9 +1,12 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentUser } from "@/actions/auth";
-import { completeAppointmentAction, cancelAppointmentAction } from "@/actions/appointments";
+import { DoctorAppointmentActions } from "./doctor-appointment-actions";
 import { dbRepo } from "@/db/repo";
 import { formatDate } from "@/lib/utils";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 import {
   CalendarDays,
   Clock3,
@@ -156,39 +159,10 @@ export default async function DoctorDashboard() {
                       <span className="text-slate-700 font-medium">{apt.reason}</span>
                     </td>
                     <td>
-                      <div className="flex items-center gap-1.5">
-                        <form
-                          action={async () => {
-                            "use server";
-                            await completeAppointmentAction(apt.id);
-                          }}
-                        >
-                          <button
-                            type="submit"
-                            className="btn primary text-xs py-1 px-2.5"
-                            title="Mark Consultation Complete"
-                          >
-                            <Check size={13} />
-                            <span>Done</span>
-                          </button>
-                        </form>
-
-                        <form
-                          action={async () => {
-                            "use server";
-                            await cancelAppointmentAction(apt.id);
-                          }}
-                        >
-                          <button
-                            type="submit"
-                            className="btn text-xs py-1 px-2 text-red-600 hover:bg-red-50"
-                            title="Cancel Appointment"
-                          >
-                            <X size={13} />
-                            <span>Cancel</span>
-                          </button>
-                        </form>
-                      </div>
+                      <DoctorAppointmentActions
+                        appointmentId={apt.id}
+                        patientName={`${apt.patient.firstName} ${apt.patient.lastName}`}
+                      />
                     </td>
                   </tr>
                 ))}
