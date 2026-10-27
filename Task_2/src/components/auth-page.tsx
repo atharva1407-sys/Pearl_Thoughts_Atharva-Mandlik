@@ -103,15 +103,14 @@ export default function AuthPage({ mode }: AuthPageProps) {
         <div className="auth-hero-shade" />
         <div className="hero-content">
           <Link href="/" className="auth-brand" aria-label="Medrella home">
-            <span className="brand-mark">
-              <Image
-                src="/images/medrella-logo.png"
-                alt="Medrella"
-                width={42}
-                height={42}
-                priority
-              />
-            </span>
+            <Image
+              src="/images/medrella-logo.png"
+              alt="Medrella"
+              width={40}
+              height={40}
+              className="auth-brand-logo-img"
+              priority
+            />
             <span>
               medrella<span className="brand-dot">.</span>
             </span>
@@ -171,15 +170,14 @@ export default function AuthPage({ mode }: AuthPageProps) {
       {/* Right Authentication Panel */}
       <section className="auth-panel">
         <Link href="/" className="mobile-brand">
-          <span className="brand-mark">
-            <Image
-              src="/images/medrella-logo.png"
-              alt="Medrella"
-              width={34}
-              height={34}
-              priority
-            />
-          </span>
+          <Image
+            src="/images/medrella-logo.png"
+            alt="Medrella"
+            width={34}
+            height={34}
+            className="mobile-brand-logo-img"
+            priority
+          />
           <span>
             medrella<span className="brand-dot">.</span>
           </span>

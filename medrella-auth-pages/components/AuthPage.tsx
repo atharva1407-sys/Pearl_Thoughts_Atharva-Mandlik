@@ -36,15 +36,14 @@ export default function AuthPage({ mode }: AuthPageProps) {
         <div className="auth-hero-shade" />
         <div className="hero-content">
           <Link href="/" className="auth-brand" aria-label="Medrella home">
-            <span className="brand-mark">
-              <Image
-                src="/images/medrella-logo.png"
-                alt="Medrella"
-                width={40}
-                height={40}
-                priority
-              />
-            </span>
+            <Image
+              src="/images/medrella-logo.png"
+              alt="Medrella"
+              width={40}
+              height={40}
+              className="auth-brand-logo-img"
+              priority
+            />
             <span>medrella<span className="brand-dot">.</span></span>
           </Link>
           <div className="hospital-label"><span className="hospital-dot" /> SP DELTA HOSPITAL, T. NAGAR</div>
@@ -66,15 +65,14 @@ export default function AuthPage({ mode }: AuthPageProps) {
 
       <section className="auth-panel">
         <Link href="/" className="mobile-brand">
-          <span className="brand-mark">
-            <Image
-              src="/images/medrella-logo.png"
-              alt="Medrella"
-              width={34}
-              height={34}
-              priority
-            />
-          </span>
+          <Image
+            src="/images/medrella-logo.png"
+            alt="Medrella"
+            width={34}
+            height={34}
+            className="mobile-brand-logo-img"
+            priority
+          />
           <span>medrella<span className="brand-dot">.</span></span>
         </Link>
         <a className="help-link" href="mailto:support@medrella.com"><Headset size={16} /> Need help?</a>

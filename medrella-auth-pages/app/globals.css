@@ -34,6 +34,9 @@
 
 /* Medrella authentication pages */
 .auth-page, .auth-page * {font-family:'Helvetica Neue LT Pro', 'Helvetica Neue', Arial, -apple-system, sans-serif !important}
+.brand-logo-img{width:28px;height:28px;object-fit:contain;border-radius:8px;box-shadow:0 3px 8px rgba(22,128,238,.25);display:inline-block;flex-shrink:0}
+.auth-brand-logo-img{width:40px;height:40px;object-fit:contain;border-radius:11px;box-shadow:0 7px 18px rgba(7,84,206,.32);display:inline-block;flex-shrink:0}
+.mobile-brand-logo-img{width:34px;height:34px;object-fit:contain;border-radius:9px;box-shadow:0 4px 10px rgba(7,84,206,.22);display:inline-block;flex-shrink:0}
 .auth-page{min-height:100vh;display:grid;grid-template-columns:minmax(460px,1fr) minmax(480px,1fr);background:#f8fbff;color:#14233f}
 .auth-page h1,.auth-page h2,.auth-page h3,.auth-brand,.hero-copy h1,.form-heading h2{font-family:'Helvetica Neue LT Pro', 'Helvetica Neue', Arial, sans-serif !important;font-weight:800}
 .auth-page button,.auth-page input,.auth-page select,.auth-page textarea,.primary-button,.social-row button{font-family:'Helvetica Neue LT Pro', 'Helvetica Neue', Arial, sans-serif !important}
@@ -45,8 +48,7 @@
 .auth-hero-shade{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,rgba(6,21,45,.96) 0%,rgba(7,26,54,.90) 38%,rgba(8,32,64,.60) 58%,rgba(9,36,70,.22) 78%,rgba(10,36,70,.06) 100%),linear-gradient(0deg,rgba(5,17,36,.70) 0%,transparent 45%)}
 .hero-content{position:relative;z-index:2;max-width:450px;margin:0;padding:42px clamp(28px,3vw,44px) 30px clamp(68px,7vw,110px);min-height:100vh;display:flex;flex-direction:column}
 .auth-brand,.mobile-brand{display:inline-flex;align-items:center;gap:10px;text-decoration:none;color:inherit;font-weight:750;font-size:24px;letter-spacing:-.8px;width:max-content}
-.brand-mark{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:11px;overflow:hidden;box-shadow:0 7px 18px #0754ce40;flex-shrink:0}
-.brand-mark img{width:100%;height:100%;object-fit:contain;display:block}
+.brand-mark{display:inline-grid;place-items:center;width:40px;height:40px;border-radius:11px;background:#1763ee;color:white;font-size:31px;font-weight:800;line-height:1;box-shadow:0 7px 18px #0754ce40}
 .brand-dot{color:#66b5ff}
 .hospital-label{display:flex;align-items:center;gap:9px;margin-top:29px;font-size:10px;font-weight:700;letter-spacing:2.3px;color:#c2d8f6}
 .hospital-dot{width:7px;height:7px;border-radius:50%;background:#52d7a2;box-shadow:0 0 0 4px #52d7a225}
