@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -89,7 +90,15 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
       <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
         {/* Brand Header */}
         <Link href="/" className="brand" onClick={() => setSidebarOpen(false)}>
-          <span className="brand-mark">m</span>
+          <span className="brand-mark">
+            <Image
+              src="/images/medrella-logo.png"
+              alt="Medrella"
+              width={30}
+              height={30}
+              priority
+            />
+          </span>
           <span>
             medrella<span className="brand-dot">.</span>
           </span>
