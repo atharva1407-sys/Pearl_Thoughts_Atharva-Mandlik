@@ -23,7 +23,7 @@ export default function QueuePage() {
       {/* Queue Toolbar */}
       <div className="queue-toolbar">
         <div>
-          <h2>Queue at SP Delta Hospital, T. Nagar</h2>
+          <h2>Queue at Ruby Hall, Pune</h2>
           <p>Live token session, sorted by appointment time and arrival priority</p>
         </div>
         <span className="badge green">

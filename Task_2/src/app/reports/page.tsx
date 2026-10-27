@@ -79,7 +79,7 @@ export default function ReportsPage() {
         </div>
         <button
           type="button"
-          className="btn primary text-xs justify-center h-[34px]"
+          className="btn primary text-xs justify-center h-[34px] col-span-2 sm:col-span-1"
           onClick={() => alert("Analytics report refreshed")}
         >
           Generate Report

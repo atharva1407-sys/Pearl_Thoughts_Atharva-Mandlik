@@ -81,27 +81,38 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
       {/* Mobile Drawer Backdrop */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-slate-900/40 z-30 md:hidden backdrop-blur-xs"
+          className="sidebar-backdrop"
           onClick={() => setSidebarOpen(false)}
+          aria-label="Close navigation drawer"
         />
       )}
 
       {/* Left Clinical Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
         {/* Brand Header */}
-        <Link href="/" className="brand" onClick={() => setSidebarOpen(false)}>
-          <Image
-            src="/images/medrella-logo.png"
-            alt="Medrella"
-            width={30}
-            height={30}
-            className="brand-logo-img"
-            priority
-          />
-          <span>
-            medrella<span className="brand-dot">.</span>
-          </span>
-        </Link>
+        <div className="sidebar-brand-row">
+          <Link href="/" className="brand" onClick={() => setSidebarOpen(false)}>
+            <Image
+              src="/images/medrella-logo.png"
+              alt="Medrella"
+              width={30}
+              height={30}
+              className="brand-logo-img"
+              priority
+            />
+            <span>
+              medrella<span className="brand-dot">.</span>
+            </span>
+          </Link>
+          <button
+            type="button"
+            className="icon-btn sidebar-close-btn"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Close navigation drawer"
+          >
+            <X size={18} />
+          </button>
+        </div>
 
         {/* Hospital Facility Switcher */}
         <div className="hospital-switch">
@@ -277,9 +288,10 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
       <main className="main-area">
         {/* Sticky Topbar */}
         <header className="topbar">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
-              className="icon-btn md:hidden"
+              type="button"
+              className="icon-btn mobile-menu-btn"
               onClick={() => setSidebarOpen(!sidebarOpen)}
               aria-label="Toggle Navigation Drawer"
             >
@@ -287,21 +299,21 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
             </button>
 
             <div className="breadcrumbs">
-              <span>Workspace</span>
-              <ChevronRight size={14} />
-              <b>{getBreadcrumb()}</b>
+              <span className="breadcrumb-root">Workspace</span>
+              <ChevronRight size={14} className="breadcrumb-sep text-slate-300" />
+              <b className="breadcrumb-current">{getBreadcrumb()}</b>
             </div>
           </div>
 
           <div className="top-actions">
             {/* Facility Status Badge */}
-            <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
+            <div className="facility-badge hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
               <span className="live-dot" />
               <span>Ruby Hall · Pune</span>
             </div>
 
             {/* Quick Action Button */}
-            <Link href="/doctors" className="btn primary hidden sm:inline-flex">
+            <Link href="/doctors" className="btn primary topbar-book-btn hidden sm:inline-flex">
               <Plus size={14} />
               <span>Book Appointment</span>
             </Link>
@@ -320,7 +332,7 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
             {user ? (
               <Link href={user.role === "DOCTOR" ? "/doctor/dashboard" : "/patient/dashboard"} className="profile-button">
                 <span className="avatar small-avatar">{getInitials(user.name)}</span>
-                <span className="hidden sm:block">
+                <span className="hidden md:block">
                   <b>{user.name}</b>
                   <small>{user.role === "DOCTOR" ? "Doctor" : "Patient"}</small>
                 </span>
@@ -331,7 +343,7 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
                   <LogIn size={13} />
                   <span>Sign In</span>
                 </Link>
-                <Link href="/register" className="btn primary text-xs">
+                <Link href="/register" className="btn primary text-xs hidden sm:inline-flex">
                   <UserPlus size={13} />
                   <span>Register</span>
                 </Link>

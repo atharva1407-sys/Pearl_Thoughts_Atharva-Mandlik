@@ -33,7 +33,7 @@ export default async function DoctorsPage({
           <div className="eyebrow">CLINICAL STAFF & OUTPATIENT DIRECTORY</div>
           <h1>Find a Medical Specialist</h1>
           <p>
-            Browse verified hospital physicians and reserve conflict-free appointment time slots at SP Delta Hospital.
+            Browse verified hospital physicians and reserve conflict-free appointment time slots at Ruby Hall, Pune.
           </p>
         </div>
       </div>
