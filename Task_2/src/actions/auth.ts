@@ -16,27 +16,33 @@ export async function getCurrentUser(): Promise<SessionPayload | null> {
 }
 
 export async function loginAction(formData: FormData) {
-  const rawData = {
-    email: formData.get("email"),
-    password: formData.get("password"),
-    role: formData.get("role"),
-  };
+  const email = (formData.get("email") as string)?.trim().toLowerCase();
+  const password = formData.get("password") as string;
+  const rawRole = (formData.get("role") as string)?.trim().toUpperCase();
 
-  const parsed = loginSchema.safeParse(rawData);
-  if (!parsed.success) {
-    return { success: false, error: parsed.error.issues[0].message };
+  if (!email || !password) {
+    return { success: false, error: "Please enter your email and password." };
   }
 
-  const { email, password, role } = parsed.data;
   const user = dbRepo.getUserByEmail(email);
+  if (!user) {
+    return { success: false, error: "No Medrella account found with this email." };
+  }
 
-  if (!user || user.role !== role) {
-    return { success: false, error: "Invalid email or role selection." };
+  let role: "PATIENT" | "DOCTOR" = user.role;
+  if (rawRole === "PATIENT" || rawRole === "DOCTOR") {
+    if (user.role !== rawRole) {
+      return {
+        success: false,
+        error: `This account is registered as a ${user.role.toLowerCase()}, not ${rawRole.toLowerCase()}.`,
+      };
+    }
+    role = rawRole;
   }
 
   const isPasswordValid = verifyPassword(password, user.passwordHash);
   if (!isPasswordValid) {
-    return { success: false, error: "Incorrect password." };
+    return { success: false, error: "Incorrect password. Please try again." };
   }
 
   let profileId = "";
@@ -76,6 +82,14 @@ export async function loginAction(formData: FormData) {
   } else {
     redirect("/doctor/dashboard");
   }
+}
+
+export async function registerAction(formData: FormData) {
+  const roleInput = (formData.get("role") as string)?.toUpperCase();
+  if (roleInput === "DOCTOR") {
+    return registerDoctorAction(formData);
+  }
+  return registerPatientAction(formData);
 }
 
 export async function registerPatientAction(formData: FormData) {
