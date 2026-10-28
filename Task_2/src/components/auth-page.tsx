@@ -354,9 +354,9 @@ export default function AuthPage({ mode }: AuthPageProps) {
               <input
                 type={showPassword ? "text" : "password"}
                 required
-                minLength={6}
+                minLength={8}
                 autoComplete={isSignup ? "new-password" : "current-password"}
-                placeholder={isSignup ? "Create password (6+ characters)" : "Enter your password"}
+                placeholder={isSignup ? "Create password (8+ characters)" : "Enter your password"}
                 aria-label="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

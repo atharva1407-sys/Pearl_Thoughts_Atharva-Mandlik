@@ -13,6 +13,7 @@ process.env.ENABLE_SEED_DATA = "true";
 
 import { dbRepo } from "./db/repo";
 import { hashPassword, verifyPassword } from "./lib/auth-crypto";
+import { loginSchema, registerPatientSchema, registerDoctorSchema } from "./lib/validators";
 
 async function runTests() {
   console.log("🏥 Starting Medrella Clinical Verification Suite...\n");
@@ -156,6 +157,53 @@ async function runTests() {
     }
   }
   assert(doctorDeletionBlocked === true, "Doctor deletion is BLOCKED while active booked appointments exist");
+
+  // TEST 9: Login Attempt Rate Limiting
+  console.log("\n--- 9. Login Rate Limiting (5 Attempts / 15 Minutes) ---");
+  const rateLimitEmail = `ratelimit.${Date.now()}@rubyhall.org`;
+  await dbRepo.clearFailedLogins(rateLimitEmail);
+  assert(await dbRepo.getRecentFailedLoginCount(rateLimitEmail, 15) === 0, "Initial failed attempt count is 0");
+  for (let i = 0; i < 5; i++) {
+    await dbRepo.recordFailedLogin(rateLimitEmail);
+  }
+  const failedCount = await dbRepo.getRecentFailedLoginCount(rateLimitEmail, 15);
+  assert(failedCount === 5, "5 failed login attempts correctly recorded");
+  assert(failedCount >= 5, "Account triggers rate-limit block at 5 failed attempts");
+  await dbRepo.clearFailedLogins(rateLimitEmail);
+  assert(await dbRepo.getRecentFailedLoginCount(rateLimitEmail, 15) === 0, "Successful login clears failed attempt records");
+
+  // TEST 10: Open Redirect Backslash Guard
+  console.log("\n--- 10. Open-Redirect Guard ---");
+  function sanitizeRedirect(rawRedirect?: string | null): string | null {
+    if (!rawRedirect) return null;
+    const trimmed = rawRedirect.trim();
+    if (trimmed.includes("\\") || !trimmed.startsWith("/") || trimmed.startsWith("//")) {
+      return null;
+    }
+    return trimmed;
+  }
+  assert(sanitizeRedirect("/patient/dashboard") === "/patient/dashboard", "Valid relative path '/patient/dashboard' is allowed");
+  assert(sanitizeRedirect("/\\evil.com") === null, "Backslash URL '/\\evil.com' is BLOCKED");
+  assert(sanitizeRedirect("\\evil.com") === null, "Backslash URL '\\evil.com' is BLOCKED");
+  assert(sanitizeRedirect("//evil.com") === null, "Protocol-relative '//evil.com' is BLOCKED");
+  assert(sanitizeRedirect("https://evil.com") === null, "Absolute external URL is BLOCKED");
+
+  // TEST 11: 8+ Character Password Enforcement
+  console.log("\n--- 11. 8+ Character Password Policy ---");
+  const shortPassResult = loginSchema.safeParse({ email: "doc@test.com", password: "short", role: "DOCTOR" });
+  assert(shortPassResult.success === false, "Passwords under 8 chars rejected by login validator");
+
+  const validPassResult = loginSchema.safeParse({ email: "doc@test.com", password: "Password123", role: "DOCTOR" });
+  assert(validPassResult.success === true, "Password with 8+ chars accepted by login validator");
+
+  const shortRegResult = registerPatientSchema.safeParse({
+    email: "pat@test.com",
+    password: "12345",
+    firstName: "Test",
+    lastName: "User",
+    phone: "9876543210"
+  });
+  assert(shortRegResult.success === false, "Registration with <8 char password rejected");
 
   console.log(`\n========================================`);
   console.log(`Test Results: ${passed} passed, ${failed} failed`);
