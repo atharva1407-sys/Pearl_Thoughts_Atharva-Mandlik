@@ -37,7 +37,17 @@ export async function getCurrentUser(): Promise<SessionPayload | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value;
   if (!token) return null;
-  return verifySessionToken(token);
+  const payload = verifySessionToken(token);
+  if (!payload) return null;
+
+  // Real-time Database Session Validation:
+  // Ensure the user still exists in the database and their account is active.
+  const dbUser = await dbRepo.getUserById(payload.userId);
+  if (!dbUser || !dbUser.isActive) {
+    return null;
+  }
+
+  return payload;
 }
 
 export async function loginAction(formData: FormData) {
@@ -256,23 +266,41 @@ export async function logoutAction() {
   redirect("/login");
 }
 
-export async function deleteAccountAction() {
+export async function deleteAccountAction(password: string) {
   const user = await getCurrentUser();
   if (!user) {
-    return { success: false, error: "No active session found." };
+    return { success: false, error: "No active session found. Please sign in." };
   }
 
-  await dbRepo.deleteUserComplete(user.userId);
+  if (!password || !password.trim()) {
+    return { success: false, error: "Password confirmation is required to delete your account." };
+  }
+
+  const dbUser = await dbRepo.getUserById(user.userId);
+  if (!dbUser) {
+    return { success: false, error: "User record not found." };
+  }
+
+  const isPasswordValid = verifyPassword(password, dbUser.passwordHash);
+  if (!isPasswordValid) {
+    return { success: false, error: "Incorrect password. Account deletion aborted." };
+  }
+
+  try {
+    const deleted = await dbRepo.deleteUserComplete(user.userId);
+    if (!deleted) {
+      return { success: false, error: "Failed to delete account. Account record not found." };
+    }
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message || "Failed to delete account.",
+    };
+  }
 
   const cookieStore = await cookies();
   cookieStore.delete(COOKIE_NAME);
 
-  revalidatePath("/");
-  revalidatePath("/doctors");
-  revalidatePath("/queue");
-  revalidatePath("/reports");
-  revalidatePath("/patient/dashboard");
-  revalidatePath("/doctor/dashboard");
-
+  revalidatePath("/", "layout");
   return { success: true, redirectPath: "/signup" };
 }

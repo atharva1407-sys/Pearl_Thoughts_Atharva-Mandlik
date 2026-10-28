@@ -145,6 +145,18 @@ async function runTests() {
   const doubleCompleteBlocked = true;
   assert(doubleCompleteBlocked === true, "Already completed appointment cannot be completed again");
 
+  // TEST 8: Doctor Account Deletion Guard (Active Bookings Protection)
+  console.log("\n--- 8. Doctor Account Deletion Guard ---");
+  let doctorDeletionBlocked = false;
+  try {
+    await dbRepo.deleteUserComplete(doctor.userId);
+  } catch (err: any) {
+    if (err.message.includes("active upcoming appointments")) {
+      doctorDeletionBlocked = true;
+    }
+  }
+  assert(doctorDeletionBlocked === true, "Doctor deletion is BLOCKED while active booked appointments exist");
+
   console.log(`\n========================================`);
   console.log(`Test Results: ${passed} passed, ${failed} failed`);
   console.log(`========================================\n`);

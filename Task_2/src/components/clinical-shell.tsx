@@ -45,20 +45,24 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
 
   const handleDeleteAccount = async () => {
     const roleLabel = user?.role === "DOCTOR" ? "Doctor" : "Patient";
-    const confirmed = window.confirm(
-      `⚠️ PERMANENT ACCOUNT DELETION\n\nAre you sure you want to permanently delete your ${roleLabel} account?\n\nAll personal information, active bookings, and associated clinical records will be completely removed from the database.\n\nYou will be logged out and redirected to the signup page.`
+    const password = window.prompt(
+      `⚠️ PERMANENT ACCOUNT DELETION\n\nAre you sure you want to permanently delete your ${roleLabel} account?\n\nAll personal information, active bookings, and associated clinical records will be permanently removed from the database.\n\nPlease enter your account password to confirm deletion:`
     );
-    if (!confirmed) return;
+    if (password === null) return;
+    if (!password.trim()) {
+      alert("Password is required to delete your account.");
+      return;
+    }
 
     try {
-      const res = await deleteAccountAction();
+      const res = await deleteAccountAction(password);
       if (res && res.success) {
         window.location.href = res.redirectPath || "/signup";
       } else {
         alert(res?.error || "Failed to delete account. Please try again.");
       }
-    } catch {
-      window.location.href = "/signup";
+    } catch (e: any) {
+      alert(e?.message || "Failed to delete account.");
     }
   };
 
