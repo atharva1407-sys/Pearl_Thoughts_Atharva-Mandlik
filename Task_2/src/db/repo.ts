@@ -1,4 +1,4 @@
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, gte } from "drizzle-orm";
 import crypto from "crypto";
 import { db, isPostgresConfigured, assertProductionDatabase } from "./index";
 import * as schema from "./schema";
@@ -71,6 +71,7 @@ class MedrellaRepository {
   private memDoctors: DoctorEntity[] = [];
   private memAvailabilities: AvailabilityEntity[] = [];
   private memAppointments: AppointmentEntity[] = [];
+  private memLoginAttempts: { id: string; email: string; attemptedAt: Date }[] = [];
 
   constructor() {
     if (!isPostgresConfigured() && process.env.ENABLE_SEED_DATA !== "false" && process.env.NODE_ENV !== "production") {
@@ -760,8 +761,64 @@ class MedrellaRepository {
     return true;
   }
 
+  public async recordFailedLogin(email: string): Promise<void> {
+    this.checkProductionDatabase();
+    const normalizedEmail = email.toLowerCase().trim();
+    const id = `att-${crypto.randomUUID()}`;
+    const now = new Date();
+
+    if (db) {
+      await db.insert(schema.loginAttempts).values({
+        id,
+        email: normalizedEmail,
+        attemptedAt: now,
+      });
+      return;
+    }
+
+    this.memLoginAttempts.push({ id, email: normalizedEmail, attemptedAt: now });
+  }
+
+  public async getRecentFailedLoginCount(email: string, windowMinutes: number = 15): Promise<number> {
+    this.checkProductionDatabase();
+    const normalizedEmail = email.toLowerCase().trim();
+    const cutoff = new Date(Date.now() - windowMinutes * 60 * 1000);
+
+    if (db) {
+      const rows = await db
+        .select()
+        .from(schema.loginAttempts)
+        .where(
+          and(
+            eq(schema.loginAttempts.email, normalizedEmail),
+            gte(schema.loginAttempts.attemptedAt, cutoff)
+          )
+        );
+      return rows.length;
+    }
+
+    return this.memLoginAttempts.filter(
+      (att) => att.email === normalizedEmail && att.attemptedAt >= cutoff
+    ).length;
+  }
+
+  public async clearFailedLogins(email: string): Promise<void> {
+    this.checkProductionDatabase();
+    const normalizedEmail = email.toLowerCase().trim();
+
+    if (db) {
+      await db
+        .delete(schema.loginAttempts)
+        .where(eq(schema.loginAttempts.email, normalizedEmail));
+      return;
+    }
+
+    this.memLoginAttempts = this.memLoginAttempts.filter((att) => att.email !== normalizedEmail);
+  }
+
   public async clearAll(): Promise<void> {
     if (db) {
+      await db.delete(schema.loginAttempts);
       await db.delete(schema.appointments);
       await db.delete(schema.availabilities);
       await db.delete(schema.patients);
@@ -774,6 +831,7 @@ class MedrellaRepository {
     this.memDoctors = [];
     this.memAvailabilities = [];
     this.memAppointments = [];
+    this.memLoginAttempts = [];
   }
 }
 

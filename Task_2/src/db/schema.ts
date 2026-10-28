@@ -76,8 +76,22 @@ export const appointments = pgTable(
   ]
 );
 
+export const loginAttempts = pgTable(
+  "login_attempts",
+  {
+    id: text("id").primaryKey(),
+    email: text("email").notNull(),
+    attemptedAt: timestamp("attempted_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("login_attempts_email_idx").on(table.email),
+    index("login_attempts_time_idx").on(table.attemptedAt),
+  ]
+);
+
 export type User = typeof users.$inferSelect;
 export type Patient = typeof patients.$inferSelect;
 export type Doctor = typeof doctors.$inferSelect;
 export type Availability = typeof availabilities.$inferSelect;
 export type Appointment = typeof appointments.$inferSelect;
+export type LoginAttempt = typeof loginAttempts.$inferSelect;

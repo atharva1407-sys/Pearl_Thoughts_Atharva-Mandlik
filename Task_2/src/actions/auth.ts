@@ -50,6 +50,16 @@ export async function getCurrentUser(): Promise<SessionPayload | null> {
   return payload;
 }
 
+function sanitizeRedirect(rawRedirect?: string | null): string | null {
+  if (!rawRedirect) return null;
+  const trimmed = rawRedirect.trim();
+  // Open-redirect protection: strictly reject backslashes and protocol-relative URLs
+  if (trimmed.includes("\\") || !trimmed.startsWith("/") || trimmed.startsWith("//")) {
+    return null;
+  }
+  return trimmed;
+}
+
 export async function loginAction(formData: FormData) {
   const email = (formData.get("email") as string)?.trim().toLowerCase();
   const password = formData.get("password") as string;
@@ -60,38 +70,50 @@ export async function loginAction(formData: FormData) {
     return { success: false, error: "Please enter your email and password." };
   }
 
+  // Rate Limiting Guard: Max 5 failed attempts per email in 15 minutes
+  const failedAttempts = await dbRepo.getRecentFailedLoginCount(email, 15);
+  if (failedAttempts >= 5) {
+    return {
+      success: false,
+      error: "Too many failed login attempts. Please wait 15 minutes before trying again.",
+    };
+  }
+
   const user = await dbRepo.getUserByEmail(email);
-  if (!user) {
-    return { success: false, error: "No Medrella account found with this email." };
+  if (!user || !user.isActive) {
+    await dbRepo.recordFailedLogin(email);
+    return { success: false, error: "Invalid email or password." };
   }
 
   let role: "PATIENT" | "DOCTOR" = user.role;
   if (rawRole === "PATIENT" || rawRole === "DOCTOR") {
     if (user.role !== rawRole) {
-      return {
-        success: false,
-        error: `This account is registered as a ${user.role.toLowerCase()}, not ${rawRole.toLowerCase()}.`,
-      };
+      await dbRepo.recordFailedLogin(email);
+      return { success: false, error: "Invalid email or password." };
     }
     role = rawRole;
   }
 
   const isPasswordValid = verifyPassword(password, user.passwordHash);
   if (!isPasswordValid) {
-    return { success: false, error: "Incorrect password. Please try again." };
+    await dbRepo.recordFailedLogin(email);
+    return { success: false, error: "Invalid email or password." };
   }
+
+  // Authentication succeeded: clear failed login counter
+  await dbRepo.clearFailedLogins(email);
 
   let profileId = "";
   let name = "";
 
   if (role === "PATIENT") {
     const patient = await dbRepo.getPatientByUserId(user.id);
-    if (!patient) return { success: false, error: "Patient profile not found." };
+    if (!patient) return { success: false, error: "Invalid email or password." };
     profileId = patient.id;
     name = `${patient.firstName} ${patient.lastName}`;
   } else {
     const doctor = await dbRepo.getDoctorByUserId(user.id);
-    if (!doctor) return { success: false, error: "Doctor profile not found." };
+    if (!doctor) return { success: false, error: "Invalid email or password." };
     profileId = doctor.id;
     name = `Dr. ${doctor.firstName} ${doctor.lastName}`;
   }
@@ -109,7 +131,7 @@ export async function loginAction(formData: FormData) {
   revalidatePath("/", "layout");
 
   // Determine safe redirect destination
-  const safeRedirect = rawRedirect && rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : null;
+  const safeRedirect = sanitizeRedirect(rawRedirect);
   const redirectPath = safeRedirect || (role === "PATIENT" ? "/patient/dashboard" : "/doctor/dashboard");
 
   return { success: true, redirectPath };
@@ -173,7 +195,7 @@ export async function registerPatientAction(formData: FormData) {
   revalidatePath("/", "layout");
 
   const rawRedirect = (formData.get("redirectTo") as string)?.trim();
-  const safeRedirect = rawRedirect && rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : null;
+  const safeRedirect = sanitizeRedirect(rawRedirect);
   const redirectPath = safeRedirect || "/patient/dashboard";
 
   return { success: true, redirectPath };
@@ -254,7 +276,7 @@ export async function registerDoctorAction(formData: FormData) {
   revalidatePath("/", "layout");
 
   const rawRedirect = (formData.get("redirectTo") as string)?.trim();
-  const safeRedirect = rawRedirect && rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : null;
+  const safeRedirect = sanitizeRedirect(rawRedirect);
   const redirectPath = safeRedirect || "/doctor/dashboard";
 
   return { success: true, redirectPath };
