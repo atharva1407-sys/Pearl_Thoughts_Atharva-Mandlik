@@ -11,10 +11,17 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Medrella Healthcare — Clinical Appointment System",
+  title: {
+    default: "Medrella Healthcare — Clinical Appointment System",
+    template: "%s | Medrella Healthcare",
+  },
   description: "Next.js outpatient hospital appointment scheduling application for Pearl Thoughts Task 2",
   icons: {
-    icon: "/images/medrella-logo.png",
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/icon.png" },
+      { url: "/images/medrella-logo.png" },
+    ],
     apple: "/images/medrella-logo.png",
   },
 };

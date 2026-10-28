@@ -1,7 +1,9 @@
+import Link from "next/link";
+
 export function Footer() {
   return (
     <footer className="max-w-5xl w-full mx-auto pt-8 mt-12 border-t border-zinc-800/80 flex flex-col sm:flex-row items-center justify-between text-xs text-zinc-500 gap-3">
-      <div className="flex items-center gap-2.5">
+      <div className="flex flex-wrap items-center gap-2.5">
         <span
           className="relative inline-flex shrink-0 items-center justify-center bg-[#0875df] font-semibold text-white shadow-xs"
           style={{
@@ -21,6 +23,14 @@ export function Footer() {
         </span>
         <span className="text-zinc-600">•</span>
         <span>Planned on a Schedula foundation • Pearl Thoughts Assessment</span>
+        <span className="text-zinc-600">•</span>
+        <Link href="/terms" className="text-zinc-400 hover:text-zinc-200 transition-colors underline">
+          Terms
+        </Link>
+        <span className="text-zinc-600">•</span>
+        <Link href="/privacy" className="text-zinc-400 hover:text-zinc-200 transition-colors underline">
+          Privacy
+        </Link>
       </div>
 
       <div className="flex items-center gap-2">
