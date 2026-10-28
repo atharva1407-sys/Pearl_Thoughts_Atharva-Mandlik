@@ -403,25 +403,23 @@ export default function AuthPage({ mode }: AuthPageProps) {
                 />
                 <span>
                   I agree to the{" "}
-                  <a
-                    href="#terms"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setNotice("Medrella Clinical Terms of Service: Patient data is protected under hospital clinical confidentiality standards.");
-                    }}
+                  <Link
+                    href="/terms"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-[#0875df]"
                   >
                     Terms of Service
-                  </a>{" "}
+                  </Link>{" "}
                   and{" "}
-                  <a
-                    href="#privacy"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setNotice("Medrella Privacy Policy: Hospital records are strictly confidential and encrypted.");
-                    }}
+                  <Link
+                    href="/privacy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-[#0875df]"
                   >
                     Privacy Policy
-                  </a>
+                  </Link>
                 </span>
               </label>
             )}
@@ -462,24 +460,12 @@ export default function AuthPage({ mode }: AuthPageProps) {
         <footer className="auth-footer">
           <span>© 2026 Medrella. All rights reserved.</span>
           <div>
-            <a
-              href="#privacy"
-              onClick={(e) => {
-                e.preventDefault();
-                setNotice("Ruby Hall clinical privacy guidelines active.");
-              }}
-            >
+            <Link href="/privacy" className="hover:underline">
               Privacy
-            </a>
-            <a
-              href="#terms"
-              onClick={(e) => {
-                e.preventDefault();
-                setNotice("Standard hospital outpatient terms apply.");
-              }}
-            >
+            </Link>
+            <Link href="/terms" className="hover:underline">
               Terms
-            </a>
+            </Link>
             <a href="mailto:support@medrella.com">Support</a>
           </div>
         </footer>
