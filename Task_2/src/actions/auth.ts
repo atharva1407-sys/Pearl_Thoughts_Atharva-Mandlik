@@ -1,0 +1,278 @@
+"use server";
+
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import crypto from "crypto";
+import { dbRepo } from "@/db/repo";
+import {
+  hashPassword,
+  verifyPassword,
+  createSessionToken,
+  verifySessionToken,
+  type SessionPayload,
+} from "@/lib/auth-crypto";
+import { registerPatientSchema, registerDoctorSchema } from "@/lib/validators";
+
+const COOKIE_NAME = "medrella_session";
+
+function getCookieConfig() {
+  const isProduction = process.env.NODE_ENV === "production";
+  const isVercel = Boolean(process.env.VERCEL || process.env.NEXT_PUBLIC_VERCEL_URL);
+  // Only enforce secure cookies if on Vercel/HTTPS to avoid dropping cookies over HTTP on localhost
+  const isSecure = isProduction && isVercel;
+  const cookieExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+  return {
+    httpOnly: true,
+    secure: isSecure,
+    sameSite: "lax" as const,
+    path: "/",
+    expires: cookieExpires,
+    maxAge: 60 * 60 * 24 * 7, // 7 days
+  };
+}
+
+export async function getCurrentUser(): Promise<SessionPayload | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(COOKIE_NAME)?.value;
+  if (!token) return null;
+  return verifySessionToken(token);
+}
+
+export async function loginAction(formData: FormData) {
+  const email = (formData.get("email") as string)?.trim().toLowerCase();
+  const password = formData.get("password") as string;
+  const rawRole = (formData.get("role") as string)?.trim().toUpperCase();
+  const rawRedirect = (formData.get("redirectTo") as string)?.trim();
+
+  if (!email || !password) {
+    return { success: false, error: "Please enter your email and password." };
+  }
+
+  const user = await dbRepo.getUserByEmail(email);
+  if (!user) {
+    return { success: false, error: "No Medrella account found with this email." };
+  }
+
+  let role: "PATIENT" | "DOCTOR" = user.role;
+  if (rawRole === "PATIENT" || rawRole === "DOCTOR") {
+    if (user.role !== rawRole) {
+      return {
+        success: false,
+        error: `This account is registered as a ${user.role.toLowerCase()}, not ${rawRole.toLowerCase()}.`,
+      };
+    }
+    role = rawRole;
+  }
+
+  const isPasswordValid = verifyPassword(password, user.passwordHash);
+  if (!isPasswordValid) {
+    return { success: false, error: "Incorrect password. Please try again." };
+  }
+
+  let profileId = "";
+  let name = "";
+
+  if (role === "PATIENT") {
+    const patient = await dbRepo.getPatientByUserId(user.id);
+    if (!patient) return { success: false, error: "Patient profile not found." };
+    profileId = patient.id;
+    name = `${patient.firstName} ${patient.lastName}`;
+  } else {
+    const doctor = await dbRepo.getDoctorByUserId(user.id);
+    if (!doctor) return { success: false, error: "Doctor profile not found." };
+    profileId = doctor.id;
+    name = `Dr. ${doctor.firstName} ${doctor.lastName}`;
+  }
+
+  const token = createSessionToken({
+    userId: user.id,
+    email: user.email,
+    role: user.role,
+    profileId,
+    name,
+  });
+
+  const cookieStore = await cookies();
+  cookieStore.set(COOKIE_NAME, token, getCookieConfig());
+  revalidatePath("/", "layout");
+
+  // Determine safe redirect destination
+  const safeRedirect = rawRedirect && rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : null;
+  const redirectPath = safeRedirect || (role === "PATIENT" ? "/patient/dashboard" : "/doctor/dashboard");
+
+  return { success: true, redirectPath };
+}
+
+export async function registerPatientAction(formData: FormData) {
+  const rawData = {
+    email: formData.get("email"),
+    password: formData.get("password"),
+    firstName: formData.get("firstName"),
+    lastName: formData.get("lastName"),
+    phone: formData.get("phone"),
+    dateOfBirth: formData.get("dateOfBirth") || undefined,
+    gender: formData.get("gender") || undefined,
+    address: formData.get("address") || undefined,
+  };
+
+  const parsed = registerPatientSchema.safeParse(rawData);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0].message };
+  }
+
+  const existing = await dbRepo.getUserByEmail(parsed.data.email);
+  if (existing) {
+    return { success: false, error: "An account with this email already exists." };
+  }
+
+  // 128-bit collision-proof cryptographically secure UUIDs
+  const userId = `usr_${crypto.randomUUID()}`;
+  const patientId = `pat_${crypto.randomUUID()}`;
+
+  await dbRepo.createUser({
+    id: userId,
+    email: parsed.data.email,
+    passwordHash: hashPassword(parsed.data.password),
+    role: "PATIENT",
+    isActive: true,
+  });
+
+  await dbRepo.createPatient({
+    id: patientId,
+    userId,
+    firstName: parsed.data.firstName,
+    lastName: parsed.data.lastName,
+    phone: parsed.data.phone,
+    dateOfBirth: parsed.data.dateOfBirth,
+    gender: parsed.data.gender,
+    address: parsed.data.address,
+  });
+
+  const token = createSessionToken({
+    userId,
+    email: parsed.data.email,
+    role: "PATIENT",
+    profileId: patientId,
+    name: `${parsed.data.firstName} ${parsed.data.lastName}`,
+  });
+
+  const cookieStore = await cookies();
+  cookieStore.set(COOKIE_NAME, token, getCookieConfig());
+  revalidatePath("/", "layout");
+
+  const rawRedirect = (formData.get("redirectTo") as string)?.trim();
+  const safeRedirect = rawRedirect && rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : null;
+  const redirectPath = safeRedirect || "/patient/dashboard";
+
+  return { success: true, redirectPath };
+}
+
+export async function registerDoctorAction(formData: FormData) {
+  const rawData = {
+    email: formData.get("email"),
+    password: formData.get("password"),
+    firstName: formData.get("firstName"),
+    lastName: formData.get("lastName"),
+    specialization: formData.get("specialization"),
+    phone: formData.get("phone"),
+    licenseNumber: formData.get("licenseNumber"),
+    experienceYears: formData.get("experienceYears"),
+    consultationFee: formData.get("consultationFee"),
+    bio: formData.get("bio") || undefined,
+  };
+
+  const parsed = registerDoctorSchema.safeParse(rawData);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0].message };
+  }
+
+  const existing = await dbRepo.getUserByEmail(parsed.data.email);
+  if (existing) {
+    return { success: false, error: "An account with this email already exists." };
+  }
+
+  // 128-bit collision-proof cryptographically secure UUIDs
+  const userId = `usr_${crypto.randomUUID()}`;
+  const doctorId = `doc_${crypto.randomUUID()}`;
+
+  await dbRepo.createUser({
+    id: userId,
+    email: parsed.data.email,
+    passwordHash: hashPassword(parsed.data.password),
+    role: "DOCTOR",
+    isActive: true,
+  });
+
+  await dbRepo.createDoctor({
+    id: doctorId,
+    userId,
+    firstName: parsed.data.firstName,
+    lastName: parsed.data.lastName,
+    specialization: parsed.data.specialization,
+    phone: parsed.data.phone,
+    licenseNumber: parsed.data.licenseNumber,
+    experienceYears: parsed.data.experienceYears,
+    consultationFee: parsed.data.consultationFee,
+    bio: parsed.data.bio,
+  });
+
+  // Default Mon-Fri shifts
+  const days: Array<"MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN"> = [
+    "MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"
+  ];
+  for (const day of days) {
+    await dbRepo.updateDoctorAvailability(doctorId, day, {
+      startTime: "09:00",
+      endTime: "17:00",
+      slotDurationMinutes: 30,
+      isActive: ["MON", "TUE", "WED", "THU", "FRI"].includes(day),
+    });
+  }
+
+  const token = createSessionToken({
+    userId,
+    email: parsed.data.email,
+    role: "DOCTOR",
+    profileId: doctorId,
+    name: `Dr. ${parsed.data.firstName} ${parsed.data.lastName}`,
+  });
+
+  const cookieStore = await cookies();
+  cookieStore.set(COOKIE_NAME, token, getCookieConfig());
+  revalidatePath("/", "layout");
+
+  const rawRedirect = (formData.get("redirectTo") as string)?.trim();
+  const safeRedirect = rawRedirect && rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : null;
+  const redirectPath = safeRedirect || "/doctor/dashboard";
+
+  return { success: true, redirectPath };
+}
+
+export async function logoutAction() {
+  const cookieStore = await cookies();
+  cookieStore.delete(COOKIE_NAME);
+  redirect("/login");
+}
+
+export async function deleteAccountAction() {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { success: false, error: "No active session found." };
+  }
+
+  await dbRepo.deleteUserComplete(user.userId);
+
+  const cookieStore = await cookies();
+  cookieStore.delete(COOKIE_NAME);
+
+  revalidatePath("/");
+  revalidatePath("/doctors");
+  revalidatePath("/queue");
+  revalidatePath("/reports");
+  revalidatePath("/patient/dashboard");
+  revalidatePath("/doctor/dashboard");
+
+  return { success: true, redirectPath: "/signup" };
+}
