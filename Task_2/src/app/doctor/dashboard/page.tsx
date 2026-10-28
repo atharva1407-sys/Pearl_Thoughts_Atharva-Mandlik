@@ -51,9 +51,9 @@ export default async function DoctorDashboard() {
             <CalendarClock size={15} />
             <span>Manage Shifts</span>
           </Link>
-          <Link href="/encounters" className="btn">
-            <Stethoscope size={15} />
-            <span>Open Charting</span>
+          <Link href="/queue" className="btn">
+            <Clock3 size={15} />
+            <span>Live Queue</span>
           </Link>
         </div>
       </div>
