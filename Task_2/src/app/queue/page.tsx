@@ -7,12 +7,9 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 import {
   Clock3,
-  AlertCircle,
   ArrowRight,
-  Filter,
   CheckCircle,
   Stethoscope,
-  HeartPulse,
   Plus
 } from "lucide-react";
 
@@ -22,27 +19,27 @@ export default async function QueuePage() {
     redirect("/login?message=Only authorized medical staff can access the outpatient triage queue.");
   }
 
-  const [allAppointments, allPatients, allDoctors] = await Promise.all([
-    dbRepo.getAllAppointments(),
-    dbRepo.getAllPatients(),
-    dbRepo.getAllDoctors(),
+  // Doctor Data Scoping: load strictly the logged-in doctor's appointments and associated patients
+  const [doctor, doctorAppointments] = await Promise.all([
+    dbRepo.getDoctorById(user.profileId),
+    dbRepo.getAppointmentsByDoctorId(user.profileId),
   ]);
 
-  const patientMap = new Map(allPatients.map((p) => [p.id, p]));
-  const doctorMap = new Map(allDoctors.map((d) => [d.id, d]));
+  const queueAppointments = doctorAppointments.filter((a) => a.status === "BOOKED");
+  const patientIds = Array.from(new Set(queueAppointments.map((a) => a.patientId)));
+  const patients = await Promise.all(patientIds.map((id) => dbRepo.getPatientById(id)));
+  const patientMap = new Map(patients.filter(Boolean).map((p) => [p!.id, p!]));
 
-  const queueAppointments = allAppointments.filter((a) => a.status === "BOOKED");
   const nextPatient = queueAppointments[0];
   const nextPatientDetails = nextPatient ? patientMap.get(nextPatient.patientId) : null;
-  const nextDoctorDetails = nextPatient ? doctorMap.get(nextPatient.doctorId) : null;
 
   return (
     <div className="space-y-6">
       {/* Queue Toolbar */}
       <div className="queue-toolbar">
         <div>
-          <h2>Queue at Ruby Hall, Pune</h2>
-          <p>Live token session, sorted by appointment time and arrival priority</p>
+          <h2>Dr. {doctor ? `${doctor.firstName} ${doctor.lastName}` : "Physician"}&apos;s Queue</h2>
+          <p>Live outpatient consultations for {doctor?.specialization || "Clinical"} Department · Ruby Hall, Pune</p>
         </div>
         <span className="badge green">
           <span className="live-dot" /> {queueAppointments.length} waiting · Live
@@ -53,7 +50,7 @@ export default async function QueuePage() {
         {/* Left Side: Active Queue List */}
         <div className="card">
           <div className="card-head">
-            <h2>Patients in queue</h2>
+            <h2>My waiting patients</h2>
             <Link href="/doctors" className="btn text-xs">
               <Plus size={14} /> Add Booking
             </Link>
@@ -62,19 +59,18 @@ export default async function QueuePage() {
           {queueAppointments.length === 0 ? (
             <div className="py-12 text-center text-xs text-slate-400 space-y-2">
               <Clock3 size={24} className="mx-auto text-slate-300" />
-              <div>The outpatient queue is currently clear. No patients waiting.</div>
+              <div>Your outpatient consultation queue is currently clear. No patients waiting.</div>
               <Link
-                href="/doctors"
+                href="/doctor/dashboard"
                 className="inline-flex items-center gap-1 text-xs text-blue-600 font-bold hover:underline"
               >
-                + Book an appointment slot
+                Go to Doctor Agenda
               </Link>
             </div>
           ) : (
             <div className="space-y-1">
               {queueAppointments.map((apt, index) => {
                 const patient = patientMap.get(apt.patientId);
-                const doctor = doctorMap.get(apt.doctorId);
 
                 return (
                   <div key={apt.id} className="patient-row">
@@ -87,9 +83,8 @@ export default async function QueuePage() {
                         {patient ? `${patient.firstName} ${patient.lastName}` : "Patient"}
                       </strong>
                       <small>
-                        Doctor: Dr. {doctor?.firstName} {doctor?.lastName} ({doctor?.specialization})
+                        Contact: {patient?.phone || "On File"} · Reason: {apt.reason}
                       </small>
-                      <span>{apt.reason}</span>
 
                       <div className="chips">
                         <span className="badge sky">Scheduled</span>
@@ -98,11 +93,11 @@ export default async function QueuePage() {
                     </div>
 
                     <div className="patient-end">
-                      <small className="font-mono text-xs">{apt.startTime}</small>
+                      <small className="font-mono text-xs">{apt.startTime} – {apt.endTime}</small>
                       <Link
-                        href="/encounters"
+                        href="/doctor/dashboard"
                         className="icon-btn"
-                        title="Open Encounter"
+                        title="Manage in Doctor Agenda"
                       >
                         <ArrowRight size={16} />
                       </Link>
@@ -140,9 +135,9 @@ export default async function QueuePage() {
               </div>
 
               <div className="info-line">
-                <span>Doctor:</span>
+                <span>Attending Physician:</span>
                 <b>
-                  Dr. {nextDoctorDetails?.firstName} {nextDoctorDetails?.lastName}
+                  Dr. {doctor?.firstName} {doctor?.lastName}
                 </b>
               </div>
 
@@ -157,9 +152,9 @@ export default async function QueuePage() {
               </div>
 
               <div className="pt-2 space-y-2">
-                <Link href="/encounters" className="btn primary w-full justify-center">
+                <Link href="/doctor/dashboard" className="btn primary w-full justify-center">
                   <Stethoscope size={15} />
-                  <span>Open Consultation Workspace</span>
+                  <span>Open Doctor Agenda to Complete</span>
                   <ArrowRight size={15} />
                 </Link>
               </div>
@@ -168,8 +163,8 @@ export default async function QueuePage() {
             <div className="py-6 text-center text-xs text-slate-400 space-y-2">
               <CheckCircle size={22} className="mx-auto text-emerald-500" />
               <div>All scheduled patient consultations have been completed.</div>
-              <Link href="/doctors" className="btn primary text-xs justify-center w-full mt-2">
-                <span>Schedule New Patient</span>
+              <Link href="/doctor/dashboard" className="btn primary text-xs justify-center w-full mt-2">
+                <span>View Full Agenda</span>
               </Link>
             </div>
           )}

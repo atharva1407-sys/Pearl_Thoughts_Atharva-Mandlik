@@ -74,11 +74,8 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
   const getBreadcrumb = () => {
     if (pathname === "/") return "Dashboard";
     if (pathname.startsWith("/queue")) return "Live Token Queue";
-    if (pathname.startsWith("/reception")) return "Reception Desk";
     if (pathname === "/doctors") return "Specialists Directory";
     if (pathname.startsWith("/doctors/")) return "Book Consultation";
-    if (pathname.startsWith("/schedule")) return "Weekly Calendar Schedule";
-    if (pathname.startsWith("/encounters")) return "Doctor Encounters & Vitals";
     if (pathname.startsWith("/reports")) return "Visit Reports & Analytics";
     if (pathname.startsWith("/patient/dashboard")) return "Patient Portal";
     if (pathname.startsWith("/doctor/dashboard")) return "Doctor Agenda";
@@ -220,33 +217,6 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
               >
                 <Clock3 size={17} />
                 <span>Live Queue</span>
-              </Link>
-
-              <Link
-                href="/reception"
-                onClick={() => setSidebarOpen(false)}
-                className={`nav-item ${pathname.startsWith("/reception") ? "active" : ""}`}
-              >
-                <Users size={17} />
-                <span>Reception Desk</span>
-              </Link>
-
-              <Link
-                href="/schedule"
-                onClick={() => setSidebarOpen(false)}
-                className={`nav-item ${pathname.startsWith("/schedule") ? "active" : ""}`}
-              >
-                <CalendarDays size={17} />
-                <span>Schedule Matrix</span>
-              </Link>
-
-              <Link
-                href="/encounters"
-                onClick={() => setSidebarOpen(false)}
-                className={`nav-item ${pathname.startsWith("/encounters") ? "active" : ""}`}
-              >
-                <HeartPulse size={17} />
-                <span>Encounters &amp; Vitals</span>
               </Link>
 
               <Link
