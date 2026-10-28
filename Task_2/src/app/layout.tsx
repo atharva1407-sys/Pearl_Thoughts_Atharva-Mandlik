@@ -17,11 +17,7 @@ export const metadata: Metadata = {
   },
   description: "Next.js outpatient hospital appointment scheduling application for Pearl Thoughts Task 2",
   icons: {
-    icon: [
-      { url: "/favicon.ico" },
-      { url: "/icon.png" },
-      { url: "/images/medrella-logo.png" },
-    ],
+    icon: "/favicon.ico",
     apple: "/images/medrella-logo.png",
   },
 };

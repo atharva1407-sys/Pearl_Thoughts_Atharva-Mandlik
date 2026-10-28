@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentUser } from "@/actions/auth";
-import { cancelAppointmentAction } from "@/actions/appointments";
+import { PatientAppointmentActions } from "./patient-appointment-actions";
 import { dbRepo } from "@/db/repo";
 import { formatDate } from "@/lib/utils";
 
@@ -32,10 +32,8 @@ export default async function PatientDashboard() {
     }
   }
 
-  const [patient, appointments] = await Promise.all([
-    dbRepo.getPatientById(patientId),
-    patientId ? dbRepo.getAppointmentsByPatientId(patientId) : Promise.resolve([]),
-  ]);
+  const patient = patientId ? await dbRepo.getPatientById(patientId) : undefined;
+  const appointments = patientId ? await dbRepo.getAppointmentsByPatientId(patientId) : [];
 
   const upcoming = appointments.filter((a) => a.status === "BOOKED");
   const past = appointments.filter((a) => a.status !== "BOOKED");
@@ -134,6 +132,7 @@ export default async function PatientDashboard() {
             <table>
               <thead>
                 <tr>
+                  <th>Token #</th>
                   <th>Date & Time</th>
                   <th>Consulting Specialist</th>
                   <th>Specialty</th>
@@ -147,8 +146,25 @@ export default async function PatientDashboard() {
                 {upcoming.map((apt) => (
                   <tr key={apt.id}>
                     <td>
-                      <b className="text-slate-800">{formatDate(apt.appointmentDate)}</b>
-                      <small className="font-mono text-blue-600">{apt.startTime} – {apt.endTime}</small>
+                      <span className="token w-8 h-8 text-xs font-black bg-blue-100 text-blue-800 rounded-lg flex items-center justify-center">
+                        #{apt.tokenNumber}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-1.5">
+                        <b className="text-slate-800">{formatDate(apt.appointmentDate)}</b>
+                        {apt.rescheduledAt && (
+                          <span className="text-[10px] bg-purple-100 text-purple-800 font-semibold px-1.5 py-0.5 rounded">
+                            Rescheduled
+                          </span>
+                        )}
+                      </div>
+                      <small className="font-mono text-blue-600 block">{apt.startTime} – {apt.endTime}</small>
+                      {apt.originalAppointmentDate && (
+                        <small className="text-[10px] text-slate-400 block">
+                          was {apt.originalAppointmentDate} {apt.originalStartTime}
+                        </small>
+                      )}
                     </td>
                     <td>
                       <b>Dr. {apt.doctor.firstName} {apt.doctor.lastName}</b>
@@ -163,19 +179,13 @@ export default async function PatientDashboard() {
                       <span className="badge green">Confirmed</span>
                     </td>
                     <td>
-                      <form
-                        action={async () => {
-                          "use server";
-                          await cancelAppointmentAction(apt.id);
-                        }}
-                      >
-                        <button
-                          type="submit"
-                          className="px-2.5 py-1 text-xs text-red-600 border border-red-200 hover:bg-red-50 rounded-md transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </form>
+                      <PatientAppointmentActions
+                        appointmentId={apt.id}
+                        doctorId={apt.doctorId}
+                        doctorName={`${apt.doctor.firstName} ${apt.doctor.lastName}`}
+                        appointmentDate={apt.appointmentDate}
+                        startTime={apt.startTime}
+                      />
                     </td>
                   </tr>
                 ))}

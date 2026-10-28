@@ -45,3 +45,22 @@ export const availabilitySchema = z.object({
   slotDurationMinutes: z.coerce.number().min(15).max(120),
   isActive: z.boolean(),
 });
+
+export const sessionSchema = z.object({
+  name: z.string().min(2, "Session name must be at least 2 characters"),
+  dayOfWeek: z.enum(["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid start time (HH:MM)"),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid end time (HH:MM)"),
+  slotDurationMinutes: z.coerce.number().min(10).max(120).default(30),
+  isActive: z.boolean().default(true),
+  schedulingType: z.enum(["STREAM", "WAVE"]).default("STREAM"),
+  patientsPerWave: z.coerce.number().min(1).max(20).default(1),
+});
+
+export const rescheduleSchema = z.object({
+  appointmentId: z.string().min(1, "Appointment ID is required"),
+  newDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)"),
+  newStartTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid start time (HH:MM)"),
+  newEndTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid end time (HH:MM)"),
+  newSessionId: z.string().optional(),
+});

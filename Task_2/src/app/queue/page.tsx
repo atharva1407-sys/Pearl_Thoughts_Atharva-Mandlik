@@ -26,12 +26,7 @@ export default async function QueuePage() {
   ]);
 
   const queueAppointments = doctorAppointments.filter((a) => a.status === "BOOKED");
-  const patientIds = Array.from(new Set(queueAppointments.map((a) => a.patientId)));
-  const patients = await Promise.all(patientIds.map((id) => dbRepo.getPatientById(id)));
-  const patientMap = new Map(patients.filter(Boolean).map((p) => [p!.id, p!]));
-
   const nextPatient = queueAppointments[0];
-  const nextPatientDetails = nextPatient ? patientMap.get(nextPatient.patientId) : null;
 
   return (
     <div className="space-y-6">
@@ -69,13 +64,14 @@ export default async function QueuePage() {
             </div>
           ) : (
             <div className="space-y-1">
-              {queueAppointments.map((apt, index) => {
-                const patient = patientMap.get(apt.patientId);
+              {queueAppointments.map((apt) => {
+                const patient = apt.patient;
 
                 return (
                   <div key={apt.id} className="patient-row">
-                    <div className="token bg-blue-50 text-blue-800 font-bold">
-                      #{index + 1}
+                    <div className="token bg-blue-50 text-blue-800 font-bold flex flex-col items-center justify-center">
+                      <span className="text-xs font-black">#{apt.tokenNumber}</span>
+                      <span className="text-[9px] text-slate-400 font-normal">Token</span>
                     </div>
 
                     <div className="patient-main">
@@ -89,6 +85,10 @@ export default async function QueuePage() {
                       <div className="chips">
                         <span className="badge sky">Scheduled</span>
                         <span className="badge gray">Date: {apt.appointmentDate}</span>
+                        {apt.rescheduledAt && (
+                          <span className="badge purple">Rescheduled</span>
+                        )}
+                        <span className="badge amber">Est. wait: ~{(apt.tokenNumber - 1) * 20}m</span>
                       </div>
                     </div>
 
@@ -115,8 +115,8 @@ export default async function QueuePage() {
             <div>
               <p className="text-xs text-slate-400">Next patient in line</p>
               <h2>
-                {nextPatientDetails
-                  ? `${nextPatientDetails.firstName} ${nextPatientDetails.lastName}`
+                {nextPatient
+                  ? `${nextPatient.patient.firstName} ${nextPatient.patient.lastName}`
                   : "Queue Clear"}
               </h2>
             </div>
