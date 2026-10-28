@@ -51,7 +51,7 @@ async function main() {
         phone: doc.phone,
         licenseNumber: doc.licenseNumber,
         experienceYears: doc.experienceYears,
-        consultationFee: doc.consultationFee.toString(),
+        consultationFee: doc.consultationFee,
         bio: doc.bio,
       })
       .onConflictDoUpdate({
@@ -60,7 +60,7 @@ async function main() {
           firstName: doc.firstName,
           lastName: doc.lastName,
           specialization: doc.specialization,
-          consultationFee: doc.consultationFee.toString(),
+          consultationFee: doc.consultationFee,
         },
       });
 
@@ -71,11 +71,14 @@ async function main() {
         .values({
           id: `avail-${doc.id}-${day}`,
           doctorId: doc.id,
+          name: "Morning OPD",
           dayOfWeek: day,
           startTime: doc.start,
           endTime: doc.end,
           slotDurationMinutes: doc.duration,
           isActive: true,
+          schedulingType: "STREAM",
+          patientsPerWave: 1,
         })
         .onConflictDoUpdate({
           target: [schema.availabilities.doctorId, schema.availabilities.dayOfWeek],

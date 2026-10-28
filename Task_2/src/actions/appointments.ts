@@ -32,68 +32,89 @@ export async function bookAppointmentAction(formData: FormData) {
     return { success: false, error: "Cannot schedule appointments for past dates." };
   }
 
+  // Booking Rule: Maximum 30 days ahead
+  const maxBookingDate = new Date();
+  maxBookingDate.setDate(maxBookingDate.getDate() + 30);
+  const maxDateStr = `${maxBookingDate.getFullYear()}-${String(maxBookingDate.getMonth() + 1).padStart(2, "0")}-${String(maxBookingDate.getDate()).padStart(2, "0")}`;
+  if (parsed.data.appointmentDate > maxDateStr) {
+    return { success: false, error: "Appointments can only be scheduled up to 30 days in advance." };
+  }
+
   // 2. Server-side validation: Doctor must exist
   const doctor = await dbRepo.getDoctorById(parsed.data.doctorId);
   if (!doctor) {
     return { success: false, error: "The selected doctor could not be found." };
   }
 
-  // 3. Server-side validation: Verify day of week and active shift
+  // 3. Doctor leave check
+  const onLeave = await dbRepo.isDoctorOnLeave(doctor.id, parsed.data.appointmentDate);
+  if (onLeave) {
+    return { success: false, error: `Dr. ${doctor.lastName} is on clinical leave on this date.` };
+  }
+
+  // 4. Server-side validation: Verify day of week and match active session
   const aptDate = new Date(parsed.data.appointmentDate + "T00:00:00");
   const dayMap: Array<"SUN" | "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT"> = [
     "SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"
   ];
   const targetDay = dayMap[aptDate.getDay()];
 
-  const availabilities = await dbRepo.getAvailabilitiesByDoctorId(doctor.id);
-  const shift = availabilities.find((a) => a.dayOfWeek === targetDay && a.isActive);
-  if (!shift) {
+  const allSessions = await dbRepo.getAvailabilitiesByDoctorId(doctor.id);
+  const daySessions = allSessions.filter((a) => a.dayOfWeek === targetDay && a.isActive);
+  if (daySessions.length === 0) {
     return {
       success: false,
       error: `Dr. ${doctor.lastName} is not scheduled for outpatient consultations on ${targetDay}.`,
     };
   }
 
-  // 4. Server-side recomputation: Parse times, verify slot alignment, and calculate endTime
+  // Parse slot start time
   const [startH, startM] = parsed.data.startTime.split(":").map(Number);
   if (isNaN(startH) || isNaN(startM) || startH < 0 || startH > 23 || startM < 0 || startM > 59) {
     return { success: false, error: "Invalid appointment slot time format." };
   }
   const startMinutes = startH * 60 + startM;
 
-  const [shiftStartH, shiftStartM] = shift.startTime.split(":").map(Number);
-  const [shiftEndH, shiftEndM] = shift.endTime.split(":").map(Number);
-  const shiftStartMinutes = shiftStartH * 60 + shiftStartM;
-  const shiftEndMinutes = shiftEndH * 60 + shiftEndM;
+  // Match slot to the specific session on this day
+  const matchedSession = daySessions.find((s) => {
+    const [sH, sM] = s.startTime.split(":").map(Number);
+    const [eH, eM] = s.endTime.split(":").map(Number);
+    return startMinutes >= sH * 60 + sM && startMinutes < eH * 60 + eM;
+  });
 
-  if (startMinutes < shiftStartMinutes || startMinutes >= shiftEndMinutes) {
+  if (!matchedSession) {
     return {
       success: false,
-      error: "Requested time slot is outside of the physician's active consultation hours.",
+      error: "Requested time slot is outside of the physician's active consultation sessions.",
     };
   }
 
-  if ((startMinutes - shiftStartMinutes) % shift.slotDurationMinutes !== 0) {
+  const [shiftStartH, shiftStartM] = matchedSession.startTime.split(":").map(Number);
+  const [shiftEndH, shiftEndM] = matchedSession.endTime.split(":").map(Number);
+  const shiftStartMinutes = shiftStartH * 60 + shiftStartM;
+  const shiftEndMinutes = shiftEndH * 60 + shiftEndM;
+
+  if ((startMinutes - shiftStartMinutes) % matchedSession.slotDurationMinutes !== 0) {
     return {
       success: false,
       error: "Requested time slot does not align with the doctor's consultation intervals.",
     };
   }
 
-  // Prevent booking a slot that has already passed earlier today
+  // Prevent booking a slot in the past or within 15 minutes today
   if (parsed.data.appointmentDate === todayStr) {
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    if (startMinutes <= currentMinutes) {
-      return { success: false, error: "Cannot book a time slot that has already passed today." };
+    if (startMinutes <= currentMinutes + 15) {
+      return { success: false, error: "Cannot book a time slot in the past or starting in less than 15 minutes." };
     }
   }
 
-  // Strictly recompute serverEndTime (do not trust client-supplied endTime)
-  const calculatedEndMinutes = startMinutes + shift.slotDurationMinutes;
+  // Strictly recompute serverEndTime
+  const calculatedEndMinutes = startMinutes + matchedSession.slotDurationMinutes;
   if (calculatedEndMinutes > shiftEndMinutes) {
     return {
       success: false,
-      error: "Appointment slot exceeds the doctor's shift closing time.",
+      error: "Appointment slot exceeds the doctor's session closing time.",
     };
   }
   const endH = Math.floor(calculatedEndMinutes / 60).toString().padStart(2, "0");
@@ -104,14 +125,14 @@ export async function bookAppointmentAction(formData: FormData) {
   if (user.role === "DOCTOR") {
     let patient = await dbRepo.getPatientByUserId(user.userId);
     if (!patient) {
-      const doctor = await dbRepo.getDoctorById(user.profileId);
+      const doc = await dbRepo.getDoctorById(user.profileId);
       const newPatientId = `pat_${crypto.randomUUID()}`;
       patient = await dbRepo.createPatient({
         id: newPatientId,
         userId: user.userId,
-        firstName: doctor?.firstName || "Dr.",
-        lastName: doctor?.lastName || "Staff",
-        phone: doctor?.phone || "+91 20 6645 5000",
+        firstName: doc?.firstName || "Dr.",
+        lastName: doc?.lastName || "Staff",
+        phone: doc?.phone || "+91 20 6645 5000",
       });
     }
     patientId = patient.id;
@@ -120,6 +141,7 @@ export async function bookAppointmentAction(formData: FormData) {
   const result = await dbRepo.createAppointment({
     patientId,
     doctorId: parsed.data.doctorId,
+    sessionId: matchedSession.id,
     appointmentDate: parsed.data.appointmentDate,
     startTime: parsed.data.startTime,
     endTime: serverEndTime,
@@ -135,7 +157,55 @@ export async function bookAppointmentAction(formData: FormData) {
   revalidatePath("/doctor/dashboard");
   revalidatePath(`/doctors/${parsed.data.doctorId}`);
 
-  return { success: true, message: result.message, appointmentId: result.appointment?.id };
+  return {
+    success: true,
+    message: result.message,
+    appointmentId: result.appointment?.id,
+    tokenNumber: result.appointment?.tokenNumber,
+  };
+}
+
+export async function rescheduleAppointmentAction(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { success: false, error: "Unauthorized. Please sign in." };
+  }
+
+  const appointmentId = formData.get("appointmentId") as string;
+  const newDate = formData.get("newDate") as string;
+  const newStartTime = formData.get("newStartTime") as string;
+  const newEndTime = formData.get("newEndTime") as string;
+  const newSessionId = (formData.get("newSessionId") as string) || undefined;
+
+  if (!appointmentId || !newDate || !newStartTime || !newEndTime) {
+    return { success: false, error: "Missing required reschedule details." };
+  }
+
+  const result = await dbRepo.rescheduleAppointment({
+    appointmentId,
+    newDate,
+    newStartTime,
+    newEndTime,
+    newSessionId,
+    actorUserId: user.userId,
+    actorRole: user.role,
+  });
+
+  if (!result.success) {
+    return { success: false, error: result.message };
+  }
+
+  revalidatePath("/", "layout");
+  revalidatePath("/patient/dashboard");
+  revalidatePath("/doctor/dashboard");
+  revalidatePath("/queue");
+  revalidatePath("/reports");
+
+  return {
+    success: true,
+    message: result.message,
+    appointment: result.appointment,
+  };
 }
 
 export async function cancelAppointmentAction(appointmentId: string) {
@@ -144,7 +214,6 @@ export async function cancelAppointmentAction(appointmentId: string) {
     return { success: false, error: "Unauthorized. Please sign in." };
   }
 
-  // Security & Authorization: Verify appointment existence and ownership
   const appointment = await dbRepo.getAppointmentById(appointmentId);
   if (!appointment) {
     return { success: false, error: "Appointment not found." };
@@ -174,7 +243,7 @@ export async function cancelAppointmentAction(appointmentId: string) {
     };
   }
 
-  // Clinical Rule: Cancellations are permitted up to 1 hour prior to appointment start time
+  // Clinical Rule: Patient cancellations permitted up to 1 hour prior to appointment start time
   if (user.role === "PATIENT") {
     const [year, month, day] = appointment.appointmentDate.split("-").map(Number);
     const [hours, minutes] = appointment.startTime.split(":").map(Number);
@@ -198,6 +267,8 @@ export async function cancelAppointmentAction(appointmentId: string) {
 
   revalidatePath("/patient/dashboard");
   revalidatePath("/doctor/dashboard");
+  revalidatePath("/queue");
+  revalidatePath("/reports");
   return { success: true, message: "Appointment cancelled successfully." };
 }
 
@@ -207,7 +278,6 @@ export async function completeAppointmentAction(appointmentId: string) {
     return { success: false, error: "Unauthorized: Only doctors can complete appointments." };
   }
 
-  // Security & Authorization: Verify physician ownership of this appointment
   const appointment = await dbRepo.getAppointmentById(appointmentId);
   if (!appointment) {
     return { success: false, error: "Appointment not found." };
@@ -244,4 +314,41 @@ export async function completeAppointmentAction(appointmentId: string) {
   revalidatePath("/queue");
   revalidatePath("/reports");
   return { success: true, message: "Appointment marked as completed." };
+}
+
+export async function markNoShowAction(appointmentId: string) {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "DOCTOR") {
+    return { success: false, error: "Unauthorized: Only doctors can mark appointments as No-Show." };
+  }
+
+  const appointment = await dbRepo.getAppointmentById(appointmentId);
+  if (!appointment) {
+    return { success: false, error: "Appointment not found." };
+  }
+
+  if (appointment.doctorId !== user.profileId) {
+    return {
+      success: false,
+      error: "Forbidden: You can only update appointments assigned to your own schedule.",
+    };
+  }
+
+  if (appointment.status !== "BOOKED") {
+    return {
+      success: false,
+      error: `Cannot mark as No-Show. Current status is ${appointment.status}.`,
+    };
+  }
+
+  const success = await dbRepo.updateAppointmentStatus(appointmentId, "NO_SHOW");
+  if (!success) {
+    return { success: false, error: "Failed to update appointment status." };
+  }
+
+  revalidatePath("/doctor/dashboard");
+  revalidatePath("/patient/dashboard");
+  revalidatePath("/queue");
+  revalidatePath("/reports");
+  return { success: true, message: "Appointment marked as No-Show." };
 }

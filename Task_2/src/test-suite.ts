@@ -205,6 +205,159 @@ async function runTests() {
   });
   assert(shortRegResult.success === false, "Registration with <8 char password rejected");
 
+  // TEST 12: Doctor Sessions & Non-overlapping constraint
+  console.log("\n--- 12. Doctor Multiple Sessions & Non-overlapping Guard ---");
+  const morningSession = await dbRepo.createAvailabilitySession({
+    doctorId: doctor.id,
+    name: "Morning OPD",
+    dayOfWeek: "THU",
+    startTime: "09:00",
+    endTime: "13:00",
+    slotDurationMinutes: 30,
+    isActive: true,
+    schedulingType: "STREAM",
+    patientsPerWave: 1,
+  });
+  assert(morningSession.name === "Morning OPD", "Created Morning OPD session on Thursday");
+
+  const eveningSession = await dbRepo.createAvailabilitySession({
+    doctorId: doctor.id,
+    name: "Evening OPD",
+    dayOfWeek: "THU",
+    startTime: "17:00",
+    endTime: "20:00",
+    slotDurationMinutes: 30,
+    isActive: true,
+    schedulingType: "WAVE",
+    patientsPerWave: 3,
+  });
+  assert(eveningSession.name === "Evening OPD" && eveningSession.schedulingType === "WAVE", "Created Evening OPD wave session on Thursday");
+
+  let overlapBlocked = false;
+  try {
+    await dbRepo.createAvailabilitySession({
+      doctorId: doctor.id,
+      name: "Overlapping OPD",
+      dayOfWeek: "THU",
+      startTime: "12:00",
+      endTime: "14:00", // Overlaps with 09:00-13:00
+      slotDurationMinutes: 30,
+      isActive: true,
+      schedulingType: "STREAM",
+      patientsPerWave: 1,
+    });
+  } catch (err: any) {
+    if (err.message.includes("overlaps with existing session")) {
+      overlapBlocked = true;
+    }
+  }
+  assert(overlapBlocked === true, "Overlapping session on Thursday (12:00-14:00 vs 09:00-13:00) is strictly BLOCKED");
+
+  // TEST 13: Wave Scheduling Capacity & Token Numbers
+  console.log("\n--- 13. Wave Scheduling Capacity & Token Number Persistence ---");
+  const waveDate = "2026-11-19"; // A Thursday
+  const waveTime = "17:00";
+  const waveEndTime = "17:30";
+
+  // Evening OPD has capacity 3 per wave slot
+  const wavePat1 = await dbRepo.createAppointment({
+    doctorId: doctor.id,
+    patientId: "pat-wave-1",
+    appointmentDate: waveDate,
+    startTime: waveTime,
+    endTime: waveEndTime,
+    sessionId: eveningSession.id,
+    reason: "Wave seat 1",
+  });
+  assert(wavePat1.success === true && wavePat1.appointment?.tokenNumber === 1, "Patient 1 booked wave seat (Token #1 assigned)");
+
+  const wavePat2 = await dbRepo.createAppointment({
+    doctorId: doctor.id,
+    patientId: "pat-wave-2",
+    appointmentDate: waveDate,
+    startTime: waveTime,
+    endTime: waveEndTime,
+    sessionId: eveningSession.id,
+    reason: "Wave seat 2",
+  });
+  assert(wavePat2.success === true && wavePat2.appointment?.tokenNumber === 2, "Patient 2 booked wave seat (Token #2 assigned, capacity 2/3)");
+
+  const wavePat3 = await dbRepo.createAppointment({
+    doctorId: doctor.id,
+    patientId: "pat-wave-3",
+    appointmentDate: waveDate,
+    startTime: waveTime,
+    endTime: waveEndTime,
+    sessionId: eveningSession.id,
+    reason: "Wave seat 3",
+  });
+  assert(wavePat3.success === true && wavePat3.appointment?.tokenNumber === 3, "Patient 3 booked wave seat (Token #3 assigned, capacity 3/3 full)");
+
+  const wavePat4 = await dbRepo.createAppointment({
+    doctorId: doctor.id,
+    patientId: "pat-wave-4",
+    appointmentDate: waveDate,
+    startTime: waveTime,
+    endTime: waveEndTime,
+    sessionId: eveningSession.id,
+    reason: "Wave seat 4 over capacity",
+  });
+  assert(wavePat4.success === false, "Patient 4 booking 4th seat is BLOCKED (wave capacity strictly enforced)");
+
+  // TEST 14: Rescheduling Workflow (Atomic Slot Move & 1-hour Cutoff)
+  console.log("\n--- 14. Rescheduling Workflow ---");
+  const apptToReschedule = wavePat1.appointment!;
+  
+  // Reschedule to 17:30
+  const rescheduleResult = await dbRepo.rescheduleAppointment({
+    appointmentId: apptToReschedule.id,
+    newDate: waveDate,
+    newStartTime: "17:30",
+    newEndTime: "18:00",
+    newSessionId: eveningSession.id,
+    actorUserId: user1.id,
+    actorRole: "DOCTOR", // Doctor can reschedule anytime
+  });
+  assert(rescheduleResult.success === true, "Appointment successfully moved to new time slot in single atomic step");
+  assert(rescheduleResult.appointment?.originalStartTime === "17:00", "Original appointment time (17:00) preserved in audit trail");
+  assert(rescheduleResult.appointment?.startTime === "17:30", "New appointment time (17:30) updated");
+
+  // Since wavePat1 moved away from 17:00, 17:00 now has only 2 bookings, so wavePat4 can now take the freed seat!
+  const freedSlotBooking = await dbRepo.createAppointment({
+    doctorId: doctor.id,
+    patientId: "pat-wave-4",
+    appointmentDate: waveDate,
+    startTime: waveTime,
+    endTime: waveEndTime,
+    sessionId: eveningSession.id,
+    reason: "Grabbing newly freed wave seat",
+  });
+  assert(freedSlotBooking.success === true, "Freed slot from reschedule is immediately bookable by next patient");
+
+  // TEST 15: Doctor Leave / Blocked Dates
+  console.log("\n--- 15. Doctor Leave / Blocked Dates ---");
+  const holidayDate = "2026-11-26";
+  await dbRepo.addDoctorLeave(doctor.id, holidayDate, "Conference in Mumbai");
+  const isDocOnLeave = await dbRepo.isDoctorOnLeave(doctor.id, holidayDate);
+  assert(isDocOnLeave === true, "Doctor clinical leave marked for 2026-11-26");
+
+  const holidayBooking = await dbRepo.createAppointment({
+    doctorId: doctor.id,
+    patientId: "pat-holiday",
+    appointmentDate: holidayDate,
+    startTime: "09:00",
+    endTime: "09:30",
+    reason: "Trying to book during leave",
+  });
+  assert(holidayBooking.success === false, "Booking on doctor's leave date is strictly BLOCKED");
+
+  // TEST 16: Doctor NO_SHOW Status
+  console.log("\n--- 16. Doctor NO_SHOW Status ---");
+  const noShowResult = await dbRepo.updateAppointmentStatus(wavePat2.appointment!.id, "NO_SHOW");
+  assert(noShowResult === true, "Doctor can mark patient consultation as NO_SHOW");
+  const checkedNoShowAppt = await dbRepo.getAppointmentById(wavePat2.appointment!.id);
+  assert(checkedNoShowAppt?.status === "NO_SHOW", "Appointment status successfully updated to NO_SHOW in database");
+
   console.log(`\n========================================`);
   console.log(`Test Results: ${passed} passed, ${failed} failed`);
   console.log(`========================================\n`);

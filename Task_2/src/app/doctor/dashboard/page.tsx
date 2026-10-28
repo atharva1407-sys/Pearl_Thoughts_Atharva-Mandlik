@@ -142,13 +142,30 @@ export default async function DoctorDashboard() {
                 {activeBookings.map((apt, index) => (
                   <tr key={apt.id}>
                     <td>
-                      <span className="token w-7 h-7 text-xs font-bold bg-blue-100 text-blue-800">
-                        #{index + 1}
-                      </span>
+                      <div className="flex flex-col items-center">
+                        <span className="token w-8 h-8 text-xs font-black bg-blue-100 text-blue-800 rounded-lg flex items-center justify-center">
+                          #{apt.tokenNumber}
+                        </span>
+                        <span className="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap">
+                          ~{(apt.tokenNumber - 1) * 20}m wait
+                        </span>
+                      </div>
                     </td>
                     <td>
-                      <b className="text-slate-900">{formatDate(apt.appointmentDate)}</b>
-                      <small className="font-mono text-blue-600">{apt.startTime} – {apt.endTime}</small>
+                      <div className="flex items-center gap-1.5">
+                        <b className="text-slate-900">{formatDate(apt.appointmentDate)}</b>
+                        {apt.rescheduledAt && (
+                          <span className="text-[10px] bg-purple-100 text-purple-800 font-semibold px-1.5 py-0.5 rounded">
+                            Rescheduled
+                          </span>
+                        )}
+                      </div>
+                      <small className="font-mono text-blue-600 block">{apt.startTime} – {apt.endTime}</small>
+                      {apt.originalAppointmentDate && (
+                        <small className="text-[10px] text-slate-400 block">
+                          was {apt.originalAppointmentDate} {apt.originalStartTime}
+                        </small>
+                      )}
                     </td>
                     <td>
                       <b>{apt.patient.firstName} {apt.patient.lastName}</b>
@@ -162,6 +179,10 @@ export default async function DoctorDashboard() {
                       <DoctorAppointmentActions
                         appointmentId={apt.id}
                         patientName={`${apt.patient.firstName} ${apt.patient.lastName}`}
+                        doctorId={user.profileId}
+                        doctorName={`${doctor?.firstName} ${doctor?.lastName}`}
+                        appointmentDate={apt.appointmentDate}
+                        startTime={apt.startTime}
                       />
                     </td>
                   </tr>

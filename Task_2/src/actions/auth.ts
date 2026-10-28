@@ -314,9 +314,12 @@ export async function deleteAccountAction(password: string) {
       return { success: false, error: "Failed to delete account. Account record not found." };
     }
   } catch (err: any) {
+    if (err?.message && err.message.includes("active upcoming appointments")) {
+      return { success: false, error: err.message };
+    }
     return {
       success: false,
-      error: err.message || "Failed to delete account.",
+      error: "Unable to delete account due to a server error. Please try again later.",
     };
   }
 
