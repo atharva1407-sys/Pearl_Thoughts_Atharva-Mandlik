@@ -1,6 +1,6 @@
 # Task 3: Application Demo, Feedback & Improvements
 
-Task 3 builds on the Medrella app from [`Task_2`](../Task_2). This folder contains **only the files added or changed** in Task 3, at the same paths they have inside the app. It is not a runnable app on its own. See [Run the full Task 3 app](#run-the-full-task-3-app) to combine it with Task 2.
+Task 3 builds on the Medrella app from [`Task_2`](../Task_2). This folder is the **complete, runnable app** with all Task 3 work included: Task 2's code plus the changes listed below. [Files](#files) shows exactly which files Task 3 added, changed or removed compared with `Task_2`.
 
 ## Assignment
 - Act on the review feedback: stream & wave scheduling, appointment rescheduling for doctors and patients, and doctor sessions shown in the patient portal.
@@ -37,19 +37,8 @@ Task 3 builds on the Medrella app from [`Task_2`](../Task_2). This folder contai
 - Loading states for every page, so navigation responds instantly and Next.js can prefetch routes.
 - Login, signup and sign-in prompts navigate inside the app instead of reloading the page; pages fade in on navigation.
 
-## Run the full Task 3 app
-From the repository root, copy Task 2, lay the Task 3 files over it and remove the pages Task 3 deleted:
-
-```bash
-cp -r Task_2 ../medrella-task-3
-```
-```bash
-cp -r Task_3/. ../medrella-task-3/ && rm ../medrella-task-3/CHANGES.md
-```
-```bash
-rm -r ../medrella-task-3/src/app/encounters ../medrella-task-3/src/app/reception ../medrella-task-3/src/app/schedule
-```
-Then, inside `../medrella-task-3`:
+## Run the Task 3 app
+Inside this `Task_3` folder:
 ```bash
 npm install
 ```
@@ -65,6 +54,7 @@ npm run dev
 `.env.local` needs `DATABASE_URL`, `SESSION_SECRET` and, for the seed, `SEED_DOCTOR_PASSWORD` (see `.env.example`). `npm test` runs the automated checks.
 
 ## Files
+Compared with [`Task_2`](../Task_2). Every other file in this folder is unchanged from Task 2.
 
 ### Added (41)
 - `public/favicon.ico`, `public/robots.txt`
