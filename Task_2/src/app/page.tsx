@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { getCurrentUser } from "@/actions/auth";
 import { dbRepo, toLocalDateString, type DoctorEntity, type NextOpenSlot } from "@/db/repo";
+import { RUBY_HALL_SPECIALISTS } from "@/db/specialists-catalog";
 import SiteHeader from "@/components/landing/site-header";
 import { Logo } from "@/components/landing/logo";
 import { HOSPITAL_PHONE_DISPLAY, HOSPITAL_PHONE_TEL, HOSPITAL_SUPPORT_EMAIL } from "@/components/landing/contact";
@@ -262,11 +263,15 @@ export default async function HomePage() {
 
   const { doctors, nextSlots, dates, failed } = await loadLandingData();
 
-  // Doctors with a photo first (the founding specialists), then the most experienced.
+  // Founding specialists first, in the order of the landing page design; then everyone else, most experienced first.
+  const catalogRank = (id: string) => {
+    const index = RUBY_HALL_SPECIALISTS.findIndex((s) => s.id === id);
+    return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+  };
   const featuredDoctors = [...doctors]
     .sort(
       (a, b) =>
-        Number(Boolean(b.profileImage)) - Number(Boolean(a.profileImage)) ||
+        catalogRank(a.id) - catalogRank(b.id) ||
         b.experienceYears - a.experienceYears ||
         a.lastName.localeCompare(b.lastName)
     )
