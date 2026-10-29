@@ -11,9 +11,9 @@ This directory contains the Next.js **HelloWorld** page for **Task 1** (Pearl Th
 
 ## Getting Started
 
-1. Navigate to the `Task_1/NextJS (Hello World)` folder:
+1. Navigate to the `Task_1` folder:
    ```bash
-   cd "Task_1/NextJS (Hello World)"
+   cd Task_1
    ```
 
 2. Install dependencies (if not already installed):
