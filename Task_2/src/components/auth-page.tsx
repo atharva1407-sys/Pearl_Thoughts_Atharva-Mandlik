@@ -3,6 +3,7 @@
 import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
   Activity,
   CalendarDays,
@@ -37,6 +38,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
   const [redirectTo, setRedirectTo] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   // Read URL search params on client mount for redirect & notice messages
   useEffect(() => {
@@ -75,7 +77,8 @@ export default function AuthPage({ mode }: AuthPageProps) {
         // Login Flow
         const res = await loginAction(formData);
         if (res && res.success && res.redirectPath) {
-          window.location.href = res.redirectPath;
+          // In-app navigation (no full reload / white flash); the button stays pending until the page shows.
+          router.replace(res.redirectPath);
           return;
         }
         if (res && !res.success) {
@@ -99,7 +102,8 @@ export default function AuthPage({ mode }: AuthPageProps) {
         }
 
         if (res && res.success && res.redirectPath) {
-          window.location.href = res.redirectPath;
+          // In-app navigation (no full reload / white flash); the button stays pending until the page shows.
+          router.replace(res.redirectPath);
           return;
         }
         if (res && !res.success) {
