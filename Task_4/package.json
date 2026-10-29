@@ -10,6 +10,7 @@
     "test": "tsx src/test-suite.ts",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
+    "db:migrate-0003": "tsx src/db/apply-0003.ts",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/db/seed.ts"
   },
