@@ -1,131 +1,134 @@
-# Task 2: Medrella Hospital Appointment & Clinical Management System
+# Task 4: Medrella Healthcare — Razorpay (Test Mode) Payments, Refunds & Notifications
 
-A full-stack clinical outpatient management platform built for **Pearl Thoughts (Task 2)**. Incorporates the **Medrella Hospital Design System** (`medrella-ui` light clinical medical theme, 238px operational sidebar, and sticky breadcrumb topbar) backed by **Next.js 16 App Router**, **TypeScript**, **Drizzle ORM**, **Zod**, and signed **JWT** authentication.
-
----
-
-## 🚀 Tech Stack
-
-- **Framework**: [Next.js 16](https://nextjs.org) (App Router + Turbopack)
-- **Language**: [TypeScript 5](https://www.typescriptlang.org/) (Strict Mode)
-- **Styling**: [Tailwind CSS 4](https://tailwindcss.com/) + Medrella Clinical Healthcare Theme (`#f6f8fb` clinical background, `#14243d` ink, `#1769e8` Medrella royal blue)
-- **Typography**: Google Fonts (`DM Sans` + `Manrope` + `JetBrains Mono`)
-- **ORM & Database**: [Drizzle ORM](https://orm.drizzle.team/) + PostgreSQL (Neon Serverless compatible schema)
-- **Validation**: [Zod](https://zod.dev/)
-- **Authentication**: Role-based signed JWT session via HttpOnly cookies (Offline-ready, zero external dependency failures)
+A full-stack clinical outpatient management platform built for **Pearl Thoughts (Task 4)**. Extends the Medrella appointment system with a **complete Razorpay TEST mode payment system** (no real money), seat holds, automatic and tiered refunds, and an email notification outbox with appointment reminders.
 
 ---
 
-## ⚡ Core Pages & Modules
+## 🚀 What's New in Task 4
 
-### 1. Clinical Operations Workspace
-- **Dashboard (`/`)**: Daily outpatient census, 20-min delay alert banner, today's appointments table, live token queue summary, recent activity feed, and quick-action shortcuts.
-- **Live Queue (`/queue`)**: Token-by-token live waiting board with triage badges (`Emergency`, `In consult`, `Waiting`), emergency override alert for obstetric pre-eclampsia (BP 168/110), and next-patient vitals panel.
-- **Reception Desk (`/reception`)**: Outpatient search, walk-in token allocation, and real-time OPD shift monitoring across consulting specialists.
-- **Weekly Schedule Matrix (`/schedule`)**: 7-day multi-column calendar grid (8:00 AM – 5:00 PM) with color-coded appointment blocks (Consultation, Antenatal, Procedure, Follow-up).
-- **Doctor Encounters & Vitals (`/encounters`)**: Doctor consultation workspace with Chief Complaint, SOAP clinical notes, ICD-10 diagnosis selector, and live recorded vitals (BP `168/110`, HR `102`, Temp `99.1°F`, SpO₂ `98%`, Weight `72kg`).
-- **Reports & Analytics (`/reports`)**: Outpatient census charts, 5-day daily visit bar charts, appointment type breakdown progress bars, and CSV report export.
-- **Hospital Settings (`/settings`)**: Facility profile for `Ruby Hall, Pune` and infrastructure health monitor.
+### 1. Payment Provider Abstraction (`src/lib/payments/`)
+- **`PaymentProvider` Interface**: Generic contract supporting `createOrder`, `verifyCheckoutSignature`, `verifyWebhook`, `fetchOrder`, and `createRefund`.
+- **`RazorpayProvider`**: Official Razorpay integration using pure `fetch` with HTTP Basic Authentication and constant-time HMAC-SHA256 signature verification (`crypto.timingSafeEqual`).
+- **`MockProvider`**: Deterministic in-memory payment provider used automatically whenever `RAZORPAY_KEY_ID` is unset and throughout automated test suites.
+- **Provider Resolver**: `getPaymentProvider()` dynamically chooses between Razorpay and Mock without altering booking or cancellation code.
 
-### 2. Specialist Booking & Patient Care
-- **Specialist Directory (`/doctors`)**: Search and filter physicians by department (Cardiology, Dermatology, Pediatrics, Orthopedics, General Medicine).
-- **Interactive Conflict-Proof Slot Picker (`/doctors/[id]`)**: 7-day date selector, dynamic shift window calculation, real-time conflict locking, and booking summary.
-- **Patient Dashboard (`/patient/dashboard`)**: Patient care portal showing upcoming appointments, past consultation history, and one-click cancellation.
+### 2. Money & Server-Side Security
+- **Integer Paise Everywhere**: All financial calculations use integer paise (`paise = rupees * 100`, currency `INR`).
+- **Strict Server Authority**: The consultation fee is **always read directly from `doctors.consultationFee`** in the database; client-supplied fee amounts are ignored.
+- **Complimentary Visits**: Doctors with `consultationFee === 0` bypass the payment gateway and book directly with instant confirmation.
 
-### 3. Physician Agenda & Shifts
-- **Doctor Agenda (`/doctor/dashboard`)**: Live consultation queue, chronological patient list with chief complaints, "Done" completion action, and cancellation controls.
-- **Weekly Shift Configurator (`/doctor/availability`)**: 7-day shift roster to toggle working days, set consultation start/end hours, and configure slot durations (15m, 20m, 30m, 45m, 60m).
+### 3. Seat Holds & Shared Occupancy (`src/lib/seat-occupancy.ts`)
+- **10-Minute Seat Hold**: Booking creates an appointment with status `PENDING_PAYMENT` and `holdExpiresAt = now + PAYMENT_HOLD_MINUTES` inside a PostgreSQL transaction advisory lock (`pg_advisory_xact_lock`).
+- **Unified Seat Occupancy**: `appointmentOccupiesSeat()` and `occupiesSeatSql()` enforce that an appointment occupies capacity if it is `BOOKED`, `COMPLETED`, `NO_SHOW`, OR `PENDING_PAYMENT` with an unexpired hold. Expired holds immediately free their seat without requiring a database sweep.
+- Grep verified across: `createAppointment`, `rescheduleAppointment`, `computeSessionGroups`, `buildSessionSlotGroups`, `getNextOpenSlots`, duplicate booking checks, doctor leave blocking, and queue triage boards.
+
+### 4. Dual Confirmation Paths & Idempotency
+- **Path 1 (Browser Return)**: `verifyPaymentAndConfirmBookingAction` verifies the checkout HMAC signature with `timingSafeEqual`, marking the payment `PAID` and appointment `BOOKED` in one transaction.
+- **Path 2 (Webhook `POST /api/webhooks/razorpay`)**: Reads the raw request body with `request.text()`, verifies `x-razorpay-signature`, inserts the event into `payment_events` first for idempotency (duplicate event ID returns `200 OK` immediately), and processes `payment.captured`, `payment.failed`, `refund.processed`, and `refund.failed`.
+- Both confirmation paths converge safely regardless of which arrives first.
+
+### 5. Robust Edge Case Handling
+- **Late Payment After Hold Expiry**: If a payment arrives after the 10-minute hold has expired:
+  - If the slot is still free: Re-confirms the appointment as `BOOKED`.
+  - If the slot was taken by another patient: Leaves the appointment as `EXPIRED`, marks the payment `PAID`, and **automatically initiates a 100% refund** with an email notification to the patient.
+- **Failed Payment**: Marks payment `FAILED`, releases the hold, and allows the patient to retry.
+- **Tampered Amount & Forged Signatures**: Strictly detected and rejected.
+- **Concurrent Races**: Advisory transaction lock prevents two patients from claiming the last wave seat simultaneously.
+
+### 6. Tiered Refund Policy (`src/lib/refund-policy.ts`)
+- Pure, unit-tested refund engine:
+  - **Patient cancels ≥ 24h prior to visit**: 100% refund.
+  - **Patient cancels 2h – 24h prior**: 50% refund.
+  - **Patient cancels < 2h prior**: 0% refund.
+  - **Doctor cancels (any notice)**: 100% refund.
+  - **No-Show**: 0% refund.
+  - **Reschedule**: Free (retains original payment).
+- **Balance Capping**: A refund can never exceed `paidAmount - alreadyRefunded`.
+- **Deterministic Idempotency**: `buildRefundIdempotencyKey(paymentId, appointmentId, purpose)` prevents duplicate refund execution on retries.
+- **Refund Preview**: Live refund calculation modal shows the exact rupee amount to the user **before** cancellation confirmation.
+
+### 7. Notification Outbox Pattern (`src/lib/notifications/`)
+- Outbox table `notifications` stores pending email items in the same transaction as clinical state transitions.
+- **Channel Fallback**: `EmailChannel` sends via Resend (`RESEND_API_KEY`). When unset, `ConsoleChannel` logs emails and marks them `SENT` so local dev and testing work with zero keys.
+- **Pre-Send Recheck**: Before sending reminders, checks the appointment status in the database; if cancelled, completed, or expired, the reminder is cancelled on the spot.
+- **Automated Reminders**: Schedules reminders at 1440m (24 hours) and 120m (2 hours) before visit. Rescheduling automatically cancels old reminders and schedules new ones.
+- **Dispatcher Endpoint**: `GET /api/cron/notifications` processes due notifications.
+
+### 8. Expiry Sweep & Reconciliation
+- **`GET /api/cron/payments`**: Sweeps expired holds, checks live order status from the gateway to reconcile late payments, and marks abandoned holds `EXPIRED`. Protected by `CRON_SECRET`.
+- **Opportunistic Sweeping**: Runs when patients view their dashboard.
 
 ---
 
-## 🗄️ Database & PostgreSQL (Neon Serverless)
+## 💻 UI & Patient Experience
 
-The application uses **Drizzle ORM** with native **Neon Serverless PostgreSQL** connection pooling, transactions, and partial index concurrency locking.
+1. **Conflict-Proof Slot Picker (`/doctors/[id]`)**:
+   - "Pay ₹{fee} & Book" button.
+   - Prominent **Razorpay Test Mode** indicator (`rzp_test_`).
+   - 10-minute hold countdown timer with live warning.
+   - Test mode checkout modal with simulation controls ("Simulate Success", "Simulate Failure").
+2. **Patient Dashboard (`/patient/dashboard`)**:
+   - Appointment badges show payment status ("Paid (rzp_test)", "Complimentary").
+   - Cancellation modal displays real-time **Ruby Hall Refund Preview** with percentage, rupee amount, and policy rules.
+3. **Payments & Billing (`/patient/payments`)**:
+   - Comprehensive audit log of all transactions, receipts, and refund statuses.
+4. **Printable Consultation Receipt (`/patient/payments/[id]/receipt`)**:
+   - Official Ruby Hall Clinic receipt with patient ID, doctor license, token number, financial breakdown, and browser print action.
 
-### 1. Database Setup & Push
-Set your Neon PostgreSQL connection string in `.env.local`:
+---
+
+## 🗄️ Database Schema & Migrations
+
+### Migration `0003_narrow_doctor_octopus.sql`
+Adds the following tables and columns:
+- `payments`: `id`, `appointment_id`, `patient_id`, `provider`, `provider_order_id`, `provider_payment_id`, `amount_paise`, `currency`, `status`, `receipt_no`, `failure_reason`, `expires_at`, `paid_at`, timestamps. Unique indexes on `(provider, provider_order_id)` and `(provider, provider_payment_id)`.
+- `payment_events`: `id`, `provider`, `provider_event_id`, `type`, `payload`, `outcome`, `processed_at`. Unique on `(provider, provider_event_id)` for webhook idempotency.
+- `refunds`: `id`, `payment_id`, `appointment_id`, `amount_paise`, `reason`, `status`, `provider_refund_id`, `idempotency_key`, `failure_reason`, timestamps. Unique on `idempotency_key`.
+- `notifications`: `id`, `user_id`, `appointment_id`, `channel`, `template`, `recipient`, `payload`, `status`, `scheduled_for`, `attempts`, `last_error`, `dedupe_key`, `sent_at`.
+- `appointments`: Added `PENDING_PAYMENT` and `EXPIRED` statuses, `hold_expires_at`, `cancelled_by`, and `cancel_reason`.
+
+### Applying Migration 0003 to Neon:
+To apply migration 0003 to your Neon database branch, run:
 ```bash
-DATABASE_URL="postgresql://user:password@ep-sample-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require"
-SESSION_SECRET="your-strong-random-session-secret"
+npx drizzle-kit migrate --config=src/db/drizzle.config.ts
 ```
+*(Or run `npx drizzle-kit push` if your Neon branch is managed without a migration history table).*
 
-To sync your database schema directly to Neon:
+---
+
+## 🧪 Verification & Testing
+
+The verification test suite covers 115 test cases with 100% pass rate:
 ```bash
-npm run db:push
+npm test
 ```
-
-### 2. Seed Initial Specialists & Shifts
-The landing page features 8 Ruby Hall specialists (`src/db/specialists-catalog.ts`). To create their doctor accounts, profiles, photos and weekly OPD sessions in Neon PostgreSQL, set `SEED_DOCTOR_PASSWORD` (8+ characters) in `.env.local`, then run:
+To run offline against the in-memory repository (never touching Neon):
 ```bash
-npm run db:seed
+powershell -Command "$env:DATABASE_URL='disabled-for-local-test'; npm test --prefix Task_4"
 ```
-The seed is safe to re-run: it updates profiles and session timings, and never resets the password of an existing doctor account.
 
-### 3. Concurrency & Double-Booking Guard
-Wave sessions allow several patients per slot, so capacity is checked inside a transaction instead of a unique index. Each booking or reschedule first takes a PostgreSQL transaction-level advisory lock for that doctor and date:
-```sql
-SELECT pg_advisory_xact_lock(hashtext('appointments:<doctorId>:<date>'));
-```
-Concurrent requests for the same doctor and day therefore run one at a time: the seat count and the next token number (highest issued + 1, so tokens are never reused after a cancellation) can't change between the check and the insert. Cancelled appointments free their seat immediately.
-
-Every requested slot (new booking or reschedule) is validated on the server by `src/lib/booking-rules.ts`: date window (today to 30 days ahead), doctor leave, an active session containing the time, slot alignment, the session's closing time and a 15-minute minimum notice. The end time and session are always derived from the doctor's schedule, never taken from the browser.
+### Verification Checklist:
+- ✅ TypeScript typecheck passes (`tsc --noEmit` - 0 errors)
+- ✅ ESLint passes (`npm run lint` - 0 warnings)
+- ✅ Next.js 16 Turbopack production build succeeds (`npm run build`)
+- ✅ All 87 baseline clinical tests pass
+- ✅ 28 new tests for Task 4 payment holds, signature verification, webhook idempotency, auto-refunds, and reminder lifecycles pass
 
 ---
 
-## 🔒 Security & Authorization Architecture
+## 🛠️ Testing Webhooks Locally
 
-- **Password Hashing**: OWASP-standard PBKDF2-HMAC-SHA256 with **600,000 iterations**, 16-byte random salt, and constant-time buffer comparison (`crypto.timingSafeEqual`).
-- **Session Tokens**: Signed HMAC-SHA256 HttpOnly session cookies. In production, startup fails if `SESSION_SECRET` is unset, preventing forgery.
-- **Resource Ownership**:
-  - `cancelAppointmentAction`: Strictly verifies that the caller is the patient who booked the appointment or the assigned doctor.
-  - `completeAppointmentAction`: Strictly verifies that the caller is a doctor assigned to that specific appointment.
-  - `updateAvailabilityAction`: Scoped strictly to the authenticated physician profile.
-- **Collision-Proof IDs**: All entity IDs are generated using 128-bit cryptographically secure UUIDs (`crypto.randomUUID()`).
-
----
-
-## ⚡ Core Outpatient Care vs. Ops Previews
-
-1. **Core Outpatient Care** (Primary Task Requirements):
-   - **Specialist Directory (`/doctors`)**: Search and filter physicians across medical departments.
-   - **Conflict-Proof Slot Picker (`/doctors/[id]`)**: 7-day date selector, dynamic shift window calculation, real-time slot conflict locking.
-   - **Patient Care Portal (`/patient/dashboard`)**: Patient upcoming visits, past history, and cancellation.
-   - **Physician Agenda (`/doctor/dashboard`)**: Live patient queue, consultation status, and one-click completion.
-   - **Weekly Shift Configurator (`/doctor/availability`)**: Configure consultation days, working hours, and slot durations.
-   - **Authentication (`/login`, `/signup`)**: Role-based access with reactive Medrella hospital branding.
-
-2. **Prototype & Ops Modules** (Hospital System UI Showcases):
-   - **Dashboard (`/`)**: Daily census and activity overview.
-   - **Live Queue (`/queue`)**: Token-by-token triage waiting board.
-   - **Reception Desk (`/reception`)**: Walk-in registration and token assignment.
-   - **Schedule Matrix (`/schedule`)**: Weekly multi-column calendar grid.
-   - **Encounters & Vitals (`/encounters`)**: SOAP notes and vitals entry.
-   - **Reports & Analytics (`/reports`)**: Outpatient analytics and dynamic CSV export.
-   - **Facility Settings (`/settings`)**: Hospital profile for Ruby Hall, Pune.
-
----
-
-## 🛠️ How to Run Locally
-
-1. Navigate to the `Task_2` directory:
-   ```bash
-   cd Task_2
-   ```
-
-2. Run the development server:
-   ```bash
-   npm run dev
-   ```
-
-3. Open **http://localhost:3000** in your browser.
-
----
-
-## 📦 Production Build
-
-To run the production build:
+Use the simulation script to test webhooks on localhost:
 ```bash
-npm run build
-npm run start
+# Simulate successful captured payment
+npx tsx scripts/simulate-webhook.ts captured [orderId] [paymentId]
+
+# Simulate bank payment failure
+npx tsx scripts/simulate-webhook.ts failed [orderId] [paymentId]
+
+# Simulate processed refund
+npx tsx scripts/simulate-webhook.ts refund [orderId] [paymentId]
+
+# Simulate forged signature (rejected with 400)
+npx tsx scripts/simulate-webhook.ts tampered [orderId] [paymentId]
 ```
-All 17 routes are fully optimized and type-checked with zero compilation errors.
