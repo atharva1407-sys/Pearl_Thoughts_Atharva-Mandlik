@@ -4,7 +4,10 @@ import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getDoctorSessionsAction } from "@/actions/availability";
-import { bookAppointmentAction } from "@/actions/appointments";
+import {
+  createBookingHoldAction,
+  verifyPaymentAndConfirmBookingAction,
+} from "@/actions/appointments";
 import {
   CalendarDays,
   Clock3,
@@ -12,9 +15,12 @@ import {
   AlertCircle,
   ArrowRight,
   ShieldCheck,
-  Layers,
-  Sparkles,
-  Ticket
+  CreditCard,
+  Timer,
+  FileText,
+  AlertTriangle,
+  X,
+  Loader2,
 } from "lucide-react";
 
 interface SlotPickerProps {
@@ -45,6 +51,26 @@ interface SessionGroup {
   slots: Slot[];
 }
 
+interface ActiveHold {
+  provider: string;
+  keyId?: string;
+  orderId: string;
+  amountPaise: number;
+  amountRupees: number;
+  currency: string;
+  paymentId: string;
+  appointmentId: string;
+  holdExpiresAt: string;
+  receiptNo: string;
+  doctorName: string;
+  specialization: string;
+  appointmentDate: string;
+  startTime: string;
+  patientName: string;
+  patientEmail: string;
+  patientPhone: string;
+}
+
 function formatLocalDate(d: Date): string {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, "0");
@@ -61,7 +87,6 @@ export function SlotPicker({
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
-  // Generate next 14 dates starting from today in local time
   const [availableDates] = useState(() => {
     const list: {
       dateString: string;
@@ -86,9 +111,7 @@ export function SlotPicker({
     return list;
   });
 
-  const [selectedDate, setSelectedDate] = useState(
-    availableDates[0]?.dateString || ""
-  );
+  const [selectedDate, setSelectedDate] = useState(availableDates[0]?.dateString || "");
   const [groups, setGroups] = useState<SessionGroup[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [isLeave, setIsLeave] = useState(false);
@@ -96,8 +119,18 @@ export function SlotPicker({
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [assignedToken, setAssignedToken] = useState<number | null>(null);
+  const [confirmedDetails, setConfirmedDetails] = useState<{
+    tokenNumber?: number;
+    receiptNo?: string;
+    paymentId?: string;
+  } | null>(null);
   const [isLoadingSlots, setIsLoadingSlots] = useState(true);
+
+  // Payment hold state
+  const [activeHold, setActiveHold] = useState<ActiveHold | null>(null);
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [isSimulatingPayment, setIsSimulatingPayment] = useState(false);
 
   // Load session groups whenever selected date changes
   useEffect(() => {
@@ -119,11 +152,50 @@ export function SlotPicker({
     });
   }, [doctorId, selectedDate]);
 
+  // Hold expiration countdown timer
+  useEffect(() => {
+    if (!activeHold) {
+      setRemainingSeconds(null);
+      return;
+    }
+
+    const expiresAt = new Date(activeHold.holdExpiresAt).getTime();
+
+    const updateTimer = () => {
+      const diff = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+      setRemainingSeconds(diff);
+      if (diff <= 0) {
+        setActiveHold(null);
+        setIsCheckoutModalOpen(false);
+        setError("Your 10-minute seat hold has expired. Please select a slot again.");
+        // Refresh slots
+        getDoctorSessionsAction(doctorId, selectedDate).then((res) => {
+          if (res.success) setGroups((res.groups as SessionGroup[]) || []);
+        });
+      }
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [activeHold, doctorId, selectedDate]);
+
+  const formatTimer = (seconds: number | null) => {
+    if (seconds === null) return "--:--";
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  };
+
   const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isLoggedIn) {
       const currentPath = typeof window !== "undefined" ? window.location.pathname : `/doctors/${doctorId}`;
-      router.push(`/login?redirectTo=${encodeURIComponent(currentPath)}&message=${encodeURIComponent("Please sign in to complete your booking.")}`);
+      router.push(
+        `/login?redirectTo=${encodeURIComponent(currentPath)}&message=${encodeURIComponent(
+          "Please sign in to complete your booking."
+        )}`
+      );
       return;
     }
 
@@ -139,7 +211,7 @@ export function SlotPicker({
 
     setError(null);
     setSuccess(null);
-    setAssignedToken(null);
+    setConfirmedDetails(null);
 
     const formData = new FormData();
     formData.append("doctorId", doctorId);
@@ -149,25 +221,176 @@ export function SlotPicker({
     formData.append("reason", reason);
 
     startTransition(async () => {
-      const res = await bookAppointmentAction(formData);
-      if (res.success) {
+      const res = await createBookingHoldAction(formData);
+      if (!res.success) {
+        setError(res.error || "Booking failed. Please choose another slot.");
+        return;
+      }
+
+      // Case 1: Free visit confirmed directly
+      if (!res.requiresPayment) {
         setSuccess(
           `Consultation confirmed with Dr. ${doctorName} for ${selectedDate} at ${selectedSlot.startTime}!`
         );
-        if (res.tokenNumber) {
-          setAssignedToken(res.tokenNumber);
-        }
+        setConfirmedDetails({
+          tokenNumber: res.tokenNumber,
+        });
         setSelectedSlot(null);
         setReason("");
-        // Reload sessions to refresh capacity numbers
         getDoctorSessionsAction(doctorId, selectedDate).then((update) => {
-          if (update.success) {
-            setGroups((update.groups as SessionGroup[]) || []);
-          }
+          if (update.success) setGroups((update.groups as SessionGroup[]) || []);
         });
-      } else {
-        setError(res.error || "Booking failed. Please select another slot.");
+        return;
       }
+
+      // Case 2: Paid visit with seat hold placed
+      const hold: ActiveHold = {
+        provider: res.provider!,
+        keyId: res.keyId,
+        orderId: res.orderId!,
+        amountPaise: res.amountPaise!,
+        amountRupees: res.amountRupees!,
+        currency: res.currency!,
+        paymentId: res.paymentId!,
+        appointmentId: res.appointmentId!,
+        holdExpiresAt: res.holdExpiresAt!,
+        receiptNo: res.receiptNo!,
+        doctorName: res.doctorName!,
+        specialization: res.specialization!,
+        appointmentDate: res.appointmentDate!,
+        startTime: res.startTime!,
+        patientName: res.patientName!,
+        patientEmail: res.patientEmail!,
+        patientPhone: res.patientPhone!,
+      };
+
+      setActiveHold(hold);
+      setIsCheckoutModalOpen(true);
+
+      // Check if real Razorpay checkout script can be opened
+      if (res.provider === "RAZORPAY" && typeof window !== "undefined") {
+        tryLaunchRazorpayCheckout(hold);
+      }
+    });
+  };
+
+  const tryLaunchRazorpayCheckout = (hold: ActiveHold) => {
+    // If Razorpay script is available on window, open official checkout
+    if ((window as any).Razorpay && hold.keyId) {
+      const options = {
+        key: hold.keyId,
+        amount: hold.amountPaise,
+        currency: hold.currency,
+        name: "Medrella Healthcare",
+        description: `OPD Consultation with Dr. ${hold.doctorName}`,
+        order_id: hold.orderId,
+        prefill: {
+          name: hold.patientName,
+          email: hold.patientEmail,
+          contact: hold.patientPhone,
+        },
+        theme: {
+          color: "#0875df",
+        },
+        handler: async (response: any) => {
+          await verifyAndFinalizePayment({
+            appointmentId: hold.appointmentId,
+            paymentId: hold.paymentId,
+            providerOrderId: response.razorpay_order_id,
+            providerPaymentId: response.razorpay_payment_id,
+            signature: response.razorpay_signature,
+          });
+        },
+        modal: {
+          ondismiss: () => {
+            console.log("Razorpay checkout modal dismissed by user.");
+          },
+        },
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.open();
+    }
+  };
+
+  const verifyAndFinalizePayment = async (data: {
+    appointmentId: string;
+    paymentId: string;
+    providerOrderId: string;
+    providerPaymentId: string;
+    signature: string;
+  }) => {
+    setIsSimulatingPayment(true);
+    const res = await verifyPaymentAndConfirmBookingAction(data);
+    setIsSimulatingPayment(false);
+
+    if (res.success) {
+      setSuccess(
+        `Consultation confirmed with Dr. ${doctorName}! Token #${res.tokenNumber} assigned.`
+      );
+      setConfirmedDetails({
+        tokenNumber: res.tokenNumber,
+        receiptNo: res.receiptNo,
+        paymentId: res.paymentId,
+      });
+      setIsCheckoutModalOpen(false);
+      setActiveHold(null);
+      setSelectedSlot(null);
+      setReason("");
+
+      // Refresh slot counts
+      getDoctorSessionsAction(doctorId, selectedDate).then((update) => {
+        if (update.success) setGroups((update.groups as SessionGroup[]) || []);
+      });
+    } else {
+      setError(res.error || "Payment verification failed.");
+      setIsCheckoutModalOpen(false);
+    }
+  };
+
+  // Simulation handler for test mode or mock provider
+  const handleSimulatePayment = async (shouldSucceed: boolean) => {
+    if (!activeHold) return;
+
+    if (!shouldSucceed) {
+      setError("Payment simulation declined by bank card. Your 10-minute hold remains active.");
+      setIsCheckoutModalOpen(false);
+      return;
+    }
+
+    // In mock provider / test mode: generate mock payment ID and mock signature
+    const mockPaymentId = `pay_mock_${Date.now()}`;
+    const secret = "mock_secret_key_12345";
+    const text = `${activeHold.orderId}|${mockPaymentId}`;
+
+    // Simple sha256 hex calculation using browser crypto API
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(secret);
+    const msgData = encoder.encode(text);
+
+    let signatureHex = "mock_sig";
+    try {
+      const cryptoKey = await window.crypto.subtle.importKey(
+        "raw",
+        keyData,
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"]
+      );
+      const sigBuffer = await window.crypto.subtle.sign("HMAC", cryptoKey, msgData);
+      signatureHex = Array.from(new Uint8Array(sigBuffer))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+    } catch {
+      signatureHex = "mock_sig_fallback";
+    }
+
+    await verifyAndFinalizePayment({
+      appointmentId: activeHold.appointmentId,
+      paymentId: activeHold.paymentId,
+      providerOrderId: activeHold.orderId,
+      providerPaymentId: mockPaymentId,
+      signature: signatureHex,
     });
   };
 
@@ -183,7 +406,21 @@ export function SlotPicker({
           <h2>Select Consultation Date & Time</h2>
           <p>Real-time slot availability for Ruby Hall OPD · Stream & Wave Sessions</p>
         </div>
-        <span className="badge sky">Capacity Managed</span>
+        <div className="flex items-center gap-2">
+          <span className="badge sky">Capacity Managed</span>
+          <span className="badge amber text-[11px] font-mono">Test Mode (rzp_test_)</span>
+        </div>
+      </div>
+
+      {/* Test Mode Notice Banner */}
+      <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-xl flex items-start gap-2.5 text-xs text-amber-900">
+        <ShieldCheck size={16} className="text-amber-600 shrink-0 mt-0.5" />
+        <div>
+          <span className="font-bold block">Razorpay Test Mode Active:</span>
+          <span>
+            All booking fees and refunds use sandbox test credentials (rzp_test_). No real credit card or bank money is charged.
+          </span>
+        </div>
       </div>
 
       {/* Date Selection Ribbon */}
@@ -248,72 +485,54 @@ export function SlotPicker({
           </div>
         ) : groups.length === 0 ? (
           <div className="py-8 text-center text-xs text-slate-500 border border-slate-200 rounded-xl bg-slate-50">
-            Dr. {doctorName} has no active clinic sessions scheduled on this day. Please select another date.
+            No active OPD sessions scheduled on this weekday.
           </div>
         ) : (
           <div className="space-y-4">
             {groups.map((group) => (
-              <div key={group.sessionId} className="border border-slate-200 rounded-xl p-4 bg-slate-50/60 space-y-3">
+              <div
+                key={group.sessionId}
+                className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/50 space-y-2.5"
+              >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="p-1 rounded-md bg-blue-100 text-blue-700">
-                      <Layers size={14} />
+                  <div>
+                    <span className="text-xs font-bold text-slate-800 block">
+                      {group.sessionName}
                     </span>
-                    <div>
-                      <span className="font-bold text-sm text-slate-900">{group.sessionName}</span>
-                      <span className="text-xs font-mono text-slate-500 ml-2">({group.timeRange})</span>
-                    </div>
+                    <span className="text-[11px] text-slate-500 font-mono">
+                      {group.timeRange} · {group.schedulingType === "WAVE" ? `Wave (${group.patientsPerWave}/wave)` : "Individual Stream"}
+                    </span>
                   </div>
-                  <span
-                    className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full ${
-                      group.schedulingType === "WAVE"
-                        ? "bg-purple-100 text-purple-800 border border-purple-200"
-                        : "bg-blue-100 text-blue-800 border border-blue-200"
-                    }`}
-                  >
-                    {group.schedulingType === "WAVE"
-                      ? `Wave (${group.patientsPerWave} patients/wave)`
-                      : "Stream (1:1)"}
+                  <span className="text-[11px] text-slate-400">
+                    {group.slots.filter((s) => !s.isBooked).length} slots open
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
                   {group.slots.map((slot) => {
                     const isSelected = selectedSlot?.startTime === slot.startTime && selectedSlot?.sessionId === slot.sessionId;
-                    const isBooked = slot.isBooked;
-
                     return (
                       <button
-                        key={slot.startTime}
+                        key={`${slot.sessionId}-${slot.startTime}`}
                         type="button"
-                        disabled={isBooked}
+                        disabled={slot.isBooked}
                         onClick={() => setSelectedSlot(slot)}
-                        className={`p-2.5 rounded-xl text-center font-mono text-xs transition-all border ${
-                          isBooked
-                            ? "bg-slate-100 text-slate-400 border-slate-200 line-through cursor-not-allowed"
+                        className={`p-2 rounded-lg text-center border text-xs transition-all cursor-pointer ${
+                          slot.isBooked
+                            ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60"
                             : isSelected
                             ? "bg-[#0875df] text-white border-[#0875df] font-bold shadow-xs"
-                            : "bg-white text-slate-800 border-slate-200 hover:border-blue-400 hover:text-blue-700 cursor-pointer"
+                            : "bg-white text-slate-700 border-slate-200 hover:border-blue-400"
                         }`}
                       >
-                        <div className="text-xs font-bold">{slot.startTime}</div>
-                        {group.schedulingType === "WAVE" ? (
-                          <div
-                            className={`text-[10px] font-sans mt-0.5 ${
-                              isBooked
-                                ? "text-slate-400"
-                                : isSelected
-                                ? "text-blue-100"
-                                : "text-emerald-600 font-semibold"
-                            }`}
-                          >
-                            {isBooked ? "Wave Full" : `${slot.seatsLeft} of ${slot.capacity} left`}
-                          </div>
-                        ) : (
-                          <div className={`text-[10px] font-sans mt-0.5 ${isBooked ? "text-slate-400" : isSelected ? "text-blue-100" : "text-slate-500"}`}>
-                            {isBooked ? "Booked" : "Available"}
-                          </div>
-                        )}
+                        <div className="font-mono font-semibold">{slot.startTime}</div>
+                        <div className="text-[10px] mt-0.5 opacity-80">
+                          {slot.isBooked
+                            ? "Full"
+                            : slot.schedulingType === "WAVE"
+                            ? `${slot.seatsLeft} seat${slot.seatsLeft === 1 ? "" : "s"}`
+                            : "Open"}
+                        </div>
                       </button>
                     );
                   })}
@@ -324,34 +543,69 @@ export function SlotPicker({
         )}
       </div>
 
-      {/* Error Banner */}
+      {/* Active Hold Countdown Banner (if hold exists) */}
+      {activeHold && remainingSeconds !== null && (
+        <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2 text-blue-950">
+            <Timer className="text-blue-600 animate-pulse" size={16} />
+            <div>
+              <span className="font-bold">Seat Hold Reserved: </span>
+              <span>Complete test payment within </span>
+              <span className="font-mono font-extrabold text-blue-700">
+                {formatTimer(remainingSeconds)}
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsCheckoutModalOpen(true)}
+            className="btn primary text-xs py-1 px-2.5"
+          >
+            Pay ₹{activeHold.amountRupees}
+          </button>
+        </div>
+      )}
+
+      {/* Error Message Alert */}
       {error && (
-        <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
-          <AlertCircle size={16} className="shrink-0" />
+        <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800 flex items-start gap-2">
+          <AlertCircle size={16} className="text-red-600 shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
       )}
 
-      {/* Success Banner with Token Number */}
+      {/* Success Notification Banner */}
       {success && (
-        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs space-y-3">
-          <div className="flex items-center gap-2 font-bold text-sm text-emerald-900">
-            <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
-            <span>{success}</span>
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 space-y-3">
+          <div className="flex items-start gap-2">
+            <CheckCircle2 size={18} className="text-emerald-600 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold text-sm block">Appointment Confirmed!</span>
+              <span>{success}</span>
+            </div>
           </div>
 
-          {assignedToken && (
-            <div className="p-3 rounded-lg bg-white border border-emerald-300 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Ticket className="text-emerald-600" size={20} />
-                <div>
-                  <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Queue Token Assigned</div>
-                  <div className="text-base font-black text-slate-900">Consultation Token #{assignedToken}</div>
-                </div>
+          {confirmedDetails && (
+            <div className="p-3 bg-white/80 rounded-lg border border-emerald-200 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-4">
+                {confirmedDetails.tokenNumber && (
+                  <div>
+                    <span className="text-[11px] text-slate-500 block">Assigned Queue Token</span>
+                    <span className="text-base font-black text-blue-700">
+                      Token #{confirmedDetails.tokenNumber}
+                    </span>
+                  </div>
+                )}
+                {confirmedDetails.receiptNo && (
+                  <div>
+                    <span className="text-[11px] text-slate-500 block">Receipt No</span>
+                    <span className="text-xs font-mono font-bold text-slate-800">
+                      {confirmedDetails.receiptNo}
+                    </span>
+                  </div>
+                )}
               </div>
-              <span className="text-[11px] font-mono font-semibold px-2 py-1 bg-emerald-100 text-emerald-800 rounded">
-                Confirmed
-              </span>
+              <span className="badge green">Paid · Test Mode</span>
             </div>
           )}
 
@@ -363,11 +617,20 @@ export function SlotPicker({
               <span>View in My Appointments</span>
               <ArrowRight size={14} />
             </Link>
+            {confirmedDetails?.paymentId && (
+              <Link
+                href={`/patient/payments/${confirmedDetails.paymentId}/receipt`}
+                className="btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5"
+              >
+                <FileText size={14} />
+                <span>Print Payment Receipt</span>
+              </Link>
+            )}
             <button
               type="button"
               onClick={() => {
                 setSuccess(null);
-                setAssignedToken(null);
+                setConfirmedDetails(null);
               }}
               className="btn text-xs py-1.5 px-3"
             >
@@ -395,9 +658,14 @@ export function SlotPicker({
 
         {/* Live Booking Summary Card */}
         <div className="p-3.5 rounded-xl border border-blue-100 bg-blue-50/50 space-y-2 text-xs">
-          <div className="font-bold text-blue-900 flex items-center gap-1.5">
-            <CalendarDays size={15} className="text-blue-600" />
-            <span>Consultation Summary</span>
+          <div className="font-bold text-blue-900 flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <CalendarDays size={15} className="text-blue-600" />
+              <span>Consultation Summary</span>
+            </div>
+            <div className="font-bold text-slate-900">
+              Fee: ₹{consultationFee}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-slate-600 pt-1">
@@ -416,32 +684,43 @@ export function SlotPicker({
               </b>
             </div>
             <div>
-              <span className="block text-slate-400 text-[11px]">Session Type</span>
-              <b className="text-slate-800">
-                {selectedSlot ? selectedSlot.schedulingType : "Standard"}
+              <span className="block text-slate-400 text-[11px]">Consultation Fee</span>
+              <b className="text-slate-900">
+                {consultationFee > 0 ? `₹${consultationFee}` : "Free"}
               </b>
             </div>
           </div>
         </div>
 
-        {/* Submit Button */}
+        {/* Submit / Pay Button */}
         <div>
           {isLoggedIn ? (
             <button
               type="submit"
               disabled={isPending || !selectedSlot}
-              className={`btn primary w-full justify-center py-2.5 text-xs font-bold cursor-pointer ${
+              className={`btn primary w-full justify-center py-2.5 text-xs font-bold cursor-pointer flex items-center gap-1.5 ${
                 isPending || !selectedSlot ? "opacity-60 cursor-not-allowed" : ""
               }`}
             >
-              {isPending ? "Confirming Booking..." : "Confirm & Book Consultation"}
+              <CreditCard size={15} />
+              <span>
+                {isPending
+                  ? "Holding Seat & Initiating Payment..."
+                  : consultationFee > 0
+                  ? `Pay ₹${consultationFee} & Book (Test Mode)`
+                  : "Confirm & Book Consultation (Free)"}
+              </span>
             </button>
           ) : (
             <button
               type="button"
               onClick={() => {
                 const currentPath = typeof window !== "undefined" ? window.location.pathname : `/doctors/${doctorId}`;
-                router.push(`/login?redirectTo=${encodeURIComponent(currentPath)}&message=${encodeURIComponent("Please sign in to complete your booking.")}`);
+                router.push(
+                  `/login?redirectTo=${encodeURIComponent(currentPath)}&message=${encodeURIComponent(
+                    "Please sign in to complete your booking."
+                  )}`
+                );
               }}
               className="btn primary w-full justify-center py-2.5 text-xs font-bold cursor-pointer"
             >
@@ -450,6 +729,104 @@ export function SlotPicker({
           )}
         </div>
       </form>
+
+      {/* Interactive Mock / Razorpay Test Mode Checkout Dialog */}
+      {isCheckoutModalOpen && activeHold && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="p-4 bg-gradient-to-r from-blue-700 to-indigo-800 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ShieldCheck size={20} className="text-blue-200" />
+                <div>
+                  <h3 className="font-bold text-sm text-white">Razorpay Test Checkout</h3>
+                  <span className="text-[11px] text-blue-200">Medrella Healthcare OPD</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCheckoutModalOpen(false)}
+                className="text-white/80 hover:text-white p-1 rounded-lg cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-4 text-xs">
+              {/* Hold Warning Timer */}
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between text-amber-900">
+                <div className="flex items-center gap-2">
+                  <Timer size={16} className="text-amber-600" />
+                  <span className="font-medium">10-Minute Hold Active:</span>
+                </div>
+                <span className="font-mono font-extrabold text-sm text-amber-800">
+                  {formatTimer(remainingSeconds)}
+                </span>
+              </div>
+
+              {/* Consultation Summary */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                <div className="flex justify-between items-center text-slate-600">
+                  <span>Specialist:</span>
+                  <b className="text-slate-800">Dr. {activeHold.doctorName}</b>
+                </div>
+                <div className="flex justify-between items-center text-slate-600">
+                  <span>Date & Slot:</span>
+                  <b className="text-slate-800">{activeHold.appointmentDate} at {activeHold.startTime}</b>
+                </div>
+                <div className="flex justify-between items-center text-slate-600">
+                  <span>Order ID:</span>
+                  <span className="font-mono text-[11px] text-slate-700">{activeHold.orderId}</span>
+                </div>
+                <div className="flex justify-between items-center text-slate-600">
+                  <span>Receipt No:</span>
+                  <span className="font-mono text-[11px] text-slate-700">{activeHold.receiptNo}</span>
+                </div>
+                <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-sm font-extrabold text-slate-900">
+                  <span>Total Amount (INR):</span>
+                  <span className="text-blue-700">₹{activeHold.amountRupees}.00</span>
+                </div>
+              </div>
+
+              {/* Simulated Gateway Controls */}
+              <div className="space-y-2 pt-1">
+                <button
+                  type="button"
+                  disabled={isSimulatingPayment}
+                  onClick={() => handleSimulatePayment(true)}
+                  className="btn primary w-full justify-center py-2.5 text-xs font-bold cursor-pointer flex items-center gap-2"
+                >
+                  {isSimulatingPayment ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>Verifying Payment Signature...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={15} />
+                      <span>Simulate Successful Payment (Test ₹{activeHold.amountRupees})</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isSimulatingPayment}
+                  onClick={() => handleSimulatePayment(false)}
+                  className="btn w-full justify-center py-2 text-xs text-red-600 border border-red-200 hover:bg-red-50 cursor-pointer"
+                >
+                  Simulate Bank Payment Failure
+                </button>
+              </div>
+
+              <div className="text-[11px] text-slate-400 text-center">
+                Test mode simulator. In production, this opens Razorpay&apos;s checkout iframe.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

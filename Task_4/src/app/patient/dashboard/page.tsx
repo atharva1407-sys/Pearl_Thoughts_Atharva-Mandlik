@@ -4,6 +4,8 @@ import { getCurrentUser } from "@/actions/auth";
 import { PatientAppointmentActions } from "./patient-appointment-actions";
 import { dbRepo } from "@/db/repo";
 import { formatDate } from "@/lib/utils";
+import { sweepExpiredHolds } from "@/lib/payments/expire";
+import { formatPaise } from "@/lib/payments";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -15,7 +17,9 @@ import {
   Plus,
   ArrowRight,
   User,
-  XCircle
+  CreditCard,
+  FileText,
+  XCircle,
 } from "lucide-react";
 
 export default async function PatientDashboard() {
@@ -23,6 +27,9 @@ export default async function PatientDashboard() {
   if (!user) {
     redirect("/login?message=Please sign in to access your appointments.");
   }
+
+  // Opportunistic sweep of expired payment holds
+  sweepExpiredHolds().catch(() => {});
 
   let patientId = user.profileId;
   if (user.role === "DOCTOR") {
@@ -34,6 +41,8 @@ export default async function PatientDashboard() {
 
   const patient = patientId ? await dbRepo.getPatientById(patientId) : undefined;
   const appointments = patientId ? await dbRepo.getAppointmentsByPatientId(patientId) : [];
+  const payments = patientId ? await dbRepo.getPaymentsByPatientId(patientId) : [];
+  const paymentByApptId = new Map(payments.map((p) => [p.appointmentId, p]));
 
   const upcoming = appointments.filter((a) => a.status === "BOOKED");
   const past = appointments.filter((a) => a.status !== "BOOKED");
@@ -47,8 +56,12 @@ export default async function PatientDashboard() {
           <h1>Welcome, {patient ? `${patient.firstName} ${patient.lastName}` : user.name}</h1>
           <p>Manage your upcoming hospital consultations and clinical records at Ruby Hall, Pune.</p>
         </div>
-        <div className="heading-actions">
-          <Link href="/doctors" className="btn primary">
+        <div className="heading-actions flex items-center gap-2">
+          <Link href="/patient/payments" className="btn text-xs inline-flex items-center gap-1.5">
+            <CreditCard size={14} />
+            <span>Payments & Receipts</span>
+          </Link>
+          <Link href="/doctors" className="btn primary text-xs inline-flex items-center gap-1.5">
             <Plus size={15} />
             <span>Book New Appointment</span>
           </Link>
@@ -143,52 +156,75 @@ export default async function PatientDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {upcoming.map((apt) => (
-                  <tr key={apt.id}>
-                    <td>
-                      <span className="token w-8 h-8 text-xs font-black bg-blue-100 text-blue-800 rounded-lg flex items-center justify-center">
-                        #{apt.tokenNumber}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="flex items-center gap-1.5">
-                        <b className="text-slate-800">{formatDate(apt.appointmentDate)}</b>
-                        {apt.rescheduledAt && (
-                          <span className="text-[10px] bg-purple-100 text-purple-800 font-semibold px-1.5 py-0.5 rounded">
-                            Rescheduled
+                  {upcoming.map((apt) => {
+                    const pmt = paymentByApptId.get(apt.id);
+                    return (
+                      <tr key={apt.id}>
+                        <td>
+                          <span className="token w-8 h-8 text-xs font-black bg-blue-100 text-blue-800 rounded-lg flex items-center justify-center">
+                            #{apt.tokenNumber}
                           </span>
-                        )}
-                      </div>
-                      <small className="font-mono text-blue-600 block">{apt.startTime} – {apt.endTime}</small>
-                      {apt.originalAppointmentDate && (
-                        <small className="text-[10px] text-slate-400 block">
-                          was {apt.originalAppointmentDate} {apt.originalStartTime}
-                        </small>
-                      )}
-                    </td>
-                    <td>
-                      <b>Dr. {apt.doctor.firstName} {apt.doctor.lastName}</b>
-                      <small>Ruby Hall, Pune</small>
-                    </td>
-                    <td>
-                      <span className="badge blue">{apt.doctor.specialization}</span>
-                    </td>
-                    <td>{apt.reason}</td>
-                    <td className="font-bold text-slate-900">₹{apt.doctor.consultationFee}</td>
-                    <td>
-                      <span className="badge green">Confirmed</span>
-                    </td>
-                    <td>
-                      <PatientAppointmentActions
-                        appointmentId={apt.id}
-                        doctorId={apt.doctorId}
-                        doctorName={`${apt.doctor.firstName} ${apt.doctor.lastName}`}
-                        appointmentDate={apt.appointmentDate}
-                        startTime={apt.startTime}
-                      />
-                    </td>
-                  </tr>
-                ))}
+                        </td>
+                        <td>
+                          <div className="flex items-center gap-1.5">
+                            <b className="text-slate-800">{formatDate(apt.appointmentDate)}</b>
+                            {apt.rescheduledAt && (
+                              <span className="text-[10px] bg-purple-100 text-purple-800 font-semibold px-1.5 py-0.5 rounded">
+                                Rescheduled
+                              </span>
+                            )}
+                          </div>
+                          <small className="font-mono text-blue-600 block">{apt.startTime} – {apt.endTime}</small>
+                          {apt.originalAppointmentDate && (
+                            <small className="text-[10px] text-slate-400 block">
+                              was {apt.originalAppointmentDate} {apt.originalStartTime}
+                            </small>
+                          )}
+                        </td>
+                        <td>
+                          <b>Dr. {apt.doctor.firstName} {apt.doctor.lastName}</b>
+                          <small>Ruby Hall, Pune</small>
+                        </td>
+                        <td>
+                          <span className="badge blue">{apt.doctor.specialization}</span>
+                        </td>
+                        <td>{apt.reason}</td>
+                        <td>
+                          <div className="font-bold text-slate-900">₹{apt.doctor.consultationFee}</div>
+                          {pmt ? (
+                            <Link
+                              href={`/patient/payments/${pmt.id}/receipt`}
+                              className="text-[10px] text-blue-600 hover:underline flex items-center gap-0.5 mt-0.5 font-mono"
+                            >
+                              <FileText size={10} />
+                              <span>Receipt</span>
+                            </Link>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 font-mono block">Complimentary</span>
+                          )}
+                        </td>
+                        <td>
+                          <div className="flex flex-col gap-1 items-start">
+                            <span className="badge green">Confirmed</span>
+                            {pmt && pmt.status === "PAID" && (
+                              <span className="badge sky text-[10px] py-0 px-1.5">
+                                Paid (rzp_test)
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <PatientAppointmentActions
+                            appointmentId={apt.id}
+                            doctorId={apt.doctorId}
+                            doctorName={`${apt.doctor.firstName} ${apt.doctor.lastName}`}
+                            appointmentDate={apt.appointmentDate}
+                            startTime={apt.startTime}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>
