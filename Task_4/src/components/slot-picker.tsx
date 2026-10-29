@@ -78,6 +78,27 @@ function formatLocalDate(d: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+function loadRazorpayScript(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined") return resolve(false);
+    if ((window as any).Razorpay) return resolve(true);
+
+    const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+    if (existing) {
+      existing.addEventListener("load", () => resolve(true));
+      existing.addEventListener("error", () => resolve(false));
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
+
 export function SlotPicker({
   doctorId,
   doctorName,
@@ -131,6 +152,11 @@ export function SlotPicker({
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [isSimulatingPayment, setIsSimulatingPayment] = useState(false);
+
+  // Pre-load Razorpay checkout script on mount
+  useEffect(() => {
+    loadRazorpayScript().catch(() => {});
+  }, []);
 
   // Load session groups whenever selected date changes
   useEffect(() => {
@@ -274,9 +300,11 @@ export function SlotPicker({
     });
   };
 
-  const tryLaunchRazorpayCheckout = (hold: ActiveHold) => {
-    // If Razorpay script is available on window, open official checkout
-    if ((window as any).Razorpay && hold.keyId) {
+  const tryLaunchRazorpayCheckout = async (hold: ActiveHold) => {
+    const loaded = await loadRazorpayScript();
+    if (loaded && (window as any).Razorpay && hold.keyId) {
+      setIsCheckoutModalOpen(false);
+
       const options = {
         key: hold.keyId,
         amount: hold.amountPaise,
@@ -304,12 +332,24 @@ export function SlotPicker({
         modal: {
           ondismiss: () => {
             console.log("Razorpay checkout modal dismissed by user.");
+            setIsCheckoutModalOpen(true);
           },
         },
       };
 
-      const rzp = new (window as any).Razorpay(options);
-      rzp.open();
+      try {
+        const rzp = new (window as any).Razorpay(options);
+        rzp.on("payment.failed", (response: any) => {
+          setError(`Payment failed: ${response.error?.description || "Transaction declined"}`);
+          setIsCheckoutModalOpen(true);
+        });
+        rzp.open();
+      } catch (err) {
+        console.warn("Could not launch Razorpay popup:", err);
+        setIsCheckoutModalOpen(true);
+      }
+    } else {
+      setIsCheckoutModalOpen(true);
     }
   };
 
@@ -789,13 +829,29 @@ export function SlotPicker({
                 </div>
               </div>
 
-              {/* Simulated Gateway Controls */}
+              {/* Gateway Controls */}
               <div className="space-y-2 pt-1">
+                {activeHold.provider === "RAZORPAY" && (
+                  <button
+                    type="button"
+                    disabled={isSimulatingPayment}
+                    onClick={() => tryLaunchRazorpayCheckout(activeHold)}
+                    className="btn primary w-full justify-center py-2.5 text-xs font-bold cursor-pointer flex items-center gap-2 shadow-xs"
+                  >
+                    <CreditCard size={15} />
+                    <span>Open Official Razorpay Checkout Popup</span>
+                  </button>
+                )}
+
                 <button
                   type="button"
                   disabled={isSimulatingPayment}
                   onClick={() => handleSimulatePayment(true)}
-                  className="btn primary w-full justify-center py-2.5 text-xs font-bold cursor-pointer flex items-center gap-2"
+                  className={`btn w-full justify-center py-2.5 text-xs font-bold cursor-pointer flex items-center gap-2 ${
+                    activeHold.provider === "RAZORPAY"
+                      ? "border border-slate-300 text-slate-700 hover:bg-slate-50"
+                      : "primary"
+                  }`}
                 >
                   {isSimulatingPayment ? (
                     <>
@@ -821,7 +877,9 @@ export function SlotPicker({
               </div>
 
               <div className="text-[11px] text-slate-400 text-center">
-                Test mode simulator. In production, this opens Razorpay&apos;s checkout iframe.
+                {activeHold.provider === "RAZORPAY"
+                  ? "Uses your Razorpay test sandbox. Real orders & payments appear directly on dashboard.razorpay.com."
+                  : "Test mode simulator. In production, this opens Razorpay's checkout iframe."}
               </div>
             </div>
           </div>
