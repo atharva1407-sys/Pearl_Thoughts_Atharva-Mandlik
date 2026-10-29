@@ -1,12 +1,26 @@
 import { MedrellaRepository } from "../../db/repo";
 import { getPaymentProvider } from "./index";
+import { PaymentProvider } from "./types";
 
 export async function sweepExpiredHolds(
   repo?: MedrellaRepository,
-  now: Date = new Date()
+  providerOrDate?: PaymentProvider | Date,
+  maybeDate: Date = new Date()
 ): Promise<{ sweptCount: number; expiredCount: number; recoveredCount: number }> {
   const dbRepo = repo || new MedrellaRepository();
-  const provider = getPaymentProvider();
+  let provider: PaymentProvider;
+  let now: Date;
+
+  if (providerOrDate instanceof Date) {
+    provider = getPaymentProvider();
+    now = providerOrDate;
+  } else if (providerOrDate && typeof (providerOrDate as any).fetchOrder === "function") {
+    provider = providerOrDate as PaymentProvider;
+    now = maybeDate;
+  } else {
+    provider = getPaymentProvider();
+    now = maybeDate;
+  }
 
   const expiredHolds = await dbRepo.getExpiredHolds(now);
   let expiredCount = 0;

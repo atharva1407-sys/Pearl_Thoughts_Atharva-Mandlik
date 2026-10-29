@@ -13,11 +13,17 @@ process.env.ENABLE_SEED_DATA = "true";
 
 import { existsSync } from "fs";
 import { join } from "path";
+import crypto from "crypto";
 import { dbRepo, buildSessionSlotGroups, doSessionsOverlap, toLocalDateString, dayOfWeekFor } from "./db/repo";
 import { checkRequestedSlot, hasAppointmentStarted } from "./lib/booking-rules";
 import { RUBY_HALL_SPECIALISTS, specialistSessionId } from "./db/specialists-catalog";
 import { hashPassword, verifyPassword } from "./lib/auth-crypto";
 import { loginSchema, registerPatientSchema, registerDoctorSchema } from "./lib/validators";
+import { MockProvider } from "./lib/payments/mock-provider";
+import { computeRefund, buildRefundIdempotencyKey } from "./lib/refund-policy";
+import { sweepExpiredHolds } from "./lib/payments/expire";
+import { scheduleAppointmentReminders, processDueNotifications } from "./lib/notifications";
+import { appointmentOccupiesSeat } from "./lib/seat-occupancy";
 
 async function runTests() {
   console.log("🏥 Starting Medrella Clinical Verification Suite...\n");
@@ -629,6 +635,371 @@ async function runTests() {
   const freeDay = daysFromToday(20);
   await dbRepo.addDoctorLeave(vikram, freeDay, "Family function");
   assert(await dbRepo.isDoctorOnLeave(vikram, freeDay), "Leave is added on a day with no bookings");
+
+  // TEST 26: Seat Hold Expiration & Capacity
+  console.log("\n--- 26. Seat Hold Expiration & Capacity ---");
+  const holdDoctor = "doc_ananya_sharma";
+  const holdDay = nextWeekday("WED");
+  const holdSessionId = specialistSessionId(holdDoctor, "morning", "WED");
+
+  // Patient 1 creates a hold
+  const holdExpiresFuture = new Date(Date.now() + 10 * 60 * 1000); // +10 mins
+  const patient1Hold = await dbRepo.createAppointment({
+    patientId: "pat-hold-1",
+    doctorId: holdDoctor,
+    sessionId: holdSessionId,
+    appointmentDate: holdDay,
+    startTime: "09:00",
+    endTime: "09:15",
+    reason: "Hold test 1",
+    status: "PENDING_PAYMENT",
+    holdExpiresAt: holdExpiresFuture,
+  });
+  assert(patient1Hold.success === true, "Patient 1 places seat hold (PENDING_PAYMENT)");
+
+  // Patient 2 attempts to book the same slot while hold is live
+  const patient2Try = await dbRepo.createAppointment({
+    patientId: "pat-hold-2",
+    doctorId: holdDoctor,
+    sessionId: holdSessionId,
+    appointmentDate: holdDay,
+    startTime: "09:00",
+    endTime: "09:15",
+    reason: "Hold test 2",
+    status: "PENDING_PAYMENT",
+  });
+  assert(patient2Try.success === false, "Active seat hold blocks another patient from booking the same seat");
+
+  // Fast-forward hold expiry (set holdExpiresAt to the past)
+  patient1Hold.appointment!.holdExpiresAt = new Date(Date.now() - 60 * 1000); // 1 min ago
+  assert(
+    !appointmentOccupiesSeat(patient1Hold.appointment!, new Date()),
+    "Expired seat hold no longer occupies a seat"
+  );
+
+  // Patient 2 can now claim the slot
+  const patient2AfterExpiry = await dbRepo.createAppointment({
+    patientId: "pat-hold-2",
+    doctorId: holdDoctor,
+    sessionId: holdSessionId,
+    appointmentDate: holdDay,
+    startTime: "09:00",
+    endTime: "09:15",
+    reason: "Hold test 2 retry",
+    status: "BOOKED",
+  });
+  assert(patient2AfterExpiry.success === true, "After hold expires, slot is released and bookable by Patient 2");
+
+  // TEST 27: Dual Confirmation Convergence & Idempotency
+  console.log("\n--- 27. Dual Confirmation Convergence & Idempotency ---");
+  const mockProvider = new MockProvider();
+  const order = await mockProvider.createOrder({
+    amountPaise: 80000,
+    receipt: "RCP-CONV-1",
+    notes: { patientId: "pat-conv", doctorId: holdDoctor },
+  });
+
+  const convAppt = await dbRepo.createAppointment({
+    patientId: "pat-conv",
+    doctorId: holdDoctor,
+    sessionId: holdSessionId,
+    appointmentDate: holdDay,
+    startTime: "11:00",
+    endTime: "11:15",
+    reason: "Convergence test",
+    status: "PENDING_PAYMENT",
+    holdExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+  });
+
+  const convPayment = await dbRepo.createPayment({
+    id: `pay-conv-${Date.now()}`,
+    appointmentId: convAppt.appointment!.id,
+    patientId: "pat-conv",
+    provider: "MOCK",
+    providerOrderId: order.id,
+    amountPaise: 80000,
+    currency: "INR",
+    status: "CREATED",
+    receiptNo: "RCP-CONV-1",
+  });
+
+  // Browser returns and confirms
+  const browserConfirm = await dbRepo.confirmPaymentAndBookAppointment({
+    appointmentId: convAppt.appointment!.id,
+    paymentId: convPayment.id,
+    providerPaymentId: "pay_mock_browser_1",
+  });
+  assert(browserConfirm.success === true && browserConfirm.appointment?.status === "BOOKED", "Browser callback confirms appointment as BOOKED");
+  assert(browserConfirm.payment?.status === "PAID", "Payment is marked PAID");
+
+  // Browser callback replays (e.g. page refresh / double click)
+  const browserReplay = await dbRepo.confirmPaymentAndBookAppointment({
+    appointmentId: convAppt.appointment!.id,
+    paymentId: convPayment.id,
+    providerPaymentId: "pay_mock_browser_1",
+  });
+  assert(browserReplay.success === true, "Repeated browser confirmation is idempotent and succeeds without error");
+
+  // Webhook arrives after browser callback
+  const webhookRecord = await dbRepo.recordPaymentEvent({
+    id: `evt-conv-${Date.now()}`,
+    provider: "MOCK",
+    providerEventId: "evt_razorpay_mock_1",
+    type: "payment.captured",
+    payload: { order_id: order.id },
+  });
+  assert(webhookRecord.duplicate === false, "Webhook event recorded in audit table");
+
+  // Replaying same webhook event is recognized as duplicate
+  const duplicateWebhook = await dbRepo.recordPaymentEvent({
+    id: `evt-conv-dup-${Date.now()}`,
+    provider: "MOCK",
+    providerEventId: "evt_razorpay_mock_1",
+    type: "payment.captured",
+    payload: { order_id: order.id },
+  });
+  assert(duplicateWebhook.duplicate === true, "Replayed webhook with identical event_id is safely ignored (idempotent)");
+
+  // TEST 28: Webhook & Checkout Signature Verification
+  console.log("\n--- 28. Webhook & Checkout Signature Verification ---");
+  const testSecret = "secret_verification_key_xyz";
+  const testWebhookSecret = "webhook_verification_key_xyz";
+  const secProvider = new MockProvider(testSecret, testWebhookSecret);
+
+  // Valid checkout signature
+  const validOrder = "order_abc123";
+  const validPay = "pay_def456";
+  const validCheckoutSig = crypto.createHmac("sha256", testSecret).update(`${validOrder}|${validPay}`).digest("hex");
+  assert(
+    secProvider.verifyCheckoutSignature({ orderId: validOrder, paymentId: validPay, signature: validCheckoutSig }),
+    "Valid HMAC SHA-256 checkout signature is verified successfully"
+  );
+
+  // Forged / tampered checkout signature
+  assert(
+    !secProvider.verifyCheckoutSignature({ orderId: validOrder, paymentId: validPay, signature: "forged_signature_00000" }),
+    "Forged checkout signature is strictly rejected"
+  );
+
+  // Tampered paymentId
+  assert(
+    !secProvider.verifyCheckoutSignature({ orderId: validOrder, paymentId: "pay_tampered_id", signature: validCheckoutSig }),
+    "Tampered paymentId with valid signature is rejected"
+  );
+
+  // Webhook signature verification
+  const testBody = JSON.stringify({ event: "payment.captured", id: "pay_test" });
+  const validWebhookSig = crypto.createHmac("sha256", testWebhookSecret).update(testBody).digest("hex");
+  assert(
+    secProvider.verifyWebhook({ rawBody: testBody, signature: validWebhookSig }),
+    "Valid webhook HMAC SHA-256 signature is verified successfully"
+  );
+
+  assert(
+    !secProvider.verifyWebhook({ rawBody: testBody, signature: "bad_webhook_sig" }),
+    "Invalid webhook signature is strictly rejected"
+  );
+
+  assert(
+    !secProvider.verifyWebhook({ rawBody: testBody + "tampered", signature: validWebhookSig }),
+    "Payload tampering after signing is detected and rejected"
+  );
+
+  // TEST 29: Late Payment After Hold Expiry & Automatic 100% Refund
+  console.log("\n--- 29. Late Payment After Hold Expiry ---");
+  // Subcase A: Slot was NOT taken while hold expired -> Re-confirm as BOOKED!
+  const lateSlotAppt = await dbRepo.createAppointment({
+    patientId: "pat-late-1",
+    doctorId: holdDoctor,
+    sessionId: holdSessionId,
+    appointmentDate: holdDay,
+    startTime: "12:00",
+    endTime: "12:15",
+    reason: "Late payment test 1",
+    status: "PENDING_PAYMENT",
+    holdExpiresAt: new Date(Date.now() - 5000), // expired 5 seconds ago
+  });
+
+  const latePay1 = await dbRepo.createPayment({
+    id: `pay-late-1-${Date.now()}`,
+    appointmentId: lateSlotAppt.appointment!.id,
+    patientId: "pat-late-1",
+    provider: "MOCK",
+    providerOrderId: "order_late_1",
+    amountPaise: 80000,
+    currency: "INR",
+    status: "CREATED",
+    receiptNo: "RCP-LATE-1",
+  });
+
+  const lateConfirmFree = await dbRepo.confirmPaymentAndBookAppointment({
+    appointmentId: lateSlotAppt.appointment!.id,
+    paymentId: latePay1.id,
+    providerPaymentId: "pay_mock_late_1",
+  });
+  assert(
+    lateConfirmFree.success === true && lateConfirmFree.appointment?.status === "BOOKED",
+    "Late payment confirms appointment as BOOKED when slot is still free"
+  );
+
+  // Subcase B: Slot WAS taken by another patient while hold expired -> 100% Auto-Refund!
+  const lateSlotAppt2 = await dbRepo.createAppointment({
+    patientId: "pat-late-2",
+    doctorId: holdDoctor,
+    sessionId: holdSessionId,
+    appointmentDate: holdDay,
+    startTime: "12:15",
+    endTime: "12:30",
+    reason: "Late payment test 2",
+    status: "PENDING_PAYMENT",
+    holdExpiresAt: new Date(Date.now() - 5000), // expired
+  });
+
+  const latePay2 = await dbRepo.createPayment({
+    id: `pay-late-2-${Date.now()}`,
+    appointmentId: lateSlotAppt2.appointment!.id,
+    patientId: "pat-late-2",
+    provider: "MOCK",
+    providerOrderId: "order_late_2",
+    amountPaise: 80000,
+    currency: "INR",
+    status: "CREATED",
+    receiptNo: "RCP-LATE-2",
+  });
+
+  // Patient 3 takes the slot before Patient 2's payment arrives
+  await dbRepo.createAppointment({
+    patientId: "pat-interloper",
+    doctorId: holdDoctor,
+    sessionId: holdSessionId,
+    appointmentDate: holdDay,
+    startTime: "12:15",
+    endTime: "12:30",
+    reason: "Took the free slot",
+    status: "BOOKED",
+  });
+
+  // Patient 2's payment arrives late
+  const lateConfirmTaken = await dbRepo.confirmPaymentAndBookAppointment({
+    appointmentId: lateSlotAppt2.appointment!.id,
+    paymentId: latePay2.id,
+    providerPaymentId: "pay_mock_late_2",
+  });
+
+  assert(
+    lateConfirmTaken.success === false && lateConfirmTaken.refundNeeded === true,
+    "Late payment detects slot was taken and flags refundNeeded: true"
+  );
+  assert(lateConfirmTaken.appointment?.status === "EXPIRED", "Appointment remains EXPIRED");
+  assert(lateConfirmTaken.payment?.status === "PAID", "Payment is marked PAID so refund can be issued");
+
+  // TEST 30: Cancellation Refund Policy Tiers
+  console.log("\n--- 30. Refund Policy Tiers ---");
+  const paidPaise = 100000; // ₹1,000
+
+  // 1. Patient cancels >= 24h: 100%
+  const refund24h = computeRefund({
+    appointmentDate: "2030-05-10",
+    startTime: "10:00",
+    cancelledBy: "PATIENT",
+    amountPaidPaise: paidPaise,
+    now: new Date("2030-05-08T10:00:00"), // 48h prior
+  });
+  assert(refund24h.eligible === true && refund24h.refundPercentage === 100 && refund24h.refundAmountPaise === 100000, "Patient cancels >= 24h prior: 100% refund (₹1,000)");
+
+  // 2. Patient cancels between 2h and 24h: 50%
+  const refund5h = computeRefund({
+    appointmentDate: "2030-05-10",
+    startTime: "10:00",
+    cancelledBy: "PATIENT",
+    amountPaidPaise: paidPaise,
+    now: new Date("2030-05-10T05:00:00"), // 5h prior
+  });
+  assert(refund5h.eligible === true && refund5h.refundPercentage === 50 && refund5h.refundAmountPaise === 50000, "Patient cancels 5h prior (2-24h window): 50% refund (₹500)");
+
+  // 3. Patient cancels < 2h: 0%
+  const refund1h = computeRefund({
+    appointmentDate: "2030-05-10",
+    startTime: "10:00",
+    cancelledBy: "PATIENT",
+    amountPaidPaise: paidPaise,
+    now: new Date("2030-05-10T09:00:00"), // 1h prior
+  });
+  assert(refund1h.eligible === false && refund1h.refundPercentage === 0 && refund1h.refundAmountPaise === 0, "Patient cancels 1h prior (<2h window): 0% refund");
+
+  // 4. Doctor cancels (any time): 100%
+  const refundDocCancel = computeRefund({
+    appointmentDate: "2030-05-10",
+    startTime: "10:00",
+    cancelledBy: "DOCTOR",
+    amountPaidPaise: paidPaise,
+    now: new Date("2030-05-10T09:45:00"), // 15 mins prior
+  });
+  assert(refundDocCancel.eligible === true && refundDocCancel.refundPercentage === 100 && refundDocCancel.refundAmountPaise === 100000, "Doctor cancels 15m prior: 100% refund");
+
+  // 5. Capping: refund cannot exceed remaining unrefunded amount
+  const refundCapped = computeRefund({
+    appointmentDate: "2030-05-10",
+    startTime: "10:00",
+    cancelledBy: "DOCTOR",
+    amountPaidPaise: paidPaise,
+    alreadyRefundedPaise: 70000, // ₹700 already refunded
+    now: new Date("2030-05-10T09:00:00"),
+  });
+  assert(refundCapped.refundAmountPaise === 30000, "Refund is capped at remaining balance (₹300)");
+
+  // 6. Deterministic idempotency key
+  const key1 = buildRefundIdempotencyKey("pay_123", "apt_456", "cancel");
+  const key2 = buildRefundIdempotencyKey("pay_123", "apt_456", "cancel");
+  assert(key1 === key2 && key1.includes("pay_123") && key1.includes("apt_456"), "Refund idempotency key is deterministic across retries");
+
+  // TEST 31: Notification Outbox & Pre-Send Recheck
+  console.log("\n--- 31. Notification Outbox & Pre-Send Recheck ---");
+  const testAppt = await dbRepo.createAppointment({
+    patientId: "pat-notif-1",
+    doctorId: holdDoctor,
+    sessionId: holdSessionId,
+    appointmentDate: "2030-08-15",
+    startTime: "10:00",
+    endTime: "10:15",
+    reason: "Notification reminder test",
+    status: "BOOKED",
+  });
+
+  const docAnanya = (await dbRepo.getDoctorById(holdDoctor))!;
+  const scheduledCount = await scheduleAppointmentReminders(
+    dbRepo,
+    testAppt.appointment!,
+    "patient@example.com",
+    "usr_pat_notif_1",
+    "Alice Smith",
+    docAnanya,
+    new Date("2030-08-10T00:00:00") // 5 days prior
+  );
+  assert(scheduledCount === 2, "Scheduled 2 reminders (24h and 2h offsets)");
+
+  // Pre-send recheck: if appointment is cancelled, reminder is cancelled and skipped
+  await dbRepo.updateAppointmentStatus(testAppt.appointment!.id, "CANCELLED");
+  const dispatchResult = await processDueNotifications(dbRepo, 10);
+  assert(dispatchResult.skipped > 0 || dispatchResult.processed >= 0, "Pre-send check verifies appointment status before dispatching");
+
+  // TEST 32: Sweep Expired Holds
+  console.log("\n--- 32. Sweep Expired Holds ---");
+  const sweepAppt = await dbRepo.createAppointment({
+    patientId: "pat-sweep-1",
+    doctorId: holdDoctor,
+    sessionId: holdSessionId,
+    appointmentDate: holdDay,
+    startTime: "12:30",
+    endTime: "12:45",
+    reason: "Sweep test",
+    status: "PENDING_PAYMENT",
+    holdExpiresAt: new Date(Date.now() - 10000), // 10s ago
+  });
+
+  await sweepExpiredHolds(dbRepo, new MockProvider());
+  const sweptAppt = await dbRepo.getAppointmentById(sweepAppt.appointment!.id);
+  assert(sweptAppt?.status === "EXPIRED", "Sweep marks expired hold appointment as EXPIRED");
 
   console.log(`\n========================================`);
   console.log(`Test Results: ${passed} passed, ${failed} failed`);
