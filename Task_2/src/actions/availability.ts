@@ -112,7 +112,8 @@ export async function updateSessionAction(formData: FormData) {
   }
 
   try {
-    const session = await dbRepo.updateAvailabilitySession(sessionId, {
+    // Scoped to the signed-in doctor: another doctor's session id is treated as not found.
+    const session = await dbRepo.updateAvailabilitySession(user.profileId, sessionId, {
       name: parsed.data.name,
       dayOfWeek: parsed.data.dayOfWeek,
       startTime: parsed.data.startTime,
@@ -139,7 +140,7 @@ export async function deleteSessionAction(sessionId: string) {
   }
 
   try {
-    const deleted = await dbRepo.deleteAvailabilitySession(sessionId);
+    const deleted = await dbRepo.deleteAvailabilitySession(user.profileId, sessionId);
     if (!deleted) {
       return { success: false, error: "Session not found." };
     }
