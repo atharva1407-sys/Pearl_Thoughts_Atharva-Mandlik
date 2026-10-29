@@ -12,6 +12,7 @@ import {
 
 export class MockProvider implements PaymentProvider {
   public readonly name = "MOCK" as const;
+  public readonly keyId = "rzp_test_mock_medrella";
   private readonly mockSecret: string;
   private readonly mockWebhookSecret: string;
 
