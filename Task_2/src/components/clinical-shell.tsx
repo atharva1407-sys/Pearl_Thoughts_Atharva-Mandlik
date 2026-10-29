@@ -66,17 +66,18 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
     }
   };
 
-  const isAuthPage =
+  // The public landing page and auth pages bring their own header/footer, so they skip the app sidebar.
+  const isStandalonePage =
+    pathname === "/" ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/register") ||
     pathname.startsWith("/signup");
 
-  if (isAuthPage) {
+  if (isStandalonePage) {
     return <main className="w-full min-h-screen">{children}</main>;
   }
 
   const getBreadcrumb = () => {
-    if (pathname === "/") return "Dashboard";
     if (pathname.startsWith("/queue")) return "Live Token Queue";
     if (pathname === "/doctors") return "Specialists Directory";
     if (pathname.startsWith("/doctors/")) return "Book Consultation";
@@ -147,8 +148,8 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
                 onClick={() => setSidebarOpen(false)}
                 className={`nav-item ${pathname === "/" ? "active" : ""}`}
               >
-                <LayoutDashboard size={17} />
-                <span>Dashboard</span>
+                <Home size={17} />
+                <span>Home</span>
               </Link>
 
               <Link
@@ -179,8 +180,8 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
                 onClick={() => setSidebarOpen(false)}
                 className={`nav-item ${pathname === "/" ? "active" : ""}`}
               >
-                <LayoutDashboard size={17} />
-                <span>Dashboard</span>
+                <Home size={17} />
+                <span>Home</span>
               </Link>
 
               <Link

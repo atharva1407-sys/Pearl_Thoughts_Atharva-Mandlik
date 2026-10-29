@@ -5,8 +5,8 @@ dotenv.config();
 import { Pool } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import * as schema from "./schema";
-import { hashPassword } from "../lib/auth-crypto";
-import { RUBY_HALL_SPECIALISTS } from "./specialists-catalog";
+import { seedSpecialists } from "./seed-specialists";
+import { getSeedDoctorPassword } from "./specialists-catalog";
 
 async function main() {
   const connectionString = process.env.DATABASE_URL;
@@ -16,83 +16,22 @@ async function main() {
     process.exit(1);
   }
 
+  let password: string;
+  try {
+    password = getSeedDoctorPassword({ allowDevFallback: false });
+  } catch (err) {
+    console.error(`❌ ERROR: ${(err as Error).message}`);
+    process.exit(1);
+  }
+
   console.log("Connecting to Neon PostgreSQL...");
   const pool = new Pool({ connectionString });
   const db = drizzle(pool, { schema });
 
-  console.log("Seeding initial specialists and shifts...");
-  const defaultPasswordHash = hashPassword("password123");
+  console.log("Seeding Ruby Hall specialists, profiles and weekly sessions...");
+  const count = await seedSpecialists(db, password);
 
-  for (const doc of RUBY_HALL_SPECIALISTS) {
-    // 1. Upsert User
-    await db
-      .insert(schema.users)
-      .values({
-        id: doc.userId,
-        email: doc.email.toLowerCase(),
-        passwordHash: defaultPasswordHash,
-        role: "DOCTOR",
-        isActive: true,
-      })
-      .onConflictDoUpdate({
-        target: schema.users.id,
-        set: { email: doc.email.toLowerCase() },
-      });
-
-    // 2. Upsert Doctor Profile
-    await db
-      .insert(schema.doctors)
-      .values({
-        id: doc.id,
-        userId: doc.userId,
-        firstName: doc.firstName,
-        lastName: doc.lastName,
-        specialization: doc.specialization,
-        phone: doc.phone,
-        licenseNumber: doc.licenseNumber,
-        experienceYears: doc.experienceYears,
-        consultationFee: doc.consultationFee,
-        bio: doc.bio,
-      })
-      .onConflictDoUpdate({
-        target: schema.doctors.id,
-        set: {
-          firstName: doc.firstName,
-          lastName: doc.lastName,
-          specialization: doc.specialization,
-          consultationFee: doc.consultationFee,
-        },
-      });
-
-    // 3. Upsert Availabilities
-    for (const day of doc.days) {
-      await db
-        .insert(schema.availabilities)
-        .values({
-          id: `avail-${doc.id}-${day}`,
-          doctorId: doc.id,
-          name: "Morning OPD",
-          dayOfWeek: day,
-          startTime: doc.start,
-          endTime: doc.end,
-          slotDurationMinutes: doc.duration,
-          isActive: true,
-          schedulingType: "STREAM",
-          patientsPerWave: 1,
-        })
-        .onConflictDoUpdate({
-          target: [schema.availabilities.doctorId, schema.availabilities.dayOfWeek],
-          set: {
-            startTime: doc.start,
-            endTime: doc.end,
-            slotDurationMinutes: doc.duration,
-            isActive: true,
-          },
-        });
-    }
-  }
-
-  console.log(`✅ Successfully seeded ${RUBY_HALL_SPECIALISTS.length} specialists into Neon PostgreSQL!`);
+  console.log(`✅ Seeded ${count} specialists. New doctor accounts use SEED_DOCTOR_PASSWORD; existing accounts kept their password.`);
   await pool.end();
   process.exit(0);
 }

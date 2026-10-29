@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { dbRepo } from "@/db/repo";
@@ -12,23 +13,24 @@ export default async function DoctorsPage({
 }: {
   searchParams: Promise<{ specialization?: string }>;
 }) {
+  const { specialization } = await searchParams;
   const user = await getCurrentUser();
   if (!user) {
-    redirect("/login?redirectTo=/doctors");
+    // Keep the department filter (e.g. from a landing page tile) through the login round-trip.
+    const returnTo = specialization ? `/doctors?specialization=${encodeURIComponent(specialization)}` : "/doctors";
+    redirect(`/login?redirectTo=${encodeURIComponent(returnTo)}`);
   }
-  const { specialization } = await searchParams;
+  // Filter pills come from the specialties of doctors actually registered, so a new department appears automatically.
+  const everyDoctor = await dbRepo.getAllDoctors();
   const allSpecializations = [
     "All",
-    "Cardiology",
-    "Dermatology",
-    "Pediatrics",
-    "Orthopedics",
-    "General Medicine"
+    ...Array.from(new Set(everyDoctor.map((d) => d.specialization))).sort((a, b) => a.localeCompare(b)),
   ];
   const selectedSpec = specialization || "All";
-  const doctors = await dbRepo.getAllDoctors(
-    selectedSpec === "All" ? undefined : selectedSpec
-  );
+  const doctors =
+    selectedSpec === "All"
+      ? everyDoctor
+      : everyDoctor.filter((d) => d.specialization.toLowerCase() === selectedSpec.toLowerCase());
 
   const getDoctorInitials = (first: string, last: string) => {
     return `${first[0]}${last[0]}`.toUpperCase();
@@ -54,7 +56,7 @@ export default async function DoctorsPage({
           return (
             <Link
               key={spec}
-              href={spec === "All" ? "/doctors" : `/doctors?specialization=${spec}`}
+              href={spec === "All" ? "/doctors" : `/doctors?specialization=${encodeURIComponent(spec)}`}
               className={`px-3.5 py-1.5 rounded-lg transition-all font-semibold ${
                 isActive
                   ? "bg-blue-600 text-white shadow-xs"
@@ -90,9 +92,21 @@ export default async function DoctorsPage({
             >
               <div className="space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="avatar w-12 h-12 text-sm bg-blue-100 text-blue-700 font-bold flex-shrink-0">
-                    {getDoctorInitials(doctor.firstName, doctor.lastName)}
-                  </div>
+                  {doctor.profileImage ? (
+                    <div className="relative w-12 h-12 flex-shrink-0 overflow-hidden rounded-xl bg-blue-50">
+                      <Image
+                        src={doctor.profileImage}
+                        alt={`Dr. ${doctor.firstName} ${doctor.lastName}`}
+                        fill
+                        sizes="48px"
+                        className="object-cover object-top"
+                      />
+                    </div>
+                  ) : (
+                    <div className="avatar w-12 h-12 text-sm bg-blue-100 text-blue-700 font-bold flex-shrink-0">
+                      {getDoctorInitials(doctor.firstName, doctor.lastName)}
+                    </div>
+                  )}
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">

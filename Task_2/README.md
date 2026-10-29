@@ -55,10 +55,11 @@ npm run db:push
 ```
 
 ### 2. Seed Initial Specialists & Shifts
-To seed initial hospital specialists and weekly shift availability into Neon PostgreSQL:
+The landing page features 8 Ruby Hall specialists (`src/db/specialists-catalog.ts`). To create their doctor accounts, profiles, photos and weekly OPD sessions in Neon PostgreSQL, set `SEED_DOCTOR_PASSWORD` (8+ characters) in `.env.local`, then run:
 ```bash
 npm run db:seed
 ```
+The seed is safe to re-run: it updates profiles and session timings, and never resets the password of an existing doctor account.
 
 ### 3. Concurrency & Double-Booking Guard
 Concurrency is enforced at the **PostgreSQL database engine level** via a partial unique index on `appointments`:

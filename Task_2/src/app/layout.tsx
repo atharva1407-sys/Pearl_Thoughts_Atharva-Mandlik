@@ -30,7 +30,8 @@ export default async function RootLayout({
   const user = await getCurrentUser();
 
   return (
-    <html lang="en" className="h-full antialiased">
+    // data-scroll-behavior lets Next.js turn off smooth scrolling during route changes (landing page uses it for section links).
+    <html lang="en" className="h-full antialiased" data-scroll-behavior="smooth">
       <body className="min-h-screen bg-[#f6f8fb] text-[#14243d]">
         <ClinicalShell user={user}>{children}</ClinicalShell>
       </body>
