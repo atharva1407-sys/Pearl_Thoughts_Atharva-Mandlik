@@ -47,6 +47,8 @@
   --font-sans: 'Helvetica Neue LT Pro', 'Helvetica Neue', Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
+/* Element defaults live in the base layer so Tailwind utilities (e.g. text colours on links) can override them. */
+@layer base {
 * {
   box-sizing: border-box;
 }
@@ -86,6 +88,7 @@ button {
 a {
   color: inherit;
   text-decoration: none;
+}
 }
 
 /* Clinical Shell & Layout */
@@ -2288,4 +2291,10 @@ td small {
   .input-wrap {
     height: 46px;
   }
+}
+
+/* Landing page: smooth section links that stop below the sticky header */
+html:has(.landing-root) {
+  scroll-behavior: smooth;
+  scroll-padding-top: 80px;
 }

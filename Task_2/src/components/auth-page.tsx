@@ -339,11 +339,14 @@ export default function AuthPage({ mode }: AuthPageProps) {
                   aria-label="Clinical specialization"
                   className="bg-transparent text-slate-800"
                 >
+                  <option value="General Medicine">General Medicine</option>
                   <option value="Cardiology">Cardiology</option>
                   <option value="Dermatology">Dermatology</option>
                   <option value="Pediatrics">Pediatrics</option>
                   <option value="Orthopedics">Orthopedics</option>
-                  <option value="General Medicine">General Medicine</option>
+                  <option value="Gynecology">Gynecology</option>
+                  <option value="Ophthalmology">Ophthalmology</option>
+                  <option value="General Surgery">General Surgery</option>
                   <option value="Neurology">Neurology</option>
                 </select>
               </label>

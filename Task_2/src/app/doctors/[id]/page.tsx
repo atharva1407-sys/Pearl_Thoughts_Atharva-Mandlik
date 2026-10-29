@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
 import { dbRepo } from "@/db/repo";
 import { getCurrentUser } from "@/actions/auth";
@@ -25,7 +26,9 @@ export default async function DoctorProfilePage({
   }
   const isLoggedIn = Boolean(currentUser);
   const availabilities = await dbRepo.getAvailabilitiesByDoctorId(doctor.id);
-  const activeDays = availabilities.filter((a) => a.isActive).map((a) => a.dayOfWeek);
+  const weekOrder = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+  // A doctor can run several sessions on one day, so list each day once, in week order.
+  const activeDays = weekOrder.filter((day) => availabilities.some((a) => a.isActive && a.dayOfWeek === day));
 
   return (
     <div className="space-y-6">
@@ -41,6 +44,18 @@ export default async function DoctorProfilePage({
         {/* Left Column: Doctor Profile Card */}
         <div className="card space-y-5 h-fit">
           <div className="space-y-2">
+            {doctor.profileImage && (
+              <div className="relative h-40 w-full overflow-hidden rounded-xl bg-blue-50">
+                <Image
+                  src={doctor.profileImage}
+                  alt={`Dr. ${doctor.firstName} ${doctor.lastName}`}
+                  fill
+                  sizes="(min-width: 1024px) 360px, 100vw"
+                  className="object-cover object-top"
+                  priority
+                />
+              </div>
+            )}
             <span className="badge blue">
               {doctor.specialization}
             </span>
@@ -68,7 +83,7 @@ export default async function DoctorProfilePage({
             <div className="flex justify-between items-center">
               <span className="text-slate-500">Active Shift Days</span>
               <span className="badge sky">
-                {activeDays.length > 0 ? activeDays.join(", ") : "Mon - Fri"}
+                {activeDays.length > 0 ? activeDays.join(", ") : "No active sessions"}
               </span>
             </div>
             <div className="flex justify-between items-center">
