@@ -7,9 +7,12 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 import {
   Clock3,
+  AlertCircle,
   ArrowRight,
+  Filter,
   CheckCircle,
   Stethoscope,
+  HeartPulse,
   Plus
 } from "lucide-react";
 
@@ -19,22 +22,27 @@ export default async function QueuePage() {
     redirect("/login?message=Only authorized medical staff can access the outpatient triage queue.");
   }
 
-  // Doctor Data Scoping: load strictly the logged-in doctor's appointments and associated patients
-  const [doctor, doctorAppointments] = await Promise.all([
-    dbRepo.getDoctorById(user.profileId),
-    dbRepo.getAppointmentsByDoctorId(user.profileId),
+  const [allAppointments, allPatients, allDoctors] = await Promise.all([
+    dbRepo.getAllAppointments(),
+    dbRepo.getAllPatients(),
+    dbRepo.getAllDoctors(),
   ]);
 
-  const queueAppointments = doctorAppointments.filter((a) => a.status === "BOOKED");
+  const patientMap = new Map(allPatients.map((p) => [p.id, p]));
+  const doctorMap = new Map(allDoctors.map((d) => [d.id, d]));
+
+  const queueAppointments = allAppointments.filter((a) => a.status === "BOOKED");
   const nextPatient = queueAppointments[0];
+  const nextPatientDetails = nextPatient ? patientMap.get(nextPatient.patientId) : null;
+  const nextDoctorDetails = nextPatient ? doctorMap.get(nextPatient.doctorId) : null;
 
   return (
     <div className="space-y-6">
       {/* Queue Toolbar */}
       <div className="queue-toolbar">
         <div>
-          <h2>Dr. {doctor ? `${doctor.firstName} ${doctor.lastName}` : "Physician"}&apos;s Queue</h2>
-          <p>Live outpatient consultations for {doctor?.specialization || "Clinical"} Department · Ruby Hall, Pune</p>
+          <h2>Queue at Ruby Hall, Pune</h2>
+          <p>Live token session, sorted by appointment time and arrival priority</p>
         </div>
         <span className="badge green">
           <span className="live-dot" /> {queueAppointments.length} waiting · Live
@@ -45,7 +53,7 @@ export default async function QueuePage() {
         {/* Left Side: Active Queue List */}
         <div className="card">
           <div className="card-head">
-            <h2>My waiting patients</h2>
+            <h2>Patients in queue</h2>
             <Link href="/doctors" className="btn text-xs">
               <Plus size={14} /> Add Booking
             </Link>
@@ -54,24 +62,24 @@ export default async function QueuePage() {
           {queueAppointments.length === 0 ? (
             <div className="py-12 text-center text-xs text-slate-400 space-y-2">
               <Clock3 size={24} className="mx-auto text-slate-300" />
-              <div>Your outpatient consultation queue is currently clear. No patients waiting.</div>
+              <div>The outpatient queue is currently clear. No patients waiting.</div>
               <Link
-                href="/doctor/dashboard"
+                href="/doctors"
                 className="inline-flex items-center gap-1 text-xs text-blue-600 font-bold hover:underline"
               >
-                Go to Doctor Agenda
+                + Book an appointment slot
               </Link>
             </div>
           ) : (
             <div className="space-y-1">
-              {queueAppointments.map((apt) => {
-                const patient = apt.patient;
+              {queueAppointments.map((apt, index) => {
+                const patient = patientMap.get(apt.patientId);
+                const doctor = doctorMap.get(apt.doctorId);
 
                 return (
                   <div key={apt.id} className="patient-row">
-                    <div className="token bg-blue-50 text-blue-800 font-bold flex flex-col items-center justify-center">
-                      <span className="text-xs font-black">#{apt.tokenNumber}</span>
-                      <span className="text-[9px] text-slate-400 font-normal">Token</span>
+                    <div className="token bg-blue-50 text-blue-800 font-bold">
+                      #{index + 1}
                     </div>
 
                     <div className="patient-main">
@@ -79,25 +87,22 @@ export default async function QueuePage() {
                         {patient ? `${patient.firstName} ${patient.lastName}` : "Patient"}
                       </strong>
                       <small>
-                        Contact: {patient?.phone || "On File"} · Reason: {apt.reason}
+                        Doctor: Dr. {doctor?.firstName} {doctor?.lastName} ({doctor?.specialization})
                       </small>
+                      <span>{apt.reason}</span>
 
                       <div className="chips">
                         <span className="badge sky">Scheduled</span>
                         <span className="badge gray">Date: {apt.appointmentDate}</span>
-                        {apt.rescheduledAt && (
-                          <span className="badge purple">Rescheduled</span>
-                        )}
-                        <span className="badge amber">Est. wait: ~{(apt.tokenNumber - 1) * 20}m</span>
                       </div>
                     </div>
 
                     <div className="patient-end">
-                      <small className="font-mono text-xs">{apt.startTime} – {apt.endTime}</small>
+                      <small className="font-mono text-xs">{apt.startTime}</small>
                       <Link
-                        href="/doctor/dashboard"
+                        href="/encounters"
                         className="icon-btn"
-                        title="Manage in Doctor Agenda"
+                        title="Open Encounter"
                       >
                         <ArrowRight size={16} />
                       </Link>
@@ -115,8 +120,8 @@ export default async function QueuePage() {
             <div>
               <p className="text-xs text-slate-400">Next patient in line</p>
               <h2>
-                {nextPatient
-                  ? `${nextPatient.patient.firstName} ${nextPatient.patient.lastName}`
+                {nextPatientDetails
+                  ? `${nextPatientDetails.firstName} ${nextPatientDetails.lastName}`
                   : "Queue Clear"}
               </h2>
             </div>
@@ -135,9 +140,9 @@ export default async function QueuePage() {
               </div>
 
               <div className="info-line">
-                <span>Attending Physician:</span>
+                <span>Doctor:</span>
                 <b>
-                  Dr. {doctor?.firstName} {doctor?.lastName}
+                  Dr. {nextDoctorDetails?.firstName} {nextDoctorDetails?.lastName}
                 </b>
               </div>
 
@@ -152,9 +157,9 @@ export default async function QueuePage() {
               </div>
 
               <div className="pt-2 space-y-2">
-                <Link href="/doctor/dashboard" className="btn primary w-full justify-center">
+                <Link href="/encounters" className="btn primary w-full justify-center">
                   <Stethoscope size={15} />
-                  <span>Open Doctor Agenda to Complete</span>
+                  <span>Open Consultation Workspace</span>
                   <ArrowRight size={15} />
                 </Link>
               </div>
@@ -163,8 +168,8 @@ export default async function QueuePage() {
             <div className="py-6 text-center text-xs text-slate-400 space-y-2">
               <CheckCircle size={22} className="mx-auto text-emerald-500" />
               <div>All scheduled patient consultations have been completed.</div>
-              <Link href="/doctor/dashboard" className="btn primary text-xs justify-center w-full mt-2">
-                <span>View Full Agenda</span>
+              <Link href="/doctors" className="btn primary text-xs justify-center w-full mt-2">
+                <span>Schedule New Patient</span>
               </Link>
             </div>
           )}

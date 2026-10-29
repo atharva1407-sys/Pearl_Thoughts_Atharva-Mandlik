@@ -3,7 +3,6 @@
 import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import {
   Activity,
   CalendarDays,
@@ -38,7 +37,6 @@ export default function AuthPage({ mode }: AuthPageProps) {
   const [redirectTo, setRedirectTo] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const router = useRouter();
 
   // Read URL search params on client mount for redirect & notice messages
   useEffect(() => {
@@ -77,8 +75,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
         // Login Flow
         const res = await loginAction(formData);
         if (res && res.success && res.redirectPath) {
-          // In-app navigation (no full reload / white flash); the button stays pending until the page shows.
-          router.replace(res.redirectPath);
+          window.location.href = res.redirectPath;
           return;
         }
         if (res && !res.success) {
@@ -102,8 +99,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
         }
 
         if (res && res.success && res.redirectPath) {
-          // In-app navigation (no full reload / white flash); the button stays pending until the page shows.
-          router.replace(res.redirectPath);
+          window.location.href = res.redirectPath;
           return;
         }
         if (res && !res.success) {
@@ -343,14 +339,11 @@ export default function AuthPage({ mode }: AuthPageProps) {
                   aria-label="Clinical specialization"
                   className="bg-transparent text-slate-800"
                 >
-                  <option value="General Medicine">General Medicine</option>
                   <option value="Cardiology">Cardiology</option>
                   <option value="Dermatology">Dermatology</option>
                   <option value="Pediatrics">Pediatrics</option>
                   <option value="Orthopedics">Orthopedics</option>
-                  <option value="Gynecology">Gynecology</option>
-                  <option value="Ophthalmology">Ophthalmology</option>
-                  <option value="General Surgery">General Surgery</option>
+                  <option value="General Medicine">General Medicine</option>
                   <option value="Neurology">Neurology</option>
                 </select>
               </label>
@@ -361,9 +354,9 @@ export default function AuthPage({ mode }: AuthPageProps) {
               <input
                 type={showPassword ? "text" : "password"}
                 required
-                minLength={8}
+                minLength={6}
                 autoComplete={isSignup ? "new-password" : "current-password"}
-                placeholder={isSignup ? "Create password (8+ characters)" : "Enter your password"}
+                placeholder={isSignup ? "Create password (6+ characters)" : "Enter your password"}
                 aria-label="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -410,23 +403,25 @@ export default function AuthPage({ mode }: AuthPageProps) {
                 />
                 <span>
                   I agree to the{" "}
-                  <Link
-                    href="/terms"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline hover:text-[#0875df]"
+                  <a
+                    href="#terms"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setNotice("Medrella Clinical Terms of Service: Patient data is protected under hospital clinical confidentiality standards.");
+                    }}
                   >
                     Terms of Service
-                  </Link>{" "}
+                  </a>{" "}
                   and{" "}
-                  <Link
-                    href="/privacy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline hover:text-[#0875df]"
+                  <a
+                    href="#privacy"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setNotice("Medrella Privacy Policy: Hospital records are strictly confidential and encrypted.");
+                    }}
                   >
                     Privacy Policy
-                  </Link>
+                  </a>
                 </span>
               </label>
             )}
@@ -467,12 +462,24 @@ export default function AuthPage({ mode }: AuthPageProps) {
         <footer className="auth-footer">
           <span>© 2026 Medrella. All rights reserved.</span>
           <div>
-            <Link href="/privacy" className="hover:underline">
+            <a
+              href="#privacy"
+              onClick={(e) => {
+                e.preventDefault();
+                setNotice("Ruby Hall clinical privacy guidelines active.");
+              }}
+            >
               Privacy
-            </Link>
-            <Link href="/terms" className="hover:underline">
+            </a>
+            <a
+              href="#terms"
+              onClick={(e) => {
+                e.preventDefault();
+                setNotice("Standard hospital outpatient terms apply.");
+              }}
+            >
               Terms
-            </Link>
+            </a>
             <a href="mailto:support@medrella.com">Support</a>
           </div>
         </footer>

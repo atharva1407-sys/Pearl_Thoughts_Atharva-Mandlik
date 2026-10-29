@@ -55,20 +55,19 @@ npm run db:push
 ```
 
 ### 2. Seed Initial Specialists & Shifts
-The landing page features 8 Ruby Hall specialists (`src/db/specialists-catalog.ts`). To create their doctor accounts, profiles, photos and weekly OPD sessions in Neon PostgreSQL, set `SEED_DOCTOR_PASSWORD` (8+ characters) in `.env.local`, then run:
+To seed initial hospital specialists and weekly shift availability into Neon PostgreSQL:
 ```bash
 npm run db:seed
 ```
-The seed is safe to re-run: it updates profiles and session timings, and never resets the password of an existing doctor account.
 
 ### 3. Concurrency & Double-Booking Guard
-Wave sessions allow several patients per slot, so capacity is checked inside a transaction instead of a unique index. Each booking or reschedule first takes a PostgreSQL transaction-level advisory lock for that doctor and date:
+Concurrency is enforced at the **PostgreSQL database engine level** via a partial unique index on `appointments`:
 ```sql
-SELECT pg_advisory_xact_lock(hashtext('appointments:<doctorId>:<date>'));
+CREATE UNIQUE INDEX "doctor_slot_active_unique" 
+ON "appointments" ("doctor_id", "appointment_date", "start_time") 
+WHERE "status" != 'CANCELLED';
 ```
-Concurrent requests for the same doctor and day therefore run one at a time: the seat count and the next token number (highest issued + 1, so tokens are never reused after a cancellation) can't change between the check and the insert. Cancelled appointments free their seat immediately.
-
-Every requested slot (new booking or reschedule) is validated on the server by `src/lib/booking-rules.ts`: date window (today to 30 days ahead), doctor leave, an active session containing the time, slot alignment, the session's closing time and a 15-minute minimum notice. The end time and session are always derived from the doctor's schedule, never taken from the browser.
+This guarantees that concurrent booking requests cannot double-book a specialist even under high traffic, while cancelled slots remain immediately available for other patients.
 
 ---
 

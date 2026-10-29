@@ -26,6 +26,7 @@ export async function restoreTestDataAction() {
   revalidatePath("/");
   revalidatePath("/doctors");
   revalidatePath("/queue");
+  revalidatePath("/schedule");
   return { success: true, message: "Test data restored successfully!" };
 }
 
@@ -51,5 +52,6 @@ export async function clearTestDataAction() {
   revalidatePath("/");
   revalidatePath("/doctors");
   revalidatePath("/queue");
+  revalidatePath("/schedule");
   return { success: true, message: "All test data cleared!" };
 }
