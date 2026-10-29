@@ -96,3 +96,16 @@ export class NotificationDispatcher {
     };
   }
 }
+
+export async function processDueNotifications(
+  repo?: MedrellaRepository,
+  limit: number = 25
+): Promise<{
+  processed: number;
+  sent: number;
+  failed: number;
+  skipped: number;
+}> {
+  const dispatcher = new NotificationDispatcher(repo);
+  return dispatcher.processDueNotifications(limit);
+}

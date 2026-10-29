@@ -29,6 +29,7 @@ export interface CreateRefundParams {
   amountPaise: number;
   notes?: Record<string, string>;
   receipt?: string;
+  reason?: string;
 }
 
 export interface RefundResult {
@@ -56,6 +57,7 @@ export interface FetchOrderResult {
 
 export interface PaymentProvider {
   name: "RAZORPAY" | "MOCK";
+  keyId?: string;
   createOrder(params: CreateOrderParams): Promise<OrderResult>;
   verifyCheckoutSignature(params: VerifyCheckoutSignatureParams): boolean;
   verifyWebhook(params: VerifyWebhookParams): boolean;

@@ -12,7 +12,7 @@ import {
 
 export class RazorpayProvider implements PaymentProvider {
   public readonly name = "RAZORPAY" as const;
-  private readonly keyId: string;
+  public readonly keyId: string;
   private readonly keySecret: string;
   private readonly webhookSecret: string;
   private readonly baseUrl = "https://api.razorpay.com/v1";
