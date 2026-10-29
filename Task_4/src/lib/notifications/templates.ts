@@ -6,8 +6,30 @@ export interface FormattedNotification {
   bodyHtml: string;
 }
 
+const escapeHtml = (value: string): string =>
+  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+
+/** Copy of the payload with every text value passed through `esc` (numbers and booleans are left alone). */
+function mapPayload(payload: NonNullable<NotificationItem["payload"]>, esc: (v: string) => string) {
+  const out: Record<string, any> = {};
+  for (const [key, value] of Object.entries(payload)) {
+    out[key] = typeof value === "string" ? esc(value) : value;
+  }
+  return out;
+}
+
+/**
+ * Subject and plain text use the raw values; the HTML body uses HTML-escaped values, because names
+ * and reasons are typed by users and must never be able to inject markup into an email.
+ */
 export function formatNotification(item: NotificationItem): FormattedNotification {
-  const p = item.payload || {};
+  const raw = renderTemplate(item, (v) => v);
+  const safe = renderTemplate(item, escapeHtml);
+  return { subject: raw.subject, bodyText: raw.bodyText, bodyHtml: safe.bodyHtml };
+}
+
+function renderTemplate(item: NotificationItem, esc: (v: string) => string): FormattedNotification {
+  const p = mapPayload(item.payload || {}, esc);
   const patient = p.patientName || "Valued Patient";
   const doctor = p.doctorName || "Specialist";
   const date = p.appointmentDate || "Scheduled Date";
@@ -17,6 +39,7 @@ export function formatNotification(item: NotificationItem): FormattedNotificatio
   const refundFee = p.refundAmountFormatted || "";
 
   switch (item.template) {
+    case "BOOKING_CONFIRMATION": // older name for the same email
     case "BOOKING_CONFIRMED":
       return {
         subject: `Medrella Appointment Confirmed with Dr. ${doctor} (Token ${token})`,

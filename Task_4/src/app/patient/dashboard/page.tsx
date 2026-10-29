@@ -5,6 +5,7 @@ import { PatientAppointmentActions } from "./patient-appointment-actions";
 import { dbRepo } from "@/db/repo";
 import { formatDate } from "@/lib/utils";
 import { sweepExpiredHolds } from "@/lib/payments/expire";
+import { runInBackground } from "@/lib/background";
 import { formatPaise } from "@/lib/payments";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +30,9 @@ export default async function PatientDashboard() {
   }
 
   // Opportunistic sweep of expired payment holds
-  sweepExpiredHolds().catch(() => {});
+  runInBackground(async () => {
+    await sweepExpiredHolds(dbRepo);
+  });
 
   let patientId = user.profileId;
   if (user.role === "DOCTOR") {

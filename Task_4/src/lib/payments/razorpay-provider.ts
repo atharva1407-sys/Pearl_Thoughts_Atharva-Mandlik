@@ -10,6 +10,18 @@ import {
   RefundResult,
 } from "./types";
 
+/** Builds a short error from Razorpay's JSON error (never the raw body, which may be long or echo input). */
+async function razorpayError(res: Response, action: string): Promise<Error> {
+  let detail = "";
+  try {
+    const data = await res.json();
+    detail = String(data?.error?.description || data?.error?.code || "").slice(0, 160);
+  } catch {
+    // Non-JSON error body: ignore it
+  }
+  return new Error(`Razorpay ${action} failed (${res.status})${detail ? `: ${detail}` : ""}`);
+}
+
 export class RazorpayProvider implements PaymentProvider {
   public readonly name = "RAZORPAY" as const;
   public readonly keyId: string;
@@ -47,8 +59,7 @@ export class RazorpayProvider implements PaymentProvider {
     });
 
     if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`Razorpay createOrder failed (${res.status}): ${errText}`);
+      throw await razorpayError(res, "createOrder");
     }
 
     const data = await res.json();
@@ -109,11 +120,30 @@ export class RazorpayProvider implements PaymentProvider {
     });
 
     if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`Razorpay fetchOrder failed (${res.status}): ${errText}`);
+      throw await razorpayError(res, "fetchOrder");
     }
 
     const data = await res.json();
+
+    // The order lists the payment attempts made against it; we need the real payment id to confirm or refund.
+    let payments: FetchOrderResult["payments"];
+    try {
+      const paymentsRes = await fetch(`${this.baseUrl}/orders/${orderId}/payments`, {
+        method: "GET",
+        headers: { Authorization: this.authHeader },
+      });
+      if (paymentsRes.ok) {
+        const list = await paymentsRes.json();
+        payments = (list.items || []).map((item: any) => ({
+          id: item.id,
+          status: item.status,
+          amount: item.amount,
+        }));
+      }
+    } catch {
+      // Best effort: the caller treats a missing list as "unknown"
+    }
+
     return {
       id: data.id,
       amount: data.amount,
@@ -122,6 +152,7 @@ export class RazorpayProvider implements PaymentProvider {
       currency: data.currency,
       receipt: data.receipt,
       status: data.status,
+      payments,
     };
   }
 
@@ -140,8 +171,7 @@ export class RazorpayProvider implements PaymentProvider {
     });
 
     if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`Razorpay createRefund failed (${res.status}): ${errText}`);
+      throw await razorpayError(res, "createRefund");
     }
 
     const data = await res.json();
@@ -150,7 +180,7 @@ export class RazorpayProvider implements PaymentProvider {
       paymentId: data.payment_id,
       amount: data.amount,
       currency: data.currency,
-      status: data.status === "processed" ? "processed" : "pending",
+      status: data.status === "processed" ? "processed" : data.status === "failed" ? "failed" : "pending",
     };
   }
 }

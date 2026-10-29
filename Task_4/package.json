@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx src/test-suite.ts",
+    "test": "tsx src/test-suite.ts && tsx src/test-payment-hardening.ts",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:migrate-0003": "tsx src/db/apply-0003.ts",
