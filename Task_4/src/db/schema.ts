@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, integer, boolean, uniqueIndex, index } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, integer, boolean, uniqueIndex, index, jsonb } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
 export const users = pgTable("users", {
@@ -81,9 +81,15 @@ export const appointments = pgTable(
     appointmentDate: text("appointment_date").notNull(),
     startTime: text("start_time").notNull(),
     endTime: text("end_time").notNull(),
-    status: text("status").notNull().$type<"BOOKED" | "COMPLETED" | "CANCELLED" | "NO_SHOW">().default("BOOKED"),
+    status: text("status")
+      .notNull()
+      .$type<"PENDING_PAYMENT" | "BOOKED" | "COMPLETED" | "CANCELLED" | "NO_SHOW" | "EXPIRED">()
+      .default("BOOKED"),
     tokenNumber: integer("token_number").default(1).notNull(),
     reason: text("reason"),
+    holdExpiresAt: timestamp("hold_expires_at"),
+    cancelledBy: text("cancelled_by").$type<"PATIENT" | "DOCTOR" | "SYSTEM">(),
+    cancelReason: text("cancel_reason"),
     rescheduledAt: timestamp("rescheduled_at"),
     rescheduledBy: text("rescheduled_by").$type<"PATIENT" | "DOCTOR">(),
     originalAppointmentDate: text("original_appointment_date"),
@@ -96,6 +102,7 @@ export const appointments = pgTable(
     index("appointment_doctor_idx").on(table.doctorId),
     index("appointment_date_idx").on(table.appointmentDate),
     index("appointment_doctor_slot_idx").on(table.doctorId, table.appointmentDate, table.startTime),
+    index("appointment_status_idx").on(table.status),
   ]
 );
 
@@ -112,6 +119,104 @@ export const loginAttempts = pgTable(
   ]
 );
 
+export const payments = pgTable(
+  "payments",
+  {
+    id: text("id").primaryKey(),
+    appointmentId: text("appointment_id").notNull().references(() => appointments.id, { onDelete: "cascade" }),
+    patientId: text("patient_id").notNull().references(() => patients.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull().$type<"RAZORPAY" | "MOCK">(),
+    providerOrderId: text("provider_order_id").notNull(),
+    providerPaymentId: text("provider_payment_id"),
+    amountPaise: integer("amount_paise").notNull(),
+    currency: text("currency").notNull().default("INR"),
+    status: text("status")
+      .notNull()
+      .$type<"CREATED" | "PENDING" | "PAID" | "FAILED" | "EXPIRED" | "REFUNDED" | "PARTIALLY_REFUNDED">()
+      .default("CREATED"),
+    receiptNo: text("receipt_no").notNull().unique(),
+    failureReason: text("failure_reason"),
+    expiresAt: timestamp("expires_at"),
+    paidAt: timestamp("paid_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("payments_provider_order_idx").on(table.provider, table.providerOrderId),
+    uniqueIndex("payments_provider_payment_idx").on(table.provider, table.providerPaymentId),
+    index("payments_appointment_idx").on(table.appointmentId),
+    index("payments_patient_idx").on(table.patientId),
+    index("payments_status_idx").on(table.status),
+  ]
+);
+
+export const paymentEvents = pgTable(
+  "payment_events",
+  {
+    id: text("id").primaryKey(),
+    provider: text("provider").notNull().$type<"RAZORPAY" | "MOCK">(),
+    providerEventId: text("provider_event_id").notNull(),
+    type: text("type").notNull(),
+    payload: jsonb("payload"),
+    outcome: text("outcome"),
+    processedAt: timestamp("processed_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("payment_events_provider_event_idx").on(table.provider, table.providerEventId),
+    index("payment_events_type_idx").on(table.type),
+  ]
+);
+
+export const refunds = pgTable(
+  "refunds",
+  {
+    id: text("id").primaryKey(),
+    paymentId: text("payment_id").notNull().references(() => payments.id, { onDelete: "cascade" }),
+    appointmentId: text("appointment_id").notNull().references(() => appointments.id, { onDelete: "cascade" }),
+    amountPaise: integer("amount_paise").notNull(),
+    reason: text("reason"),
+    status: text("status")
+      .notNull()
+      .$type<"REQUESTED" | "PENDING" | "PROCESSED" | "FAILED">()
+      .default("REQUESTED"),
+    providerRefundId: text("provider_refund_id"),
+    idempotencyKey: text("idempotency_key").notNull().unique(),
+    failureReason: text("failure_reason"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("refunds_payment_idx").on(table.paymentId),
+    index("refunds_appointment_idx").on(table.appointmentId),
+    index("refunds_status_idx").on(table.status),
+  ]
+);
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    appointmentId: text("appointment_id").references(() => appointments.id, { onDelete: "cascade" }),
+    channel: text("channel").notNull().$type<"EMAIL" | "SMS" | "WHATSAPP">().default("EMAIL"),
+    template: text("template").notNull(),
+    recipient: text("recipient").notNull(),
+    payload: jsonb("payload"),
+    status: text("status").notNull().$type<"PENDING" | "SENT" | "FAILED" | "CANCELLED">().default("PENDING"),
+    scheduledFor: timestamp("scheduled_for").defaultNow().notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    dedupeKey: text("dedupe_key").unique(),
+    sentAt: timestamp("sent_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("notifications_status_scheduled_idx").on(table.status, table.scheduledFor),
+    index("notifications_user_idx").on(table.userId),
+    index("notifications_appointment_idx").on(table.appointmentId),
+  ]
+);
+
 export type User = typeof users.$inferSelect;
 export type Patient = typeof patients.$inferSelect;
 export type Doctor = typeof doctors.$inferSelect;
@@ -119,3 +224,7 @@ export type Availability = typeof availabilities.$inferSelect;
 export type DoctorLeave = typeof doctorLeaves.$inferSelect;
 export type Appointment = typeof appointments.$inferSelect;
 export type LoginAttempt = typeof loginAttempts.$inferSelect;
+export type Payment = typeof payments.$inferSelect;
+export type PaymentEvent = typeof paymentEvents.$inferSelect;
+export type Refund = typeof refunds.$inferSelect;
+export type Notification = typeof notifications.$inferSelect;
