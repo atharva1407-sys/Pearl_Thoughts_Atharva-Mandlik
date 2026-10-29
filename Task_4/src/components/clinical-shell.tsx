@@ -28,7 +28,8 @@ import {
   Trash2,
   Plus,
   LogIn,
-  UserPlus
+  UserPlus,
+  CreditCard,
 } from "lucide-react";
 import type { SessionPayload } from "@/lib/auth-crypto";
 import { logoutAction, deleteAccountAction } from "@/actions/auth";
@@ -82,6 +83,7 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
     if (pathname === "/doctors") return "Specialists Directory";
     if (pathname.startsWith("/doctors/")) return "Book Consultation";
     if (pathname.startsWith("/reports")) return "Visit Reports & Analytics";
+    if (pathname.startsWith("/patient/payments")) return "Payments & Receipts";
     if (pathname.startsWith("/patient/dashboard")) return "Patient Portal";
     if (pathname.startsWith("/doctor/dashboard")) return "Doctor Agenda";
     if (pathname.startsWith("/doctor/availability")) return "Weekly Shifts";
@@ -168,6 +170,15 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
               >
                 <UserCheck size={17} />
                 <span>My Appointments</span>
+              </Link>
+
+              <Link
+                href="/patient/payments"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname.startsWith("/patient/payments") ? "active" : ""}`}
+              >
+                <CreditCard size={17} />
+                <span>Payments & Receipts</span>
               </Link>
             </nav>
           </>
@@ -272,6 +283,15 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
               >
                 <UserCheck size={17} />
                 <span>Patient Portal</span>
+              </Link>
+
+              <Link
+                href="/patient/payments"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname.startsWith("/patient/payments") ? "active" : ""}`}
+              >
+                <CreditCard size={17} />
+                <span>Payments & Receipts</span>
               </Link>
             </nav>
           </>
