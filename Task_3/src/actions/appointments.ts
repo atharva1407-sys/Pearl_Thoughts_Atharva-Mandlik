@@ -5,7 +5,7 @@ import crypto from "crypto";
 import { getCurrentUser } from "./auth";
 import { dbRepo } from "@/db/repo";
 import { bookingSchema } from "@/lib/validators";
-import { checkRequestedSlot } from "@/lib/booking-rules";
+import { checkRequestedSlot, hasAppointmentStarted } from "@/lib/booking-rules";
 
 export async function bookAppointmentAction(formData: FormData) {
   const user = await getCurrentUser();
@@ -226,6 +226,13 @@ export async function completeAppointmentAction(appointmentId: string) {
     };
   }
 
+  if (!hasAppointmentStarted(appointment)) {
+    return {
+      success: false,
+      error: "Cannot mark an appointment as completed before its scheduled start time.",
+    };
+  }
+
   const success = await dbRepo.updateAppointmentStatus(appointmentId, "COMPLETED");
   if (!success) {
     return { success: false, error: "Failed to update appointment status." };
@@ -260,6 +267,13 @@ export async function markNoShowAction(appointmentId: string) {
     return {
       success: false,
       error: `Cannot mark as No-Show. Current status is ${appointment.status}.`,
+    };
+  }
+
+  if (!hasAppointmentStarted(appointment)) {
+    return {
+      success: false,
+      error: "Cannot mark a patient as No-Show before the appointment's scheduled start time.",
     };
   }
 

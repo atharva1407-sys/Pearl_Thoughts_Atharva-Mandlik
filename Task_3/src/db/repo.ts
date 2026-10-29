@@ -198,6 +198,33 @@ export interface NextOpenSlot {
 
 type DbTransaction = Parameters<Parameters<NonNullable<typeof db>["transaction"]>[0]>[0];
 
+const DUPLICATE_BOOKING_MESSAGE =
+  "You already have an appointment with this doctor on this date. Reschedule or cancel it instead of booking again.";
+
+/** One active (BOOKED) appointment per patient, per doctor, per day, so nobody holds several seats in a wave. */
+async function hasActiveBookingThatDay(
+  tx: DbTransaction,
+  patientId: string,
+  doctorId: string,
+  date: string,
+  excludeAppointmentId?: string
+): Promise<boolean> {
+  const rows = await tx
+    .select({ id: schema.appointments.id })
+    .from(schema.appointments)
+    .where(
+      and(
+        eq(schema.appointments.patientId, patientId),
+        eq(schema.appointments.doctorId, doctorId),
+        eq(schema.appointments.appointmentDate, date),
+        eq(schema.appointments.status, "BOOKED"),
+        excludeAppointmentId ? sql`${schema.appointments.id} != ${excludeAppointmentId}` : sql`true`
+      )
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
 /**
  * Serialises every booking change for one doctor on one date. Concurrent bookings or reschedules
  * into that day wait here, so the seat count and token number they read can't go stale before
@@ -737,8 +764,16 @@ class MedrellaRepository {
     return this.memDoctorLeaves.filter((l) => l.doctorId === doctorId);
   }
 
+  /**
+   * Blocks a future date for the doctor. Refuses past dates and dates that still have booked
+   * patients (they must be rescheduled or cancelled first), so nobody is left booked on a day off.
+   */
   public async addDoctorLeave(doctorId: string, leaveDate: string, reason?: string): Promise<DoctorLeaveEntity> {
     this.checkProductionDatabase();
+    if (leaveDate < toLocalDateString(new Date())) {
+      throw new Error("Leave can't be added for a past date.");
+    }
+
     const id = `leave-${crypto.randomUUID()}`;
     const leaveItem: DoctorLeaveEntity = {
       id,
@@ -747,18 +782,46 @@ class MedrellaRepository {
       reason: reason ?? null,
       createdAt: new Date(),
     };
+    const bookedPatientsError = (count: number) =>
+      new Error(
+        `${count} patient appointment${count === 1 ? " is" : "s are"} booked on ${leaveDate}. Reschedule or cancel ${count === 1 ? "it" : "them"} before blocking this day.`
+      );
 
     if (db) {
-      await db
-        .insert(schema.doctorLeaves)
-        .values({
-          id,
-          doctorId,
-          leaveDate,
-          reason: reason ?? null,
-        })
-        .onConflictDoNothing();
+      await db.transaction(async (tx) => {
+        // Same lock as booking, so no appointment can be added while the day is being blocked.
+        await lockDoctorDay(tx, doctorId, leaveDate);
+        const booked = await tx
+          .select({ id: schema.appointments.id })
+          .from(schema.appointments)
+          .where(
+            and(
+              eq(schema.appointments.doctorId, doctorId),
+              eq(schema.appointments.appointmentDate, leaveDate),
+              eq(schema.appointments.status, "BOOKED")
+            )
+          );
+        if (booked.length > 0) {
+          throw bookedPatientsError(booked.length);
+        }
+        await tx
+          .insert(schema.doctorLeaves)
+          .values({
+            id,
+            doctorId,
+            leaveDate,
+            reason: reason ?? null,
+          })
+          .onConflictDoNothing();
+      });
       return leaveItem;
+    }
+
+    const bookedCount = this.memAppointments.filter(
+      (a) => a.doctorId === doctorId && a.appointmentDate === leaveDate && a.status === "BOOKED"
+    ).length;
+    if (bookedCount > 0) {
+      throw bookedPatientsError(bookedCount);
     }
 
     const existing = this.memDoctorLeaves.find((l) => l.doctorId === doctorId && l.leaveDate === leaveDate);
@@ -1001,6 +1064,11 @@ class MedrellaRepository {
           }
         }
 
+        // 3a. One active booking per patient per doctor per day
+        if (await hasActiveBookingThatDay(tx, data.patientId, data.doctorId, data.appointmentDate)) {
+          return { success: false, message: DUPLICATE_BOOKING_MESSAGE };
+        }
+
         // 3. Concurrency check inside transaction
         const activeForSlot = await tx
           .select()
@@ -1053,6 +1121,16 @@ class MedrellaRepository {
 
     // In-memory fallback
     const onLeave = this.memDoctorLeaves.some((l) => l.doctorId === data.doctorId && l.leaveDate === data.appointmentDate);
+    const alreadyBooked = this.memAppointments.some(
+      (a) =>
+        a.patientId === data.patientId &&
+        a.doctorId === data.doctorId &&
+        a.appointmentDate === data.appointmentDate &&
+        a.status === "BOOKED"
+    );
+    if (alreadyBooked) {
+      return { success: false, message: DUPLICATE_BOOKING_MESSAGE };
+    }
     if (onLeave) {
       return { success: false, message: "Doctor is on leave on this date." };
     }
@@ -1127,6 +1205,10 @@ class MedrellaRepository {
         }
 
         await lockDoctorDay(tx, appt.doctorId, data.newDate);
+
+        if (await hasActiveBookingThatDay(tx, appt.patientId, appt.doctorId, data.newDate, appt.id)) {
+          return { success: false, message: DUPLICATE_BOOKING_MESSAGE };
+        }
 
         // Authorization & cutoff checks
         if (data.actorRole === "PATIENT") {
@@ -1247,6 +1329,19 @@ class MedrellaRepository {
     } else {
       const d = this.memDoctors.find((doc) => doc.userId === data.actorUserId);
       if (!d || d.id !== appt.doctorId) return { success: false, message: "Unauthorized." };
+    }
+
+    if (
+      this.memAppointments.some(
+        (a) =>
+          a.id !== appt.id &&
+          a.patientId === appt.patientId &&
+          a.doctorId === appt.doctorId &&
+          a.appointmentDate === data.newDate &&
+          a.status === "BOOKED"
+      )
+    ) {
+      return { success: false, message: DUPLICATE_BOOKING_MESSAGE };
     }
 
     if (this.memDoctorLeaves.some((l) => l.doctorId === appt.doctorId && l.leaveDate === data.newDate)) {

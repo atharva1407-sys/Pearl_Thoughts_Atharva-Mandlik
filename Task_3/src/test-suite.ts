@@ -14,7 +14,7 @@ process.env.ENABLE_SEED_DATA = "true";
 import { existsSync } from "fs";
 import { join } from "path";
 import { dbRepo, buildSessionSlotGroups, doSessionsOverlap, toLocalDateString, dayOfWeekFor } from "./db/repo";
-import { checkRequestedSlot } from "./lib/booking-rules";
+import { checkRequestedSlot, hasAppointmentStarted } from "./lib/booking-rules";
 import { RUBY_HALL_SPECIALISTS, specialistSessionId } from "./db/specialists-catalog";
 import { hashPassword, verifyPassword } from "./lib/auth-crypto";
 import { loginSchema, registerPatientSchema, registerDoctorSchema } from "./lib/validators";
@@ -562,6 +562,73 @@ async function runTests() {
     moveOk.success === true && moveOk.appointment?.tokenNumber === 5,
     `The assigned doctor can reschedule into a free slot and gets the next unused token (got #${moveOk.appointment?.tokenNumber})`
   );
+
+  // TEST 23: One active booking per patient, per doctor, per day
+  console.log("\n--- 23. No Duplicate Bookings Per Patient ---");
+  const vikram = "doc_vikram_iyer"; // MON/TUE/THU/FRI 09:00–13:00 stream (30 min)
+  const dupDay = nextWeekday("TUE");
+  const vikramTue = specialistSessionId(vikram, "morning", "TUE");
+  const bookVikram = (patientId: string, date: string, time: string, sessionId = vikramTue) =>
+    dbRepo.createAppointment({ patientId, doctorId: vikram, sessionId, appointmentDate: date, startTime: time, endTime: time, reason: "Duplicate test" });
+  const firstVisit = await bookVikram("pat-dup", dupDay, "09:00");
+  assert(firstVisit.success === true, "Patient books Dr. Iyer at 09:00");
+  const secondVisit = await bookVikram("pat-dup", dupDay, "10:00");
+  assert(secondVisit.success === false, "Same patient cannot book Dr. Iyer again on the same day");
+  const otherDoctor = await dbRepo.createAppointment({
+    patientId: "pat-dup",
+    doctorId: "doc_kavya_menon",
+    sessionId: specialistSessionId("doc_kavya_menon", "morning", "TUE"),
+    appointmentDate: dupDay,
+    startTime: "10:00",
+    endTime: "10:20",
+    reason: "Different doctor same day",
+  });
+  assert(otherDoctor.success === true, "Same patient can still book a different doctor that day");
+  await dbRepo.updateAppointmentStatus(firstVisit.appointment!.id, "CANCELLED");
+  const afterCancel = await bookVikram("pat-dup", dupDay, "11:00");
+  assert(afterCancel.success === true, "After cancelling, the patient can book Dr. Iyer that day again");
+
+  const friday2 = nextWeekday("FRI");
+  await bookVikram("pat-dup2", dupDay, "09:30");
+  const fridayVisit = await bookVikram("pat-dup2", friday2, "09:00", specialistSessionId(vikram, "morning", "FRI"));
+  const moveOntoBookedDay = await dbRepo.rescheduleAppointment({
+    appointmentId: fridayVisit.appointment!.id,
+    newDate: dupDay,
+    newStartTime: "12:00",
+    newEndTime: "12:30",
+    newSessionId: vikramTue,
+    actorUserId: "usr_doc_vikram_iyer",
+    actorRole: "DOCTOR",
+  });
+  assert(moveOntoBookedDay.success === false, "Rescheduling onto a day the patient already has with this doctor is rejected");
+
+  // TEST 24: Completed / no-show only once the visit has started
+  console.log("\n--- 24. Complete & No-Show Timing ---");
+  const visit = { appointmentDate: "2030-01-04", startTime: "10:00" };
+  assert(!hasAppointmentStarted(visit, new Date(2030, 0, 4, 9, 59)), "One minute before the start, the visit has not started");
+  assert(hasAppointmentStarted(visit, new Date(2030, 0, 4, 10, 0)), "At the start time, the visit counts as started");
+  assert(hasAppointmentStarted(visit, new Date(2030, 0, 5, 8, 0)), "The next day, the visit counts as started");
+
+  // TEST 25: Leave days can't strand booked patients
+  console.log("\n--- 25. Leave Days vs Existing Bookings ---");
+  let pastLeaveBlocked = false;
+  try {
+    await dbRepo.addDoctorLeave(vikram, daysFromToday(-1), "Past");
+  } catch {
+    pastLeaveBlocked = true;
+  }
+  assert(pastLeaveBlocked, "Leave cannot be added for a past date");
+  let bookedDayMessage = "";
+  try {
+    await dbRepo.addDoctorLeave(vikram, dupDay, "Conference");
+  } catch (err) {
+    bookedDayMessage = (err as Error).message;
+  }
+  assert(/booked on/.test(bookedDayMessage), `Leave is refused on a day with booked patients ("${bookedDayMessage.slice(0, 40)}…")`);
+  assert(!(await dbRepo.isDoctorOnLeave(vikram, dupDay)), "The booked day stays open after the refusal");
+  const freeDay = daysFromToday(20);
+  await dbRepo.addDoctorLeave(vikram, freeDay, "Family function");
+  assert(await dbRepo.isDoctorOnLeave(vikram, freeDay), "Leave is added on a day with no bookings");
 
   console.log(`\n========================================`);
   console.log(`Test Results: ${passed} passed, ${failed} failed`);
