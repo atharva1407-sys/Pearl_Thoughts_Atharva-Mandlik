@@ -1,10 +1,11 @@
-import { eq, and, desc, sql, gte, inArray } from "drizzle-orm";
+import { eq, and, desc, sql, gte, inArray, or, lte } from "drizzle-orm";
 import crypto from "crypto";
 import { db, isPostgresConfigured, assertProductionDatabase } from "./index";
 import * as schema from "./schema";
 import { hashPassword } from "@/lib/auth-crypto";
 import { RUBY_HALL_SPECIALISTS, specialistSessionId, getSeedDoctorPassword } from "./specialists-catalog";
 import { seedSpecialists } from "./seed-specialists";
+import { appointmentOccupiesSeat, occupiesSeatSql } from "../lib/seat-occupancy";
 
 export interface UserEntity {
   id: string;
@@ -61,6 +62,14 @@ export interface DoctorLeaveEntity {
   createdAt: Date;
 }
 
+export type AppointmentStatus =
+  | "PENDING_PAYMENT"
+  | "BOOKED"
+  | "COMPLETED"
+  | "CANCELLED"
+  | "NO_SHOW"
+  | "EXPIRED";
+
 export interface AppointmentEntity {
   id: string;
   patientId: string;
@@ -69,14 +78,90 @@ export interface AppointmentEntity {
   appointmentDate: string; // YYYY-MM-DD
   startTime: string;       // HH:mm
   endTime: string;         // HH:mm
-  status: "BOOKED" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
+  status: AppointmentStatus;
   tokenNumber: number;
   reason?: string | null;
+  holdExpiresAt?: Date | null;
+  cancelledBy?: "PATIENT" | "DOCTOR" | "SYSTEM" | null;
+  cancelReason?: string | null;
   rescheduledAt?: Date | null;
   rescheduledBy?: "PATIENT" | "DOCTOR" | null;
   originalAppointmentDate?: string | null;
   originalStartTime?: string | null;
   originalEndTime?: string | null;
+  createdAt: Date;
+}
+
+export type PaymentStatus =
+  | "CREATED"
+  | "PENDING"
+  | "PAID"
+  | "FAILED"
+  | "EXPIRED"
+  | "REFUNDED"
+  | "PARTIALLY_REFUNDED";
+
+export interface PaymentEntity {
+  id: string;
+  appointmentId: string;
+  patientId: string;
+  provider: "RAZORPAY" | "MOCK";
+  providerOrderId: string;
+  providerPaymentId?: string | null;
+  amountPaise: number;
+  currency: string;
+  status: PaymentStatus;
+  receiptNo: string;
+  failureReason?: string | null;
+  expiresAt?: Date | null;
+  paidAt?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface PaymentEventEntity {
+  id: string;
+  provider: "RAZORPAY" | "MOCK";
+  providerEventId: string;
+  type: string;
+  payload?: any;
+  outcome?: string | null;
+  processedAt: Date;
+}
+
+export type RefundStatus = "REQUESTED" | "PENDING" | "PROCESSED" | "FAILED";
+
+export interface RefundEntity {
+  id: string;
+  paymentId: string;
+  appointmentId: string;
+  amountPaise: number;
+  reason?: string | null;
+  status: RefundStatus;
+  providerRefundId?: string | null;
+  idempotencyKey: string;
+  failureReason?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type NotificationChannel = "EMAIL" | "SMS" | "WHATSAPP";
+export type NotificationStatus = "PENDING" | "SENT" | "FAILED" | "CANCELLED";
+
+export interface NotificationEntity {
+  id: string;
+  userId: string;
+  appointmentId?: string | null;
+  channel: NotificationChannel;
+  template: string;
+  recipient: string;
+  payload?: any;
+  status: NotificationStatus;
+  scheduledFor: Date;
+  attempts: number;
+  lastError?: string | null;
+  dedupeKey?: string | null;
+  sentAt?: Date | null;
   createdAt: Date;
 }
 
@@ -217,7 +302,7 @@ async function hasActiveBookingThatDay(
         eq(schema.appointments.patientId, patientId),
         eq(schema.appointments.doctorId, doctorId),
         eq(schema.appointments.appointmentDate, date),
-        eq(schema.appointments.status, "BOOKED"),
+        occupiesSeatSql(),
         excludeAppointmentId ? sql`${schema.appointments.id} != ${excludeAppointmentId}` : sql`true`
       )
     )
@@ -274,7 +359,7 @@ function nextMemoryToken(
 /**
  * Production Database Repository for Medrella Healthcare.
  */
-class MedrellaRepository {
+export class MedrellaRepository {
   private memUsers: UserEntity[] = [];
   private memPatients: PatientEntity[] = [];
   private memDoctors: DoctorEntity[] = [];
@@ -282,6 +367,10 @@ class MedrellaRepository {
   private memAppointments: AppointmentEntity[] = [];
   private memDoctorLeaves: DoctorLeaveEntity[] = [];
   private memLoginAttempts: { id: string; email: string; attemptedAt: Date }[] = [];
+  private memPayments: PaymentEntity[] = [];
+  private memPaymentEvents: PaymentEventEntity[] = [];
+  private memRefunds: RefundEntity[] = [];
+  private memNotifications: NotificationEntity[] = [];
 
   constructor() {
     if (!isPostgresConfigured() && process.env.ENABLE_SEED_DATA !== "false" && process.env.NODE_ENV !== "production") {
@@ -697,7 +786,7 @@ class MedrellaRepository {
         .where(
           and(
             eq(schema.appointments.sessionId, id),
-            eq(schema.appointments.status, "BOOKED"),
+            occupiesSeatSql(),
             gte(schema.appointments.appointmentDate, today)
           )
         )
@@ -705,7 +794,7 @@ class MedrellaRepository {
       upcomingBookings = rows.length;
     } else {
       upcomingBookings = this.memAppointments.filter(
-        (a) => a.sessionId === id && a.status === "BOOKED" && a.appointmentDate >= today
+        (a) => a.sessionId === id && appointmentOccupiesSeat(a) && a.appointmentDate >= today
       ).length;
     }
     if (upcomingBookings > 0) {
@@ -798,7 +887,7 @@ class MedrellaRepository {
             and(
               eq(schema.appointments.doctorId, doctorId),
               eq(schema.appointments.appointmentDate, leaveDate),
-              eq(schema.appointments.status, "BOOKED")
+              occupiesSeatSql()
             )
           );
         if (booked.length > 0) {
@@ -818,7 +907,7 @@ class MedrellaRepository {
     }
 
     const bookedCount = this.memAppointments.filter(
-      (a) => a.doctorId === doctorId && a.appointmentDate === leaveDate && a.status === "BOOKED"
+      (a) => a.doctorId === doctorId && a.appointmentDate === leaveDate && appointmentOccupiesSeat(a)
     ).length;
     if (bookedCount > 0) {
       throw bookedPatientsError(bookedCount);
@@ -891,13 +980,13 @@ class MedrellaRepository {
           and(
             eq(schema.appointments.doctorId, doctorId),
             eq(schema.appointments.appointmentDate, dateString),
-            sql`${schema.appointments.status} != 'CANCELLED'`
+            occupiesSeatSql()
           )
         );
       activeAppointments = rows as AppointmentEntity[];
     } else {
       activeAppointments = this.memAppointments.filter(
-        (a) => a.doctorId === doctorId && a.appointmentDate === dateString && a.status !== "CANCELLED"
+        (a) => a.doctorId === doctorId && a.appointmentDate === dateString && appointmentOccupiesSeat(a)
       );
     }
 
@@ -914,6 +1003,7 @@ class MedrellaRepository {
     const result = new Map<string, NextOpenSlot>();
     if (doctorIds.length === 0 || dates.length === 0) return result;
 
+    const now = new Date();
     let sessions: AvailabilityEntity[];
     let leaves: { doctorId: string; leaveDate: string }[];
     let appointments: Pick<AppointmentEntity, "doctorId" | "appointmentDate" | "startTime">[];
@@ -936,7 +1026,7 @@ class MedrellaRepository {
             and(
               inArray(schema.appointments.doctorId, doctorIds),
               inArray(schema.appointments.appointmentDate, dates),
-              sql`${schema.appointments.status} != 'CANCELLED'`
+              occupiesSeatSql(now)
             )
           ),
       ]);
@@ -947,11 +1037,9 @@ class MedrellaRepository {
       sessions = this.memAvailabilities.filter((s) => doctorIds.includes(s.doctorId));
       leaves = this.memDoctorLeaves.filter((l) => doctorIds.includes(l.doctorId) && dates.includes(l.leaveDate));
       appointments = this.memAppointments.filter(
-        (a) => doctorIds.includes(a.doctorId) && dates.includes(a.appointmentDate) && a.status !== "CANCELLED"
+        (a) => doctorIds.includes(a.doctorId) && dates.includes(a.appointmentDate) && appointmentOccupiesSeat(a, now)
       );
     }
-
-    const now = new Date();
     for (const doctorId of doctorIds) {
       const doctorSessions = sessions.filter((s) => s.doctorId === doctorId);
       for (const date of dates) {
@@ -1007,6 +1095,8 @@ class MedrellaRepository {
   public async createAppointment(
     data: Omit<AppointmentEntity, "id" | "createdAt" | "status" | "tokenNumber"> & {
       sessionId?: string | null;
+      status?: AppointmentStatus;
+      holdExpiresAt?: Date | null;
     }
   ): Promise<{ success: boolean; message: string; appointment?: AppointmentEntity }> {
     this.checkProductionDatabase();
@@ -1078,7 +1168,7 @@ class MedrellaRepository {
               eq(schema.appointments.doctorId, data.doctorId),
               eq(schema.appointments.appointmentDate, data.appointmentDate),
               eq(schema.appointments.startTime, data.startTime),
-              sql`${schema.appointments.status} != 'CANCELLED'`
+              occupiesSeatSql()
             )
           );
 
@@ -1105,9 +1195,10 @@ class MedrellaRepository {
             appointmentDate: data.appointmentDate,
             startTime: data.startTime,
             endTime: data.endTime,
-            status: "BOOKED",
+            status: data.status ?? "BOOKED",
             tokenNumber,
             reason: data.reason ?? null,
+            holdExpiresAt: data.holdExpiresAt ?? null,
           })
           .returning();
 
@@ -1126,7 +1217,7 @@ class MedrellaRepository {
         a.patientId === data.patientId &&
         a.doctorId === data.doctorId &&
         a.appointmentDate === data.appointmentDate &&
-        a.status === "BOOKED"
+        appointmentOccupiesSeat(a)
     );
     if (alreadyBooked) {
       return { success: false, message: DUPLICATE_BOOKING_MESSAGE };
@@ -1147,7 +1238,7 @@ class MedrellaRepository {
         a.doctorId === data.doctorId &&
         a.appointmentDate === data.appointmentDate &&
         a.startTime === data.startTime &&
-        a.status !== "CANCELLED"
+        appointmentOccupiesSeat(a)
     );
 
     if (activeForSlot.length >= capacity) {
@@ -1164,7 +1255,8 @@ class MedrellaRepository {
       id,
       sessionId,
       tokenNumber,
-      status: "BOOKED",
+      status: data.status ?? "BOOKED",
+      holdExpiresAt: data.holdExpiresAt ?? null,
       createdAt: new Date(),
     };
 
@@ -1273,7 +1365,7 @@ class MedrellaRepository {
               eq(schema.appointments.doctorId, appt.doctorId),
               eq(schema.appointments.appointmentDate, data.newDate),
               eq(schema.appointments.startTime, data.newStartTime),
-              sql`${schema.appointments.status} != 'CANCELLED'`,
+              occupiesSeatSql(),
               sql`${schema.appointments.id} != ${appt.id}` // Exclude self
             )
           );
@@ -1338,7 +1430,7 @@ class MedrellaRepository {
           a.patientId === appt.patientId &&
           a.doctorId === appt.doctorId &&
           a.appointmentDate === data.newDate &&
-          a.status === "BOOKED"
+          appointmentOccupiesSeat(a)
       )
     ) {
       return { success: false, message: DUPLICATE_BOOKING_MESSAGE };
@@ -1356,7 +1448,7 @@ class MedrellaRepository {
         a.doctorId === appt.doctorId &&
         a.appointmentDate === data.newDate &&
         a.startTime === data.newStartTime &&
-        a.status !== "CANCELLED"
+        appointmentOccupiesSeat(a)
     ).length;
     if (takenSeats >= memCapacity) {
       return { success: false, message: "The requested new slot is fully booked. Please select another time." };
@@ -1455,13 +1547,20 @@ class MedrellaRepository {
 
   public async updateAppointmentStatus(
     id: string,
-    status: "BOOKED" | "COMPLETED" | "CANCELLED" | "NO_SHOW"
+    status: AppointmentStatus,
+    extra?: {
+      cancelledBy?: "PATIENT" | "DOCTOR" | "SYSTEM" | null;
+      cancelReason?: string | null;
+    }
   ): Promise<boolean> {
     this.checkProductionDatabase();
     if (db) {
+      const updateValues: Record<string, any> = { status };
+      if (extra?.cancelledBy !== undefined) updateValues.cancelledBy = extra.cancelledBy;
+      if (extra?.cancelReason !== undefined) updateValues.cancelReason = extra.cancelReason;
       const res = await db
         .update(schema.appointments)
-        .set({ status })
+        .set(updateValues)
         .where(eq(schema.appointments.id, id));
       return (res.rowCount ?? 1) > 0;
     }
@@ -1469,6 +1568,8 @@ class MedrellaRepository {
     const apt = this.memAppointments.find((a) => a.id === id);
     if (!apt) return false;
     apt.status = status;
+    if (extra?.cancelledBy !== undefined) apt.cancelledBy = extra.cancelledBy;
+    if (extra?.cancelReason !== undefined) apt.cancelReason = extra.cancelReason;
     return true;
   }
 
@@ -1495,7 +1596,7 @@ class MedrellaRepository {
             .where(
               and(
                 eq(schema.appointments.doctorId, doctorRows[0].id),
-                eq(schema.appointments.status, "BOOKED")
+                occupiesSeatSql()
               )
             )
             .limit(1);
@@ -1506,6 +1607,17 @@ class MedrellaRepository {
             );
           }
 
+          const docAppts = await tx
+            .select({ id: schema.appointments.id })
+            .from(schema.appointments)
+            .where(eq(schema.appointments.doctorId, doctorRows[0].id));
+          const apptIds = docAppts.map((a) => a.id);
+          if (apptIds.length > 0) {
+            await tx.delete(schema.notifications).where(inArray(schema.notifications.appointmentId, apptIds));
+            await tx.delete(schema.refunds).where(inArray(schema.refunds.appointmentId, apptIds));
+            await tx.delete(schema.payments).where(inArray(schema.payments.appointmentId, apptIds));
+          }
+
           await tx.delete(schema.appointments).where(eq(schema.appointments.doctorId, doctorRows[0].id));
           await tx.delete(schema.availabilities).where(eq(schema.availabilities.doctorId, doctorRows[0].id));
           await tx.delete(schema.doctorLeaves).where(eq(schema.doctorLeaves.doctorId, doctorRows[0].id));
@@ -1514,6 +1626,17 @@ class MedrellaRepository {
 
         const patientRows = await tx.select().from(schema.patients).where(eq(schema.patients.userId, userId)).limit(1);
         if (patientRows[0]) {
+          await tx.delete(schema.notifications).where(eq(schema.notifications.userId, userId));
+          const patAppts = await tx
+            .select({ id: schema.appointments.id })
+            .from(schema.appointments)
+            .where(eq(schema.appointments.patientId, patientRows[0].id));
+          const apptIds = patAppts.map((a) => a.id);
+          if (apptIds.length > 0) {
+            await tx.delete(schema.notifications).where(inArray(schema.notifications.appointmentId, apptIds));
+            await tx.delete(schema.refunds).where(inArray(schema.refunds.appointmentId, apptIds));
+            await tx.delete(schema.payments).where(inArray(schema.payments.appointmentId, apptIds));
+          }
           await tx.delete(schema.appointments).where(eq(schema.appointments.patientId, patientRows[0].id));
           await tx.delete(schema.patients).where(eq(schema.patients.id, patientRows[0].id));
         }
@@ -1529,13 +1652,17 @@ class MedrellaRepository {
     const d = this.memDoctors.find((doc) => doc.userId === userId);
     if (d) {
       const hasActive = this.memAppointments.some(
-        (a) => a.doctorId === d.id && a.status === "BOOKED"
+        (a) => a.doctorId === d.id && appointmentOccupiesSeat(a)
       );
       if (hasActive) {
         throw new Error(
           "Cannot delete doctor account with active upcoming appointments. Please cancel or complete all pending patient consultations first."
         );
       }
+      const apptIds = new Set(this.memAppointments.filter((a) => a.doctorId === d.id).map((a) => a.id));
+      this.memNotifications = this.memNotifications.filter((n) => !n.appointmentId || !apptIds.has(n.appointmentId));
+      this.memRefunds = this.memRefunds.filter((r) => !apptIds.has(r.appointmentId));
+      this.memPayments = this.memPayments.filter((p) => !apptIds.has(p.appointmentId));
       this.memAppointments = this.memAppointments.filter((a) => a.doctorId !== d.id);
       this.memAvailabilities = this.memAvailabilities.filter((av) => av.doctorId !== d.id);
       this.memDoctorLeaves = this.memDoctorLeaves.filter((l) => l.doctorId !== d.id);
@@ -1544,6 +1671,12 @@ class MedrellaRepository {
 
     const p = this.memPatients.find((pat) => pat.userId === userId);
     if (p) {
+      const apptIds = new Set(this.memAppointments.filter((a) => a.patientId === p.id).map((a) => a.id));
+      this.memNotifications = this.memNotifications.filter(
+        (n) => n.userId !== userId && (!n.appointmentId || !apptIds.has(n.appointmentId))
+      );
+      this.memRefunds = this.memRefunds.filter((r) => !apptIds.has(r.appointmentId));
+      this.memPayments = this.memPayments.filter((pay) => !apptIds.has(pay.appointmentId));
       this.memAppointments = this.memAppointments.filter((a) => a.patientId !== p.id);
       this.memPatients = this.memPatients.filter((pat) => pat.id !== p.id);
     }
@@ -1555,6 +1688,10 @@ class MedrellaRepository {
   public async clearAll(): Promise<void> {
     this.checkProductionDatabase();
     if (db) {
+      await db.delete(schema.notifications);
+      await db.delete(schema.refunds);
+      await db.delete(schema.paymentEvents);
+      await db.delete(schema.payments);
       await db.delete(schema.appointments);
       await db.delete(schema.availabilities);
       await db.delete(schema.doctorLeaves);
@@ -1569,6 +1706,773 @@ class MedrellaRepository {
     this.memDoctors = [];
     this.memPatients = [];
     this.memUsers = [];
+    this.memPayments = [];
+    this.memPaymentEvents = [];
+    this.memRefunds = [];
+    this.memNotifications = [];
+  }
+
+  // --- Payment Operations ---
+  public async createPayment(
+    payment: Omit<PaymentEntity, "createdAt" | "updatedAt"> & { createdAt?: Date; updatedAt?: Date }
+  ): Promise<PaymentEntity> {
+    this.checkProductionDatabase();
+    const now = new Date();
+    const cleanPayment: PaymentEntity = {
+      ...payment,
+      createdAt: payment.createdAt || now,
+      updatedAt: payment.updatedAt || now,
+    };
+
+    if (db) {
+      const [inserted] = await db
+        .insert(schema.payments)
+        .values({
+          id: cleanPayment.id,
+          appointmentId: cleanPayment.appointmentId,
+          patientId: cleanPayment.patientId,
+          provider: cleanPayment.provider,
+          providerOrderId: cleanPayment.providerOrderId,
+          providerPaymentId: cleanPayment.providerPaymentId ?? null,
+          amountPaise: cleanPayment.amountPaise,
+          currency: cleanPayment.currency,
+          status: cleanPayment.status,
+          receiptNo: cleanPayment.receiptNo,
+          failureReason: cleanPayment.failureReason ?? null,
+          expiresAt: cleanPayment.expiresAt ?? null,
+          paidAt: cleanPayment.paidAt ?? null,
+        })
+        .returning();
+      return inserted as PaymentEntity;
+    }
+
+    this.memPayments.push(cleanPayment);
+    return cleanPayment;
+  }
+
+  public async getPaymentById(id: string): Promise<PaymentEntity | undefined> {
+    this.checkProductionDatabase();
+    if (db) {
+      const rows = await db.select().from(schema.payments).where(eq(schema.payments.id, id)).limit(1);
+      return rows[0] as PaymentEntity | undefined;
+    }
+    return this.memPayments.find((p) => p.id === id);
+  }
+
+  public async getPaymentByAppointmentId(appointmentId: string): Promise<PaymentEntity | undefined> {
+    this.checkProductionDatabase();
+    if (db) {
+      const rows = await db
+        .select()
+        .from(schema.payments)
+        .where(eq(schema.payments.appointmentId, appointmentId))
+        .orderBy(desc(schema.payments.createdAt))
+        .limit(1);
+      return rows[0] as PaymentEntity | undefined;
+    }
+    return this.memPayments
+      .filter((p) => p.appointmentId === appointmentId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+  }
+
+  public async getPaymentByProviderOrderId(
+    provider: "RAZORPAY" | "MOCK",
+    orderId: string
+  ): Promise<PaymentEntity | undefined> {
+    this.checkProductionDatabase();
+    if (db) {
+      const rows = await db
+        .select()
+        .from(schema.payments)
+        .where(
+          and(
+            eq(schema.payments.provider, provider),
+            eq(schema.payments.providerOrderId, orderId)
+          )
+        )
+        .limit(1);
+      return rows[0] as PaymentEntity | undefined;
+    }
+    return this.memPayments.find(
+      (p) => p.provider === provider && p.providerOrderId === orderId
+    );
+  }
+
+  public async getPaymentsByPatientId(
+    patientId: string
+  ): Promise<(PaymentEntity & { appointment: AppointmentEntity; doctor: DoctorEntity })[]> {
+    this.checkProductionDatabase();
+    if (db) {
+      const rows = await db
+        .select({
+          payment: schema.payments,
+          appointment: schema.appointments,
+          doctor: schema.doctors,
+        })
+        .from(schema.payments)
+        .innerJoin(schema.appointments, eq(schema.payments.appointmentId, schema.appointments.id))
+        .innerJoin(schema.doctors, eq(schema.appointments.doctorId, schema.doctors.id))
+        .where(eq(schema.payments.patientId, patientId))
+        .orderBy(desc(schema.payments.createdAt));
+
+      return rows.map((r) => ({
+        ...(r.payment as PaymentEntity),
+        appointment: r.appointment as AppointmentEntity,
+        doctor: {
+          ...r.doctor,
+          consultationFee: Number(r.doctor.consultationFee ?? 500),
+          experienceYears: Number(r.doctor.experienceYears ?? 0),
+          licenseNumber: r.doctor.licenseNumber ?? "REG-PENDING",
+        } as DoctorEntity,
+      }));
+    }
+
+    return this.memPayments
+      .filter((p) => p.patientId === patientId)
+      .map((p) => {
+        const appointment = this.memAppointments.find((a) => a.id === p.appointmentId);
+        if (!appointment) return null;
+        const doctor = this.memDoctors.find((d) => d.id === appointment.doctorId);
+        if (!doctor) return null;
+        return {
+          ...p,
+          appointment,
+          doctor,
+        };
+      })
+      .filter((item): item is PaymentEntity & { appointment: AppointmentEntity; doctor: DoctorEntity } => item !== null)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  public async updatePaymentStatus(
+    id: string,
+    status: PaymentStatus,
+    extra?: {
+      providerPaymentId?: string | null;
+      failureReason?: string | null;
+      paidAt?: Date | null;
+    }
+  ): Promise<boolean> {
+    this.checkProductionDatabase();
+    const now = new Date();
+    if (db) {
+      const updateValues: Record<string, any> = { status, updatedAt: now };
+      if (extra?.providerPaymentId !== undefined) updateValues.providerPaymentId = extra.providerPaymentId;
+      if (extra?.failureReason !== undefined) updateValues.failureReason = extra.failureReason;
+      if (extra?.paidAt !== undefined) updateValues.paidAt = extra.paidAt;
+      const res = await db.update(schema.payments).set(updateValues).where(eq(schema.payments.id, id));
+      return (res.rowCount ?? 1) > 0;
+    }
+
+    const pay = this.memPayments.find((p) => p.id === id);
+    if (!pay) return false;
+    pay.status = status;
+    pay.updatedAt = now;
+    if (extra?.providerPaymentId !== undefined) pay.providerPaymentId = extra.providerPaymentId;
+    if (extra?.failureReason !== undefined) pay.failureReason = extra.failureReason;
+    if (extra?.paidAt !== undefined) pay.paidAt = extra.paidAt;
+    return true;
+  }
+
+  // --- Payment Events Operations (Idempotency) ---
+  public async recordPaymentEvent(
+    event: Omit<PaymentEventEntity, "processedAt">
+  ): Promise<{ duplicate: boolean; event: PaymentEventEntity }> {
+    this.checkProductionDatabase();
+    const now = new Date();
+    const newEvent: PaymentEventEntity = {
+      ...event,
+      processedAt: now,
+    };
+
+    if (db) {
+      const existing = await db
+        .select()
+        .from(schema.paymentEvents)
+        .where(
+          and(
+            eq(schema.paymentEvents.provider, event.provider),
+            eq(schema.paymentEvents.providerEventId, event.providerEventId)
+          )
+        )
+        .limit(1);
+      if (existing[0]) {
+        return { duplicate: true, event: existing[0] as PaymentEventEntity };
+      }
+
+      try {
+        const [inserted] = await db
+          .insert(schema.paymentEvents)
+          .values({
+            id: newEvent.id,
+            provider: newEvent.provider,
+            providerEventId: newEvent.providerEventId,
+            type: newEvent.type,
+            payload: newEvent.payload ?? null,
+            outcome: newEvent.outcome ?? null,
+          })
+          .returning();
+        return { duplicate: false, event: inserted as PaymentEventEntity };
+      } catch (err: any) {
+        const fallback = await db
+          .select()
+          .from(schema.paymentEvents)
+          .where(
+            and(
+              eq(schema.paymentEvents.provider, event.provider),
+              eq(schema.paymentEvents.providerEventId, event.providerEventId)
+            )
+          )
+          .limit(1);
+        return { duplicate: true, event: fallback[0] as PaymentEventEntity };
+      }
+    }
+
+    const memExisting = this.memPaymentEvents.find(
+      (e) => e.provider === event.provider && e.providerEventId === event.providerEventId
+    );
+    if (memExisting) {
+      return { duplicate: true, event: memExisting };
+    }
+    this.memPaymentEvents.push(newEvent);
+    return { duplicate: false, event: newEvent };
+  }
+
+  // --- Refund Operations ---
+  public async createRefund(
+    refund: Omit<RefundEntity, "createdAt" | "updatedAt"> & { createdAt?: Date; updatedAt?: Date }
+  ): Promise<RefundEntity> {
+    this.checkProductionDatabase();
+    const now = new Date();
+    const cleanRefund: RefundEntity = {
+      ...refund,
+      createdAt: refund.createdAt || now,
+      updatedAt: refund.updatedAt || now,
+    };
+
+    if (db) {
+      const [inserted] = await db
+        .insert(schema.refunds)
+        .values({
+          id: cleanRefund.id,
+          paymentId: cleanRefund.paymentId,
+          appointmentId: cleanRefund.appointmentId,
+          amountPaise: cleanRefund.amountPaise,
+          reason: cleanRefund.reason ?? null,
+          status: cleanRefund.status,
+          providerRefundId: cleanRefund.providerRefundId ?? null,
+          idempotencyKey: cleanRefund.idempotencyKey,
+          failureReason: cleanRefund.failureReason ?? null,
+        })
+        .returning();
+      return inserted as RefundEntity;
+    }
+
+    this.memRefunds.push(cleanRefund);
+    return cleanRefund;
+  }
+
+  public async getRefundByIdempotencyKey(key: string): Promise<RefundEntity | undefined> {
+    this.checkProductionDatabase();
+    if (db) {
+      const rows = await db
+        .select()
+        .from(schema.refunds)
+        .where(eq(schema.refunds.idempotencyKey, key))
+        .limit(1);
+      return rows[0] as RefundEntity | undefined;
+    }
+    return this.memRefunds.find((r) => r.idempotencyKey === key);
+  }
+
+  public async getRefundsByPaymentId(paymentId: string): Promise<RefundEntity[]> {
+    this.checkProductionDatabase();
+    if (db) {
+      const rows = await db
+        .select()
+        .from(schema.refunds)
+        .where(eq(schema.refunds.paymentId, paymentId))
+        .orderBy(desc(schema.refunds.createdAt));
+      return rows as RefundEntity[];
+    }
+    return this.memRefunds
+      .filter((r) => r.paymentId === paymentId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  public async getRefundsByAppointmentId(appointmentId: string): Promise<RefundEntity[]> {
+    this.checkProductionDatabase();
+    if (db) {
+      const rows = await db
+        .select()
+        .from(schema.refunds)
+        .where(eq(schema.refunds.appointmentId, appointmentId))
+        .orderBy(desc(schema.refunds.createdAt));
+      return rows as RefundEntity[];
+    }
+    return this.memRefunds
+      .filter((r) => r.appointmentId === appointmentId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  public async updateRefundStatus(
+    id: string,
+    status: RefundStatus,
+    extra?: {
+      providerRefundId?: string | null;
+      failureReason?: string | null;
+    }
+  ): Promise<boolean> {
+    this.checkProductionDatabase();
+    const now = new Date();
+    if (db) {
+      const updateValues: Record<string, any> = { status, updatedAt: now };
+      if (extra?.providerRefundId !== undefined) updateValues.providerRefundId = extra.providerRefundId;
+      if (extra?.failureReason !== undefined) updateValues.failureReason = extra.failureReason;
+      const res = await db.update(schema.refunds).set(updateValues).where(eq(schema.refunds.id, id));
+      return (res.rowCount ?? 1) > 0;
+    }
+
+    const ref = this.memRefunds.find((r) => r.id === id);
+    if (!ref) return false;
+    ref.status = status;
+    ref.updatedAt = now;
+    if (extra?.providerRefundId !== undefined) ref.providerRefundId = extra.providerRefundId;
+    if (extra?.failureReason !== undefined) ref.failureReason = extra.failureReason;
+    return true;
+  }
+
+  // --- Notification Operations ---
+  public async createNotification(
+    notification: Omit<NotificationEntity, "createdAt"> & { createdAt?: Date }
+  ): Promise<NotificationEntity> {
+    this.checkProductionDatabase();
+    const now = new Date();
+    const cleanNotification: NotificationEntity = {
+      ...notification,
+      createdAt: notification.createdAt || now,
+    };
+
+    if (db) {
+      if (cleanNotification.dedupeKey) {
+        const existing = await db
+          .select()
+          .from(schema.notifications)
+          .where(eq(schema.notifications.dedupeKey, cleanNotification.dedupeKey))
+          .limit(1);
+        if (existing[0]) {
+          return existing[0] as NotificationEntity;
+        }
+      }
+
+      const [inserted] = await db
+        .insert(schema.notifications)
+        .values({
+          id: cleanNotification.id,
+          userId: cleanNotification.userId,
+          appointmentId: cleanNotification.appointmentId ?? null,
+          channel: cleanNotification.channel,
+          template: cleanNotification.template,
+          recipient: cleanNotification.recipient,
+          payload: cleanNotification.payload ?? null,
+          status: cleanNotification.status,
+          scheduledFor: cleanNotification.scheduledFor,
+          attempts: cleanNotification.attempts,
+          lastError: cleanNotification.lastError ?? null,
+          dedupeKey: cleanNotification.dedupeKey ?? null,
+          sentAt: cleanNotification.sentAt ?? null,
+        })
+        .returning();
+      return inserted as NotificationEntity;
+    }
+
+    if (cleanNotification.dedupeKey) {
+      const existing = this.memNotifications.find((n) => n.dedupeKey === cleanNotification.dedupeKey);
+      if (existing) return existing;
+    }
+    this.memNotifications.push(cleanNotification);
+    return cleanNotification;
+  }
+
+  public async getPendingNotifications(cutoff: Date = new Date(), limit: number = 50): Promise<NotificationEntity[]> {
+    this.checkProductionDatabase();
+    if (db) {
+      const rows = await db
+        .select()
+        .from(schema.notifications)
+        .where(
+          and(
+            eq(schema.notifications.status, "PENDING"),
+            lte(schema.notifications.scheduledFor, cutoff)
+          )
+        )
+        .orderBy(schema.notifications.scheduledFor)
+        .limit(limit);
+      return rows as NotificationEntity[];
+    }
+
+    return this.memNotifications
+      .filter((n) => n.status === "PENDING" && n.scheduledFor <= cutoff)
+      .sort((a, b) => a.scheduledFor.getTime() - b.scheduledFor.getTime())
+      .slice(0, limit);
+  }
+
+  public async updateNotificationStatus(
+    id: string,
+    status: NotificationStatus,
+    extra?: {
+      attempts?: number;
+      lastError?: string | null;
+      sentAt?: Date | null;
+      scheduledFor?: Date;
+    }
+  ): Promise<boolean> {
+    this.checkProductionDatabase();
+    if (db) {
+      const updateValues: Record<string, any> = { status };
+      if (extra?.attempts !== undefined) updateValues.attempts = extra.attempts;
+      if (extra?.lastError !== undefined) updateValues.lastError = extra.lastError;
+      if (extra?.sentAt !== undefined) updateValues.sentAt = extra.sentAt;
+      if (extra?.scheduledFor !== undefined) updateValues.scheduledFor = extra.scheduledFor;
+      const res = await db.update(schema.notifications).set(updateValues).where(eq(schema.notifications.id, id));
+      return (res.rowCount ?? 1) > 0;
+    }
+
+    const notif = this.memNotifications.find((n) => n.id === id);
+    if (!notif) return false;
+    notif.status = status;
+    if (extra?.attempts !== undefined) notif.attempts = extra.attempts;
+    if (extra?.lastError !== undefined) notif.lastError = extra.lastError;
+    if (extra?.sentAt !== undefined) notif.sentAt = extra.sentAt;
+    if (extra?.scheduledFor !== undefined) notif.scheduledFor = extra.scheduledFor;
+    return true;
+  }
+
+  public async cancelPendingNotificationsForAppointment(
+    appointmentId: string,
+    template?: string
+  ): Promise<number> {
+    this.checkProductionDatabase();
+    if (db) {
+      const conditions = [
+        eq(schema.notifications.appointmentId, appointmentId),
+        eq(schema.notifications.status, "PENDING"),
+      ];
+      if (template) {
+        conditions.push(eq(schema.notifications.template, template));
+      }
+      const res = await db
+        .update(schema.notifications)
+        .set({ status: "CANCELLED" })
+        .where(and(...conditions));
+      return res.rowCount ?? 0;
+    }
+
+    let count = 0;
+    for (const notif of this.memNotifications) {
+      if (
+        notif.appointmentId === appointmentId &&
+        notif.status === "PENDING" &&
+        (!template || notif.template === template)
+      ) {
+        notif.status = "CANCELLED";
+        count++;
+      }
+    }
+    return count;
+  }
+
+  // --- Holds & Payment Confirmation Operations ---
+  public async getExpiredHolds(cutoff: Date = new Date()): Promise<AppointmentEntity[]> {
+    this.checkProductionDatabase();
+    if (db) {
+      const rows = await db
+        .select()
+        .from(schema.appointments)
+        .where(
+          and(
+            eq(schema.appointments.status, "PENDING_PAYMENT"),
+            lte(schema.appointments.holdExpiresAt, cutoff)
+          )
+        );
+      return rows as AppointmentEntity[];
+    }
+
+    return this.memAppointments.filter(
+      (a) => a.status === "PENDING_PAYMENT" && a.holdExpiresAt && a.holdExpiresAt <= cutoff
+    );
+  }
+
+  public async expireAppointmentHold(appointmentId: string): Promise<boolean> {
+    this.checkProductionDatabase();
+    if (db) {
+      const res = await db
+        .update(schema.appointments)
+        .set({ status: "EXPIRED" })
+        .where(
+          and(
+            eq(schema.appointments.id, appointmentId),
+            eq(schema.appointments.status, "PENDING_PAYMENT")
+          )
+        );
+      return (res.rowCount ?? 0) > 0;
+    }
+
+    const apt = this.memAppointments.find(
+      (a) => a.id === appointmentId && a.status === "PENDING_PAYMENT"
+    );
+    if (!apt) return false;
+    apt.status = "EXPIRED";
+    return true;
+  }
+
+  public async confirmPaymentAndBookAppointment(params: {
+    paymentId: string;
+    providerPaymentId?: string;
+    appointmentId: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    appointment?: AppointmentEntity;
+    payment?: PaymentEntity;
+    wasExpired?: boolean;
+    refundNeeded?: boolean;
+  }> {
+    this.checkProductionDatabase();
+    const now = new Date();
+
+    if (db) {
+      return await db.transaction(async (tx) => {
+        const [appt] = await tx
+          .select()
+          .from(schema.appointments)
+          .where(eq(schema.appointments.id, params.appointmentId))
+          .limit(1);
+
+        if (!appt) {
+          return { success: false, message: "Appointment not found." };
+        }
+
+        const [payment] = await tx
+          .select()
+          .from(schema.payments)
+          .where(eq(schema.payments.id, params.paymentId))
+          .limit(1);
+
+        if (!payment) {
+          return { success: false, message: "Payment record not found." };
+        }
+
+        // Already BOOKED & PAID: Idempotent return
+        if (appt.status === "BOOKED" && payment.status === "PAID") {
+          return {
+            success: true,
+            message: "Appointment already confirmed.",
+            appointment: appt as AppointmentEntity,
+            payment: payment as PaymentEntity,
+          };
+        }
+
+        await lockDoctorDay(tx, appt.doctorId, appt.appointmentDate);
+
+        // Check if hold has expired (either marked EXPIRED or holdExpiresAt <= now)
+        const isHoldExpired = Boolean(
+          appt.status === "EXPIRED" ||
+          (appt.status === "PENDING_PAYMENT" && appt.holdExpiresAt && appt.holdExpiresAt <= now)
+        );
+
+        if (isHoldExpired) {
+          // Late payment reconciliation check: is the slot still open?
+          let capacity = 1;
+          if (appt.sessionId) {
+            const [sess] = await tx
+              .select()
+              .from(schema.availabilities)
+              .where(eq(schema.availabilities.id, appt.sessionId))
+              .limit(1);
+            if (sess && sess.schedulingType === "WAVE") {
+              capacity = Math.max(1, sess.patientsPerWave);
+            }
+          }
+
+          const activeForSlot = await tx
+            .select()
+            .from(schema.appointments)
+            .where(
+              and(
+                eq(schema.appointments.doctorId, appt.doctorId),
+                eq(schema.appointments.appointmentDate, appt.appointmentDate),
+                eq(schema.appointments.startTime, appt.startTime),
+                occupiesSeatSql(now),
+                sql`${schema.appointments.id} != ${appt.id}`
+              )
+            );
+
+          const hasDuplicate = await hasActiveBookingThatDay(
+            tx,
+            appt.patientId,
+            appt.doctorId,
+            appt.appointmentDate,
+            appt.id
+          );
+
+          const [leave] = await tx
+            .select()
+            .from(schema.doctorLeaves)
+            .where(
+              and(
+                eq(schema.doctorLeaves.doctorId, appt.doctorId),
+                eq(schema.doctorLeaves.leaveDate, appt.appointmentDate)
+              )
+            )
+            .limit(1);
+
+          if (activeForSlot.length >= capacity || hasDuplicate || leave) {
+            // Slot is occupied, doctor on leave, or duplicate booking!
+            // Mark payment as PAID so refund tracking can process against it.
+            const [updatedPay] = await tx
+              .update(schema.payments)
+              .set({
+                status: "PAID",
+                providerPaymentId: params.providerPaymentId ?? payment.providerPaymentId,
+                paidAt: now,
+                updatedAt: now,
+              })
+              .where(eq(schema.payments.id, payment.id))
+              .returning();
+
+            await tx
+              .update(schema.appointments)
+              .set({ status: "EXPIRED" })
+              .where(eq(schema.appointments.id, appt.id));
+
+            return {
+              success: false,
+              message: "Slot is no longer available after hold expired. 100% refund required.",
+              appointment: { ...appt, status: "EXPIRED" } as AppointmentEntity,
+              payment: updatedPay as PaymentEntity,
+              wasExpired: true,
+              refundNeeded: true,
+            };
+          }
+        }
+
+        // Slot is available or hold was still active: Confirm booking!
+        const [updatedAppt] = await tx
+          .update(schema.appointments)
+          .set({
+            status: "BOOKED",
+            holdExpiresAt: null,
+          })
+          .where(eq(schema.appointments.id, appt.id))
+          .returning();
+
+        const [updatedPay] = await tx
+          .update(schema.payments)
+          .set({
+            status: "PAID",
+            providerPaymentId: params.providerPaymentId ?? payment.providerPaymentId,
+            paidAt: now,
+            updatedAt: now,
+          })
+          .where(eq(schema.payments.id, payment.id))
+          .returning();
+
+        return {
+          success: true,
+          message: isHoldExpired
+            ? "Payment received late but slot was still available; appointment confirmed!"
+            : "Payment verified and appointment booked successfully!",
+          appointment: updatedAppt as AppointmentEntity,
+          payment: updatedPay as PaymentEntity,
+          wasExpired: isHoldExpired,
+        };
+      });
+    }
+
+    // In-memory fallback
+    const appt = this.memAppointments.find((a) => a.id === params.appointmentId);
+    if (!appt) return { success: false, message: "Appointment not found." };
+    const payment = this.memPayments.find((p) => p.id === params.paymentId);
+    if (!payment) return { success: false, message: "Payment record not found." };
+
+    if (appt.status === "BOOKED" && payment.status === "PAID") {
+      return {
+        success: true,
+        message: "Appointment already confirmed.",
+        appointment: appt,
+        payment,
+      };
+    }
+
+    const isHoldExpired = Boolean(
+      appt.status === "EXPIRED" ||
+      (appt.status === "PENDING_PAYMENT" && appt.holdExpiresAt && appt.holdExpiresAt <= now)
+    );
+
+    if (isHoldExpired) {
+      let capacity = 1;
+      if (appt.sessionId) {
+        const sess = this.memAvailabilities.find((s) => s.id === appt.sessionId);
+        if (sess && sess.schedulingType === "WAVE") capacity = Math.max(1, sess.patientsPerWave);
+      }
+
+      const activeForSlot = this.memAppointments.filter(
+        (a) =>
+          a.id !== appt.id &&
+          a.doctorId === appt.doctorId &&
+          a.appointmentDate === appt.appointmentDate &&
+          a.startTime === appt.startTime &&
+          appointmentOccupiesSeat(a, now)
+      );
+
+      const hasDuplicate = this.memAppointments.some(
+        (a) =>
+          a.id !== appt.id &&
+          a.patientId === appt.patientId &&
+          a.doctorId === appt.doctorId &&
+          a.appointmentDate === appt.appointmentDate &&
+          appointmentOccupiesSeat(a, now)
+      );
+
+      const onLeave = this.memDoctorLeaves.some(
+        (l) => l.doctorId === appt.doctorId && l.leaveDate === appt.appointmentDate
+      );
+
+      if (activeForSlot.length >= capacity || hasDuplicate || onLeave) {
+        payment.status = "PAID";
+        payment.providerPaymentId = params.providerPaymentId ?? payment.providerPaymentId;
+        payment.paidAt = now;
+        payment.updatedAt = now;
+        appt.status = "EXPIRED";
+
+        return {
+          success: false,
+          message: "Slot is no longer available after hold expired. 100% refund required.",
+          appointment: appt,
+          payment,
+          wasExpired: true,
+          refundNeeded: true,
+        };
+      }
+    }
+
+    appt.status = "BOOKED";
+    appt.holdExpiresAt = null;
+    payment.status = "PAID";
+    payment.providerPaymentId = params.providerPaymentId ?? payment.providerPaymentId;
+    payment.paidAt = now;
+    payment.updatedAt = now;
+
+    return {
+      success: true,
+      message: isHoldExpired
+        ? "Payment received late but slot was still available; appointment confirmed!"
+        : "Payment verified and appointment booked successfully!",
+      appointment: appt,
+      payment,
+      wasExpired: isHoldExpired,
+    };
   }
 
   // --- Login Attempts / Rate Limiting Operations ---
