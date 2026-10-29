@@ -25,8 +25,9 @@ Task 3 builds on the Medrella app from [`Task_2`](../Task_2). This folder is the
 
 ### Rescheduling, leave and no-shows
 - Patients and doctors can reschedule a booked appointment; the server applies the same rules as a new booking (date window, leave, session, alignment, notice) and keeps the original time.
-- Doctors can block leave dates; doctors can mark no-shows.
-- Booking rules: up to 30 days ahead, at least 15 minutes' notice.
+- Doctors can block leave dates (future dates only, and only when no patients are booked that day); doctors can mark no-shows.
+- Booking rules: up to 30 days ahead, at least 15 minutes' notice, and one active booking per patient per doctor per day.
+- Appointments can be marked completed or no-show only once their start time has arrived.
 
 ### Landing page
 - Public landing page at `/`, wired to live data: departments and doctor cards come from the database, with each doctor's real next open slot.

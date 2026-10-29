@@ -15,6 +15,16 @@ function toMinutes(hhmm: string): number {
   return h * 60 + m;
 }
 
+/** A visit can only be marked completed or no-show once its scheduled start time has arrived. */
+export function hasAppointmentStarted(
+  appointment: { appointmentDate: string; startTime: string },
+  now: Date = new Date()
+): boolean {
+  const [year, month, day] = appointment.appointmentDate.split("-").map(Number);
+  const [hours, minutes] = appointment.startTime.split(":").map(Number);
+  return now.getTime() >= new Date(year, month - 1, day, hours, minutes).getTime();
+}
+
 function toHHMM(totalMinutes: number): string {
   return `${String(Math.floor(totalMinutes / 60)).padStart(2, "0")}:${String(totalMinutes % 60).padStart(2, "0")}`;
 }
