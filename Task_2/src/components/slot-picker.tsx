@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { getDoctorSessionsAction } from "@/actions/availability";
 import { bookAppointmentAction } from "@/actions/appointments";
 import {
@@ -58,6 +59,7 @@ export function SlotPicker({
   isLoggedIn,
 }: SlotPickerProps) {
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   // Generate next 14 dates starting from today in local time
   const [availableDates] = useState(() => {
@@ -121,7 +123,7 @@ export function SlotPicker({
     e.preventDefault();
     if (!isLoggedIn) {
       const currentPath = typeof window !== "undefined" ? window.location.pathname : `/doctors/${doctorId}`;
-      window.location.href = `/login?redirectTo=${encodeURIComponent(currentPath)}&message=Please sign in to complete your booking.`;
+      router.push(`/login?redirectTo=${encodeURIComponent(currentPath)}&message=${encodeURIComponent("Please sign in to complete your booking.")}`);
       return;
     }
 
@@ -439,7 +441,7 @@ export function SlotPicker({
               type="button"
               onClick={() => {
                 const currentPath = typeof window !== "undefined" ? window.location.pathname : `/doctors/${doctorId}`;
-                window.location.href = `/login?redirectTo=${encodeURIComponent(currentPath)}&message=Please sign in to complete your booking.`;
+                router.push(`/login?redirectTo=${encodeURIComponent(currentPath)}&message=${encodeURIComponent("Please sign in to complete your booking.")}`);
               }}
               className="btn primary w-full justify-center py-2.5 text-xs font-bold cursor-pointer"
             >

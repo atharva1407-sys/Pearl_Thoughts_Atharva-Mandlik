@@ -17,9 +17,11 @@ const navLinks = [
 interface SiteHeaderProps {
   /** Role dashboard for a signed-in user; null for guests. */
   dashboardHref: string | null;
+  /** Booking entry point: the doctors directory, or sign-in first for guests. */
+  bookHref: string;
 }
 
-export default function SiteHeader({ dashboardHref }: SiteHeaderProps) {
+export default function SiteHeader({ dashboardHref, bookHref }: SiteHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [active, setActive] = useState("home");
   // After a nav click, hold the clicked link while smooth scrolling passes other sections.
@@ -119,7 +121,7 @@ export default function SiteHeader({ dashboardHref }: SiteHeaderProps) {
             {accountLink.label}
           </Link>
           <Link
-            href="/doctors"
+            href={bookHref}
             className="whitespace-nowrap rounded-lg border border-[#1769e8] bg-[#1769e8] px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition hover:border-[#0d54c6] hover:bg-[#0d54c6]"
           >
             Book an appointment
@@ -127,7 +129,7 @@ export default function SiteHeader({ dashboardHref }: SiteHeaderProps) {
         </div>
 
         <div className="flex items-center gap-2 lg:hidden">
-          <Link href="/doctors" className="rounded-lg bg-[#1769e8] px-3.5 py-2 text-[13px] font-semibold text-white">
+          <Link href={bookHref} className="rounded-lg bg-[#1769e8] px-3.5 py-2 text-[13px] font-semibold text-white">
             Book
           </Link>
           <button

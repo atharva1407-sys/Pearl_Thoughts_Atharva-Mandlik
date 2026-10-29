@@ -174,9 +174,11 @@ async function loadLandingData() {
 
 function HeroVisual({
   nextAvailable,
+  nextAvailableHref,
   gpHref,
 }: {
   nextAvailable: { doctor: DoctorEntity; slot: NextOpenSlot; label: string } | null;
+  nextAvailableHref: string;
   gpHref: string;
 }) {
   return (
@@ -210,7 +212,7 @@ function HeroVisual({
 
       {nextAvailable && (
         <Link
-          href={`/doctors/${nextAvailable.doctor.id}`}
+          href={nextAvailableHref}
           className="absolute bottom-[12%] right-[4%] hidden w-[min(52%,210px)] items-center justify-between gap-2 rounded-xl bg-white p-3 shadow-[0_8px_24px_rgba(20,36,61,0.14)] transition hover:-translate-y-0.5 sm:flex sm:p-3.5"
         >
           <div className="min-w-0 space-y-1 text-[11px] leading-tight sm:text-xs">
@@ -294,13 +296,19 @@ export default async function HomePage() {
     }
   }
 
-  const gpHref = departments.some((d) => d.name === "General Medicine")
-    ? `/doctors?specialization=${encodeURIComponent("General Medicine")}`
-    : "/doctors";
+  // Booking pages need an account. Send guests straight to sign-in (keeping where they were headed)
+  // instead of through a server redirect, which flashes an empty page between the two routes.
+  const gate = (href: string) => (dashboardHref ? href : `/login?redirectTo=${encodeURIComponent(href)}`);
+
+  const gpHref = gate(
+    departments.some((d) => d.name === "General Medicine")
+      ? `/doctors?specialization=${encodeURIComponent("General Medicine")}`
+      : "/doctors"
+  );
 
   return (
     <div className="landing-root flex min-h-screen flex-col bg-white text-[#14243d]">
-      <SiteHeader dashboardHref={dashboardHref} />
+      <SiteHeader dashboardHref={dashboardHref} bookHref={gate("/doctors")} />
 
       <main className="flex-1">
         {/* Hero */}
@@ -319,7 +327,7 @@ export default async function HomePage() {
               </p>
               <div className="mb-9 flex flex-wrap items-center gap-3">
                 <Link
-                  href="/doctors"
+                  href={gate("/doctors")}
                   className="group flex items-center gap-2 rounded-lg bg-[#1769e8] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0d54c6]"
                 >
                   Book an appointment
@@ -345,7 +353,11 @@ export default async function HomePage() {
 
           <div className="relative px-5 pb-10 sm:px-8 lg:absolute lg:inset-y-0 lg:right-0 lg:w-[56%] lg:p-0">
             <div className="aspect-[4/3] overflow-hidden rounded-2xl sm:aspect-[2/1] lg:aspect-auto lg:h-full lg:overflow-visible lg:rounded-none">
-              <HeroVisual nextAvailable={nextAvailable} gpHref={gpHref} />
+              <HeroVisual
+                nextAvailable={nextAvailable}
+                nextAvailableHref={nextAvailable ? gate(`/doctors/${nextAvailable.doctor.id}`) : "/doctors"}
+                gpHref={gpHref}
+              />
             </div>
           </div>
         </section>
@@ -376,7 +388,7 @@ export default async function HomePage() {
                 <p className={`${eyebrow} mb-1.5`}>Our Specialties</p>
                 <h2 className={sectionTitle}>Departments We Offer</h2>
               </div>
-              <Link href="/doctors" className="group flex items-center gap-1.5 text-[13px] font-semibold text-[#1769e8]">
+              <Link href={gate("/doctors")} className="group flex items-center gap-1.5 text-[13px] font-semibold text-[#1769e8]">
                 View all departments
                 <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
               </Link>
@@ -394,7 +406,7 @@ export default async function HomePage() {
                   return (
                     <li key={name}>
                       <Link
-                        href={`/doctors?specialization=${encodeURIComponent(name)}`}
+                        href={gate(`/doctors?specialization=${encodeURIComponent(name)}`)}
                         className="group flex w-full flex-col items-center gap-2.5 text-center"
                       >
                         <span
@@ -427,7 +439,7 @@ export default async function HomePage() {
                     Consult with experienced and trusted doctors across various specialties.
                   </p>
                 </div>
-                <Link href="/doctors" className="group flex items-center gap-1.5 text-[13px] font-semibold text-[#1769e8]">
+                <Link href={gate("/doctors")} className="group flex items-center gap-1.5 text-[13px] font-semibold text-[#1769e8]">
                   View all doctors
                   <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                 </Link>
@@ -483,7 +495,7 @@ export default async function HomePage() {
                         </p>
                         <AvailabilityBadge slot={nextSlots.get(doc.id)} dates={dates} />
                         <Link
-                          href={`/doctors/${doc.id}`}
+                          href={gate(`/doctors/${doc.id}`)}
                           className="mt-auto flex w-full items-center justify-center gap-1.5 rounded-lg border border-[#1769e8]/35 py-2 text-[13px] font-semibold text-[#1769e8] transition hover:bg-[#f0f6ff]"
                         >
                           View Profile
@@ -550,7 +562,7 @@ export default async function HomePage() {
                   </p>
                 </div>
                 <Link
-                  href="/doctors"
+                  href={gate("/doctors")}
                   className="group flex shrink-0 items-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-semibold text-[#1769e8] shadow-sm transition hover:bg-[#f0f6ff]"
                 >
                   Book an appointment
