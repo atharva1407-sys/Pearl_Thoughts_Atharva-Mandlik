@@ -54,6 +54,16 @@ Task 4 builds on the Medrella app from [`Task_3`](../Task_3). This folder is the
 - **Billing History (`/patient/payments`)**: Audit list of transactions, amounts, and refund badges.
 - **Printable Receipt (`/patient/payments/[id]/receipt`)**: Clean, computer-generated consultation receipt with browser print capability.
 
+### Review hardening (fixes after the code review)
+- **Payment binding**: a browser-reported payment can only confirm the appointment and patient it was created for, with a signature over OUR order, and the gateway must report the full fee as paid (`src/lib/payments/binding.ts`). A forged confirmation now returns "Payment verification failed."
+- **Mock gateway lockdown**: no fixed "always valid" signatures; the mock never runs in production (the app fails closed without Razorpay keys); simulated payments are signed on the server, so no secret ships to the browser.
+- **Honest refunds** (`src/lib/payments/refunds.ts`): a refund is recorded first, sent to the gateway, and only marked processed when the gateway says so. History and receipt show *Refund in progress / Refunded / Refund failed*. Refunds are idempotent, capped to the amount paid, retried when stuck, and recorded before the cancellation completes.
+- **Refund webhooks** match by Razorpay payment/refund id; `refund.created` is not "processed"; partial refunds give `PARTIALLY_REFUNDED`; refunds made from the Razorpay dashboard are recorded.
+- **Retry-safe webhooks**: a failed event answers 5xx and is reprocessed on re-delivery instead of being lost. A failed attempt no longer frees the seat (the customer may retry on the same order).
+- **Late and cancelled payments**: a late payment whose slot was taken is refunded in full; paying after cancelling the hold refunds instead of re-booking; the expiry sweep never invents payment ids and uses the shared repository.
+- **One live hold per patient** (double-click safe); cron endpoints require `CRON_SECRET` in production.
+- **Emails**: confirmation/refund emails use templates that exist (they previously fell back to a generic message), HTML is escaped, cancellation emails go to the patient (not whoever cancelled), and names/phone prefill are the patient's own.
+
 ## Run the Task 4 app
 Inside this `Task_4` folder:
 ```bash
@@ -71,6 +81,9 @@ npm run dev
 
 ## Files
 Compared with [`Task_3`](../Task_3).
+
+### Added in review hardening
+`src/lib/payments/binding.ts`, `refunds.ts`, `finalize.ts`, `labels.ts`, `src/lib/background.ts`, `src/lib/cron-auth.ts`, `src/test-payment-hardening.ts` (72 regression tests; `npm test` runs both suites)
 
 ### Added (18)
 - Migrations: `src/db/migrations/0003_narrow_doctor_octopus.sql`, `meta/0003_snapshot.json`

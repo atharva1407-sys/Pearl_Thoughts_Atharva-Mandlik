@@ -1938,6 +1938,95 @@ export class MedrellaRepository {
     return { duplicate: false, event: newEvent };
   }
 
+  public async getPaymentByProviderPaymentId(
+    provider: "RAZORPAY" | "MOCK",
+    providerPaymentId: string
+  ): Promise<PaymentEntity | undefined> {
+    this.checkProductionDatabase();
+    if (db) {
+      const rows = await db
+        .select()
+        .from(schema.payments)
+        .where(
+          and(
+            eq(schema.payments.provider, provider),
+            eq(schema.payments.providerPaymentId, providerPaymentId)
+          )
+        )
+        .limit(1);
+      return rows[0] as PaymentEntity | undefined;
+    }
+    return this.memPayments.find(
+      (p) => p.provider === provider && p.providerPaymentId === providerPaymentId
+    );
+  }
+
+  /**
+   * Marks how a webhook event ended: "PROCESSED" or "FAILED: <reason>". A FAILED (or long-stuck
+   * "PROCESSING") event may be processed again when the provider re-delivers it.
+   */
+  public async updatePaymentEventOutcome(id: string, outcome: string): Promise<void> {
+    this.checkProductionDatabase();
+    const now = new Date();
+    if (db) {
+      await db
+        .update(schema.paymentEvents)
+        .set({ outcome, processedAt: now })
+        .where(eq(schema.paymentEvents.id, id));
+      return;
+    }
+    const evt = this.memPaymentEvents.find((e) => e.id === id);
+    if (evt) {
+      evt.outcome = outcome;
+      evt.processedAt = now;
+    }
+  }
+
+  /** A patient's own unexpired payment hold with this doctor on this date, if any (newest first). */
+  public async findActiveHoldsForPatient(
+    patientId: string,
+    doctorId: string,
+    appointmentDate: string,
+    now: Date = new Date()
+  ): Promise<{ appointment: AppointmentEntity; payment?: PaymentEntity }[]> {
+    this.checkProductionDatabase();
+    if (db) {
+      const rows = await db
+        .select({ appointment: schema.appointments, payment: schema.payments })
+        .from(schema.appointments)
+        .leftJoin(schema.payments, eq(schema.payments.appointmentId, schema.appointments.id))
+        .where(
+          and(
+            eq(schema.appointments.patientId, patientId),
+            eq(schema.appointments.doctorId, doctorId),
+            eq(schema.appointments.appointmentDate, appointmentDate),
+            eq(schema.appointments.status, "PENDING_PAYMENT"),
+            sql`${schema.appointments.holdExpiresAt} > ${now}`
+          )
+        )
+        .orderBy(desc(schema.appointments.createdAt));
+      return rows.map((r) => ({
+        appointment: r.appointment as AppointmentEntity,
+        payment: (r.payment ?? undefined) as PaymentEntity | undefined,
+      }));
+    }
+    return this.memAppointments
+      .filter(
+        (a) =>
+          a.patientId === patientId &&
+          a.doctorId === doctorId &&
+          a.appointmentDate === appointmentDate &&
+          a.status === "PENDING_PAYMENT" &&
+          a.holdExpiresAt &&
+          a.holdExpiresAt > now
+      )
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .map((appointment) => ({
+        appointment,
+        payment: this.memPayments.find((p) => p.appointmentId === appointment.id),
+      }));
+  }
+
   // --- Refund Operations ---
   public async createRefund(
     refund: Omit<RefundEntity, "createdAt" | "updatedAt"> & { createdAt?: Date; updatedAt?: Date }
@@ -1983,6 +2072,39 @@ export class MedrellaRepository {
       return rows[0] as RefundEntity | undefined;
     }
     return this.memRefunds.find((r) => r.idempotencyKey === key);
+  }
+
+  public async getRefundByProviderRefundId(providerRefundId: string): Promise<RefundEntity | undefined> {
+    this.checkProductionDatabase();
+    if (db) {
+      const rows = await db
+        .select()
+        .from(schema.refunds)
+        .where(eq(schema.refunds.providerRefundId, providerRefundId))
+        .limit(1);
+      return rows[0] as RefundEntity | undefined;
+    }
+    return this.memRefunds.find((r) => r.providerRefundId === providerRefundId);
+  }
+
+  /** Refunds in the given states that haven't changed since `olderThan` (used to retry stuck requests). */
+  public async getRefundsByStatuses(statuses: RefundStatus[], olderThan?: Date): Promise<RefundEntity[]> {
+    this.checkProductionDatabase();
+    if (db) {
+      const rows = await db
+        .select()
+        .from(schema.refunds)
+        .where(
+          and(
+            inArray(schema.refunds.status, statuses),
+            olderThan ? sql`${schema.refunds.updatedAt} <= ${olderThan}` : sql`true`
+          )
+        );
+      return rows as RefundEntity[];
+    }
+    return this.memRefunds.filter(
+      (r) => statuses.includes(r.status) && (!olderThan || r.updatedAt <= olderThan)
+    );
   }
 
   public async getRefundsByPaymentId(paymentId: string): Promise<RefundEntity[]> {
@@ -2275,6 +2397,27 @@ export class MedrellaRepository {
 
         await lockDoctorDay(tx, appt.doctorId, appt.appointmentDate);
 
+        // Cancelled before the payment completed: never resurrect the booking (its seat may be taken). Refund instead.
+        if (appt.status === "CANCELLED") {
+          const [paidPayment] = await tx
+            .update(schema.payments)
+            .set({
+              status: "PAID",
+              providerPaymentId: params.providerPaymentId ?? payment.providerPaymentId,
+              paidAt: payment.paidAt ?? now,
+              updatedAt: now,
+            })
+            .where(eq(schema.payments.id, payment.id))
+            .returning();
+          return {
+            success: false,
+            message: "This booking was cancelled before the payment completed. A full refund is required.",
+            appointment: appt as AppointmentEntity,
+            payment: paidPayment as PaymentEntity,
+            refundNeeded: true,
+          };
+        }
+
         // Check if hold has expired (either marked EXPIRED or holdExpiresAt <= now)
         const isHoldExpired = Boolean(
           appt.status === "EXPIRED" ||
@@ -2402,6 +2545,20 @@ export class MedrellaRepository {
         message: "Appointment already confirmed.",
         appointment: appt,
         payment,
+      };
+    }
+
+    if (appt.status === "CANCELLED") {
+      payment.status = "PAID";
+      payment.providerPaymentId = params.providerPaymentId ?? payment.providerPaymentId;
+      payment.paidAt = payment.paidAt ?? now;
+      payment.updatedAt = now;
+      return {
+        success: false,
+        message: "This booking was cancelled before the payment completed. A full refund is required.",
+        appointment: appt,
+        payment,
+        refundNeeded: true,
       };
     }
 

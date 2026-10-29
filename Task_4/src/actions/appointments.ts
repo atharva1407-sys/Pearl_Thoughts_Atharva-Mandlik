@@ -1,36 +1,41 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { after } from "next/server";
 import crypto from "crypto";
 import { getCurrentUser } from "./auth";
 import { dbRepo } from "@/db/repo";
+import type { RefundEntity } from "@/db/repo";
 import { bookingSchema } from "@/lib/validators";
 import { checkRequestedSlot, hasAppointmentStarted } from "@/lib/booking-rules";
-import {
-  getPaymentProvider,
-  formatPaise,
-  generateReceiptNo,
-  getPaymentHoldMinutes,
-} from "@/lib/payments";
-import { computeRefund, buildRefundIdempotencyKey } from "@/lib/refund-policy";
+import { getPaymentProvider, formatPaise, generateReceiptNo, getPaymentHoldMinutes } from "@/lib/payments";
+import type { MockProvider } from "@/lib/payments";
+import { checkPaymentBinding, checkOrderSettled } from "@/lib/payments/binding";
+import { prepareRefund, executeRefund, issueRefund } from "@/lib/payments/refunds";
+import type { PreparedRefund } from "@/lib/payments/refunds";
+import { finalizeConfirmedBooking } from "@/lib/payments/finalize";
+import { computeRefund } from "@/lib/refund-policy";
 import {
   scheduleAppointmentReminders,
   updateRescheduledReminders,
   cancelAppointmentReminders,
   processDueNotifications,
 } from "@/lib/notifications";
+import { runInBackground } from "@/lib/background";
 
-function runInBackground(fn: () => Promise<any>) {
-  try {
-    if (typeof after === "function") {
-      after(fn);
-      return;
-    }
-  } catch {
-    // Outside Next.js request context (e.g. CLI or unit test runner)
+/** The patient record that a signed-in user pays and books as (doctors may book as themselves). */
+async function resolvePayingPatientId(user: { role: string; profileId: string; userId: string }): Promise<string | undefined> {
+  if (user.role === "PATIENT") return user.profileId;
+  return (await dbRepo.getPatientByUserId(user.userId))?.id;
+}
+
+/** Plain-language refund status for the patient: "initiated" never means "completed". */
+function describeRefund(refund: RefundEntity): string {
+  const amount = formatPaise(refund.amountPaise);
+  if (refund.status === "PROCESSED") return ` Refund of ${amount} has been processed.`;
+  if (refund.status === "FAILED") {
+    return ` We could not start your refund of ${amount} automatically. Our team has been alerted and will retry it.`;
   }
-  fn().catch((err) => console.error("[BACKGROUND_JOB_ERROR]", err));
+  return ` Refund of ${amount} initiated. It is not complete yet and usually reaches your account in 5-7 business days.`;
 }
 
 /**
@@ -67,6 +72,7 @@ export async function createBookingHoldAction(formData: FormData) {
   let patientId = user.profileId;
   let patientEmail = user.email;
   let patientName = "Patient";
+  let patientPhone = "";
 
   if (user.role === "DOCTOR") {
     let patient = await dbRepo.getPatientByUserId(user.userId);
@@ -83,10 +89,12 @@ export async function createBookingHoldAction(formData: FormData) {
     }
     patientId = patient.id;
     patientName = `${patient.firstName} ${patient.lastName}`;
+    patientPhone = patient.phone;
   } else {
     const patient = await dbRepo.getPatientById(patientId);
     if (patient) {
       patientName = `${patient.firstName} ${patient.lastName}`;
+      patientPhone = patient.phone;
     }
   }
 
@@ -122,7 +130,7 @@ export async function createBookingHoldAction(formData: FormData) {
       userId: user.userId,
       appointmentId: result.appointment.id,
       channel: "EMAIL",
-      template: "BOOKING_CONFIRMATION",
+      template: "BOOKING_CONFIRMED",
       recipient: patientEmail,
       payload: {
         patientName,
@@ -160,8 +168,8 @@ export async function createBookingHoldAction(formData: FormData) {
     revalidatePath(`/doctors/${parsed.data.doctorId}`);
 
     return {
-      success: true,
-      requiresPayment: false,
+      success: true as const,
+      requiresPayment: false as const,
       message: result.message,
       appointmentId: result.appointment.id,
       tokenNumber: result.appointment.tokenNumber,
@@ -169,6 +177,53 @@ export async function createBookingHoldAction(formData: FormData) {
   }
 
   // Case 2: Paid appointment -> create seat hold and payment order
+  let provider;
+  try {
+    provider = getPaymentProvider();
+  } catch (err) {
+    console.error("[PAYMENT_CONFIG_ERROR]", (err as Error).message);
+    return { success: false, error: "Online payments are not available right now. Please try again later." };
+  }
+
+  const buildHoldResponse = (
+    appointment: { id: string; appointmentDate: string; startTime: string; holdExpiresAt?: Date | null },
+    payment: { id: string; providerOrderId: string; receiptNo: string },
+    expiresAt: Date
+  ) => ({
+    success: true as const,
+    requiresPayment: true as const,
+    provider: provider.name,
+    keyId: provider.keyId,
+    orderId: payment.providerOrderId,
+    amountPaise,
+    amountRupees: feeRupees,
+    currency: "INR",
+    paymentId: payment.id,
+    appointmentId: appointment.id,
+    holdExpiresAt: (appointment.holdExpiresAt ?? expiresAt).toISOString(),
+    receiptNo: payment.receiptNo,
+    doctorName: `${doctor.firstName} ${doctor.lastName}`,
+    specialization: doctor.specialization,
+    appointmentDate: appointment.appointmentDate,
+    startTime: appointment.startTime,
+    patientName,
+    patientEmail,
+    patientPhone,
+  });
+
+  // The patient's own live hold: reuse it for the same slot (double-click, retry after a failed attempt)
+  // so one patient can never hold several seats; release it if they picked a different slot.
+  const liveHolds = await dbRepo.findActiveHoldsForPatient(patientId, parsed.data.doctorId, parsed.data.appointmentDate);
+  for (const live of liveHolds) {
+    if (live.appointment.startTime === parsed.data.startTime && live.payment && live.payment.status !== "PAID") {
+      return buildHoldResponse(live.appointment, live.payment, live.appointment.holdExpiresAt ?? new Date());
+    }
+    await dbRepo.expireAppointmentHold(live.appointment.id);
+    if (live.payment && (live.payment.status === "CREATED" || live.payment.status === "PENDING")) {
+      await dbRepo.updatePaymentStatus(live.payment.id, "EXPIRED", { failureReason: "Replaced by a new slot selection." });
+    }
+  }
+
   const holdMinutes = getPaymentHoldMinutes();
   const holdExpiresAt = new Date(Date.now() + holdMinutes * 60 * 1000);
 
@@ -189,7 +244,6 @@ export async function createBookingHoldAction(formData: FormData) {
   }
 
   const appointment = holdResult.appointment;
-  const provider = getPaymentProvider();
   const receiptNo = generateReceiptNo();
 
   let order;
@@ -205,12 +259,13 @@ export async function createBookingHoldAction(formData: FormData) {
       },
     });
   } catch (err: any) {
-    // Release hold if order creation failed
+    // Release the hold if the order could not be created. Details go to the log, not to the browser.
+    console.error("[PAYMENT_ORDER_ERROR]", err?.message);
     await dbRepo.updateAppointmentStatus(appointment.id, "EXPIRED", {
       cancelledBy: "SYSTEM",
-      cancelReason: `Payment order creation failed: ${err.message}`,
+      cancelReason: "Payment order creation failed",
     });
-    return { success: false, error: `Could not initiate payment: ${err.message}` };
+    return { success: false, error: "Could not start the payment. Please try again in a moment." };
   }
 
   const payment = await dbRepo.createPayment({
@@ -229,27 +284,7 @@ export async function createBookingHoldAction(formData: FormData) {
   revalidatePath("/", "layout");
   revalidatePath(`/doctors/${parsed.data.doctorId}`);
 
-  return {
-    success: true,
-    requiresPayment: true,
-    provider: provider.name,
-    keyId: provider.keyId,
-    orderId: order.id,
-    amountPaise,
-    amountRupees: feeRupees,
-    currency: "INR",
-    paymentId: payment.id,
-    appointmentId: appointment.id,
-    holdExpiresAt: holdExpiresAt.toISOString(),
-    receiptNo,
-    doctorName: `${doctor.firstName} ${doctor.lastName}`,
-    specialization: doctor.specialization,
-    appointmentDate: appointment.appointmentDate,
-    startTime: appointment.startTime,
-    patientName,
-    patientEmail,
-    patientPhone: doctor.phone || "+91 98765 43210",
-  };
+  return buildHoldResponse(appointment, payment, holdExpiresAt);
 }
 
 /** Backward compatibility alias for form submissions */
@@ -263,6 +298,11 @@ export async function bookAppointmentAction(formData: FormData) {
  * Verifies HMAC signature with timingSafeEqual, confirms booking in a single transaction,
  * schedules reminders and sends confirmation email.
  */
+/**
+ * Server-side half of "customer paid at the checkout". Everything the browser sends is untrusted:
+ * the payment must belong to THIS appointment and THIS patient, the signature must be valid for
+ * the order we created, and the gateway itself must report the full amount as paid.
+ */
 export async function verifyPaymentAndConfirmBookingAction(data: {
   appointmentId: string;
   paymentId: string;
@@ -274,86 +314,99 @@ export async function verifyPaymentAndConfirmBookingAction(data: {
   if (!user) {
     return { success: false, error: "Unauthorized. Please sign in." };
   }
+  if (
+    !data ||
+    [data.appointmentId, data.paymentId, data.providerOrderId, data.providerPaymentId, data.signature].some(
+      (v) => typeof v !== "string" || !v
+    )
+  ) {
+    return { success: false, error: "Payment verification failed." };
+  }
 
-  const provider = getPaymentProvider();
+  let provider;
+  try {
+    provider = getPaymentProvider();
+  } catch (err) {
+    console.error("[PAYMENT_CONFIG_ERROR]", (err as Error).message);
+    return { success: false, error: "Online payments are not available right now." };
+  }
 
-  // 1. Verify HMAC SHA-256 signature
-  const isValid = provider.verifyCheckoutSignature({
-    orderId: data.providerOrderId,
+  const patientId = await resolvePayingPatientId(user);
+  const [payment, appointmentBefore] = await Promise.all([
+    dbRepo.getPaymentById(data.paymentId),
+    dbRepo.getAppointmentById(data.appointmentId),
+  ]);
+
+  // 1. Bind the payment to this appointment and this patient (never trust browser-supplied ids).
+  const binding = checkPaymentBinding({
+    payment,
+    appointment: appointmentBefore,
+    patientId: patientId ?? "",
+    providerName: provider.name,
+    appointmentId: data.appointmentId,
+    providerOrderId: data.providerOrderId,
+    providerPaymentId: data.providerPaymentId,
+  });
+  if (!binding.ok || !payment) {
+    console.warn("[PAYMENT_BINDING_REJECTED]", binding.ok ? "no payment" : binding.reason, { userId: user.userId });
+    return { success: false, error: "Payment verification failed." };
+  }
+
+  // 2. The signature must be valid for the order WE created and the payment the gateway reported.
+  const signatureOk = provider.verifyCheckoutSignature({
+    orderId: payment.providerOrderId,
     paymentId: data.providerPaymentId,
     signature: data.signature,
   });
-
-  if (!isValid) {
-    const payment = await dbRepo.getPaymentById(data.paymentId);
-    if (payment) {
-      await dbRepo.updatePaymentStatus(payment.id, "FAILED", {
-        failureReason: "HMAC signature verification failed. Possible forgery attempt.",
-      });
-    }
+  if (!signatureOk) {
+    await dbRepo.updatePaymentStatus(payment.id, payment.status, { failureReason: "Checkout signature did not verify." });
     return { success: false, error: "Payment verification failed. Invalid signature." };
   }
 
-  // 2. Confirm booking and mark payment PAID in an atomic transaction
+  // 3. Ask the gateway directly: the order must be paid, for at least the fee we charged.
+  let order;
+  try {
+    order = await provider.fetchOrder(payment.providerOrderId);
+  } catch (err) {
+    console.error("[PAYMENT_FETCH_ORDER_ERROR]", (err as Error).message);
+    return {
+      success: false,
+      error: "We could not confirm your payment with the bank yet. If you were charged, your booking will be confirmed automatically in a few minutes.",
+    };
+  }
+  const settled = checkOrderSettled(order, payment, data.providerPaymentId);
+  if (!settled.ok) {
+    if (settled.pending) {
+      return {
+        success: false,
+        error: "Your payment is still being confirmed by the bank. Your seat stays reserved and you will receive a confirmation shortly.",
+      };
+    }
+    console.warn("[PAYMENT_ORDER_REJECTED]", settled.reason, { paymentId: payment.id });
+    return { success: false, error: "Payment verification failed." };
+  }
+
+  // 4. Confirm the booking and mark the payment PAID in one transaction.
   const confirmResult = await dbRepo.confirmPaymentAndBookAppointment({
     appointmentId: data.appointmentId,
-    paymentId: data.paymentId,
+    paymentId: payment.id,
     providerPaymentId: data.providerPaymentId,
   });
 
   if (!confirmResult.success) {
-    // Edge case: Hold expired while patient was completing checkout and slot was taken
+    // Paid, but the seat is gone (hold expired and was taken, or the booking was cancelled first): refund in full.
     if (confirmResult.refundNeeded && confirmResult.payment) {
-      const payment = confirmResult.payment;
-      let refundStatus: "PROCESSED" | "FAILED" = "PROCESSED";
-      let providerRefundId: string | null = null;
-      let failureReason: string | null = null;
-
-      try {
-        const refundResult = await provider.createRefund({
-          paymentId: data.providerPaymentId,
-          amountPaise: payment.amountPaise,
-          reason: "Seat hold expired and slot was claimed by another patient",
-        });
-        providerRefundId = refundResult.id;
-      } catch (err: any) {
-        refundStatus = "FAILED";
-        failureReason = err.message;
-      }
-
-      await dbRepo.createRefund({
-        id: `ref-${crypto.randomUUID()}`,
-        paymentId: payment.id,
-        appointmentId: data.appointmentId,
-        amountPaise: payment.amountPaise,
-        reason: "Hold expired and slot taken - 100% automatic refund",
-        status: refundStatus,
-        providerRefundId,
-        idempotencyKey: buildRefundIdempotencyKey(payment.id, data.appointmentId, "AUTO_REFUND_EXPIRED_SLOT"),
-        failureReason,
-      });
-
-      // Notify patient of automatic refund
-      await dbRepo.createNotification({
-        id: `notif-${crypto.randomUUID()}`,
-        userId: user.userId,
-        appointmentId: data.appointmentId,
-        channel: "EMAIL",
-        template: "REFUND_NOTIFICATION",
-        recipient: user.email,
-        payload: {
-          patientName: "Patient",
-          appointmentDate: confirmResult.appointment?.appointmentDate || "Scheduled Date",
-          refundAmountFormatted: formatPaise(payment.amountPaise),
-          refundPercentage: 100,
-          reason: "Your payment hold expired and the slot was taken. A full refund has been initiated.",
-          status: refundStatus,
+      const { refund } = await issueRefund(
+        dbRepo,
+        {
+          payment: { ...confirmResult.payment, providerPaymentId: data.providerPaymentId },
+          appointmentId: data.appointmentId,
+          amountPaise: confirmResult.payment.amountPaise,
+          reason: "This booking could no longer be confirmed after payment. Full refund.",
+          purpose: "AUTO_REFUND_EXPIRED_SLOT",
         },
-        status: "PENDING",
-        scheduledFor: new Date(),
-        attempts: 0,
-        dedupeKey: `refund-auto-${payment.id}`,
-      });
+        provider
+      );
 
       runInBackground(async () => {
         await processDueNotifications(dbRepo);
@@ -361,55 +414,19 @@ export async function verifyPaymentAndConfirmBookingAction(data: {
 
       return {
         success: false,
-        error: `Your 10-minute hold expired before payment completed and the slot was taken. A 100% automatic refund of ${formatPaise(payment.amountPaise)} has been initiated to your original payment method.`,
+        error: `Your seat hold ended before the payment completed and the slot is no longer available.${
+          refund ? describeRefund(refund) : ""
+        }`,
       };
     }
-
     return { success: false, error: confirmResult.message };
   }
 
   const appointment = confirmResult.appointment!;
-  const payment = confirmResult.payment!;
-  const doctor = await dbRepo.getDoctorById(appointment.doctorId);
-  const patient = await dbRepo.getPatientById(appointment.patientId);
-  const patientName = patient ? `${patient.firstName} ${patient.lastName}` : "Patient";
+  const confirmedPayment = confirmResult.payment!;
 
-  // 3. Queue confirmation notification & reminders
-  await dbRepo.createNotification({
-    id: `notif-${crypto.randomUUID()}`,
-    userId: user.userId,
-    appointmentId: appointment.id,
-    channel: "EMAIL",
-    template: "BOOKING_CONFIRMATION",
-    recipient: user.email,
-    payload: {
-      patientName,
-      doctorName: doctor ? `${doctor.firstName} ${doctor.lastName}` : "Doctor",
-      specialization: doctor?.specialization || "Specialist",
-      appointmentDate: appointment.appointmentDate,
-      startTime: appointment.startTime,
-      endTime: appointment.endTime,
-      tokenNumber: appointment.tokenNumber,
-      receiptNo: payment.receiptNo,
-      amountFormatted: formatPaise(payment.amountPaise),
-    },
-    status: "PENDING",
-    scheduledFor: new Date(),
-    attempts: 0,
-    dedupeKey: `confirm-${appointment.id}`,
-  });
-
-  if (doctor) {
-    await scheduleAppointmentReminders(
-      dbRepo,
-      appointment,
-      user.email,
-      user.userId,
-      patientName,
-      doctor
-    );
-  }
-
+  // 5. Confirmation + receipt emails and reminders (de-duplicated, safe to repeat).
+  await finalizeConfirmedBooking(dbRepo, appointment, confirmedPayment);
   runInBackground(async () => {
     await processDueNotifications(dbRepo);
   });
@@ -425,9 +442,50 @@ export async function verifyPaymentAndConfirmBookingAction(data: {
     message: confirmResult.message,
     appointmentId: appointment.id,
     tokenNumber: appointment.tokenNumber,
-    paymentId: payment.id,
-    receiptNo: payment.receiptNo,
+    paymentId: confirmedPayment.id,
+    receiptNo: confirmedPayment.receiptNo,
   };
+}
+
+/**
+ * Test-gateway only: plays the part of "the customer pays at Razorpay Checkout" ON THE SERVER, so
+ * no signing secret ever reaches the browser. Refuses to run in production or with real Razorpay.
+ */
+export async function simulateMockPaymentAction(data: { appointmentId: string; paymentId: string }) {
+  if (process.env.NODE_ENV === "production") {
+    return { success: false as const, error: "Not available." };
+  }
+  const user = await getCurrentUser();
+  if (!user) {
+    return { success: false as const, error: "Unauthorized. Please sign in." };
+  }
+  let provider;
+  try {
+    provider = getPaymentProvider();
+  } catch {
+    return { success: false as const, error: "Payments are not configured." };
+  }
+  if (provider.name !== "MOCK") {
+    return { success: false as const, error: "Simulated payments are only available with the mock gateway." };
+  }
+
+  const patientId = await resolvePayingPatientId(user);
+  const payment = await dbRepo.getPaymentById(data.paymentId);
+  if (!payment || payment.appointmentId !== data.appointmentId || payment.patientId !== patientId) {
+    return { success: false as const, error: "Payment not found." };
+  }
+
+  try {
+    const paid = (provider as MockProvider).simulatePayment(payment.providerOrderId);
+    return {
+      success: true as const,
+      providerOrderId: paid.orderId,
+      providerPaymentId: paid.paymentId,
+      signature: paid.signature,
+    };
+  } catch {
+    return { success: false as const, error: "Could not simulate the payment." };
+  }
 }
 
 /**
@@ -648,7 +706,37 @@ export async function cancelAppointmentAction(appointmentId: string) {
     }
   }
 
-  // Update status to CANCELLED
+  // Work out any refund and record it BEFORE cancelling, so a crash can never leave a cancelled
+  // booking with no refund on file. (A recorded-but-unsent refund is retried by the sweep.)
+  const payment = await dbRepo.getPaymentByAppointmentId(appointmentId);
+  let refundCalc: ReturnType<typeof computeRefund> | undefined;
+  let prepared: PreparedRefund | undefined;
+
+  if (payment && (payment.status === "PAID" || payment.status === "PARTIALLY_REFUNDED")) {
+    const existingRefunds = await dbRepo.getRefundsByPaymentId(payment.id);
+    const alreadyRefundedPaise = existingRefunds
+      .filter((r) => r.status === "PROCESSED" || r.status === "PENDING" || r.status === "REQUESTED")
+      .reduce((sum, r) => sum + r.amountPaise, 0);
+
+    refundCalc = computeRefund({
+      cancelledBy: user.role === "DOCTOR" ? "DOCTOR" : "PATIENT",
+      appointmentDate: appointment.appointmentDate,
+      startTime: appointment.startTime,
+      amountPaidPaise: payment.amountPaise,
+      alreadyRefundedPaise,
+    });
+
+    if (refundCalc.eligible && refundCalc.refundAmountPaise > 0) {
+      prepared = await prepareRefund(dbRepo, {
+        payment,
+        appointmentId: appointment.id,
+        amountPaise: refundCalc.refundAmountPaise,
+        reason: refundCalc.reason,
+        purpose: "CANCELLATION",
+      });
+    }
+  }
+
   const success = await dbRepo.updateAppointmentStatus(appointmentId, "CANCELLED", {
     cancelledBy: user.role,
     cancelReason: `Cancelled by ${user.role.toLowerCase()}`,
@@ -660,108 +748,51 @@ export async function cancelAppointmentAction(appointmentId: string) {
   // Cancel any pending reminders
   await cancelAppointmentReminders(dbRepo, appointmentId);
 
-  // Check for paid payment and process refund
+  // Now ask the gateway. The refund is only "processed" if the gateway says so.
   let refundMessage = "";
-  const payment = await dbRepo.getPaymentByAppointmentId(appointmentId);
-
-  if (payment && payment.status === "PAID") {
-    const existingRefunds = await dbRepo.getRefundsByPaymentId(payment.id);
-    const alreadyRefundedPaise = existingRefunds
-      .filter((r) => r.status === "PROCESSED" || r.status === "PENDING" || r.status === "REQUESTED")
-      .reduce((sum, r) => sum + r.amountPaise, 0);
-
-    const refundCalc = computeRefund({
-      cancelledBy: user.role === "DOCTOR" ? "DOCTOR" : "PATIENT",
-      appointmentDate: appointment.appointmentDate,
-      startTime: appointment.startTime,
-      amountPaidPaise: payment.amountPaise,
-      alreadyRefundedPaise,
-    });
-
-    if (refundCalc.eligible && refundCalc.refundAmountPaise > 0) {
-      const idempotencyKey = buildRefundIdempotencyKey(payment.id, appointment.id, "CANCELLATION");
-      let refund = await dbRepo.getRefundByIdempotencyKey(idempotencyKey);
-
-      if (!refund) {
-        const provider = getPaymentProvider();
-        let refundStatus: "PROCESSED" | "FAILED" = "PROCESSED";
-        let providerRefundId: string | null = null;
-        let failureReason: string | null = null;
-
-        try {
-          if (payment.providerPaymentId) {
-            const providerResult = await provider.createRefund({
-              paymentId: payment.providerPaymentId,
-              amountPaise: refundCalc.refundAmountPaise,
-              reason: refundCalc.reason,
-            });
-            providerRefundId = providerResult.id;
-          }
-        } catch (err: any) {
-          refundStatus = "FAILED";
-          failureReason = err.message;
-        }
-
-        refund = await dbRepo.createRefund({
-          id: `ref-${crypto.randomUUID()}`,
-          paymentId: payment.id,
-          appointmentId: appointment.id,
-          amountPaise: refundCalc.refundAmountPaise,
-          reason: refundCalc.reason,
-          status: refundStatus,
-          providerRefundId,
-          idempotencyKey,
-          failureReason,
-        });
-
-        // Queue refund notification
-        await dbRepo.createNotification({
-          id: `notif-${crypto.randomUUID()}`,
-          userId: user.userId,
-          appointmentId: appointment.id,
-          channel: "EMAIL",
-          template: "REFUND_NOTIFICATION",
-          recipient: user.email,
-          payload: {
-            patientName: "Patient",
-            appointmentDate: appointment.appointmentDate,
-            refundAmountFormatted: formatPaise(refundCalc.refundAmountPaise),
-            refundPercentage: refundCalc.refundPercentage,
-            reason: refundCalc.reason,
-            status: refundStatus,
-          },
-          status: "PENDING",
-          scheduledFor: new Date(),
-          attempts: 0,
-          dedupeKey: `refund-notif-${refund.id}`,
-        });
-
-        refundMessage = ` Refund of ${formatPaise(refundCalc.refundAmountPaise)} initiated (${refundCalc.refundPercentage}% policy).`;
+  let refundForEmail: RefundEntity | undefined;
+  if (payment && refundCalc) {
+    if (prepared?.refund) {
+      let refund = prepared.refund;
+      if (prepared.needsExecution) {
+        refund = await executeRefund(dbRepo, refund, payment);
       }
+      refundForEmail = refund;
+      refundMessage = describeRefund(refund);
+    } else if (prepared?.skippedReason) {
+      refundMessage = " There is no refundable balance left on this payment.";
     } else {
-      refundMessage = ` No refund applicable according to the cancellation policy (<2h notice).`;
+      refundMessage = " No refund applies under the cancellation policy (less than 2 hours' notice).";
     }
   }
 
-  // Queue appointment cancellation notification
-  await dbRepo.createNotification({
-    id: `notif-${crypto.randomUUID()}`,
-    userId: user.userId,
-    appointmentId: appointment.id,
-    channel: "EMAIL",
-    template: "APPOINTMENT_CANCELLED",
-    recipient: user.email,
-    payload: {
-      patientName: "Patient",
-      appointmentDate: appointment.appointmentDate,
-      startTime: appointment.startTime,
-      cancelledBy: user.role,
-    },
-    status: "PENDING",
-    scheduledFor: new Date(),
-    attempts: 0,
-    dedupeKey: `cancel-notif-${appointment.id}`,
-  });
+  // Tell the PATIENT (not whoever pressed the button; a doctor may be cancelling).
+  const patientRecord = await dbRepo.getPatientById(appointment.patientId);
+  const patientUser = patientRecord ? await dbRepo.getUserById(patientRecord.userId) : undefined;
+  const doctorRecord = await dbRepo.getDoctorById(appointment.doctorId);
+  if (patientRecord && patientUser) {
+    await dbRepo.createNotification({
+      id: `notif-${crypto.randomUUID()}`,
+      userId: patientUser.id,
+      appointmentId: appointment.id,
+      channel: "EMAIL",
+      template: "APPOINTMENT_CANCELLED",
+      recipient: patientUser.email,
+      payload: {
+        patientName: `${patientRecord.firstName} ${patientRecord.lastName}`,
+        doctorName: doctorRecord ? `${doctorRecord.firstName} ${doctorRecord.lastName}` : "your doctor",
+        appointmentDate: appointment.appointmentDate,
+        startTime: appointment.startTime,
+        reason: user.role === "DOCTOR" ? "Cancelled by the doctor" : undefined,
+        refundAmountFormatted:
+          refundForEmail && refundForEmail.status !== "FAILED" ? formatPaise(refundForEmail.amountPaise) : undefined,
+      },
+      status: "PENDING",
+      scheduledFor: new Date(),
+      attempts: 0,
+      dedupeKey: `cancel-notif-${appointment.id}`,
+    });
+  }
 
   runInBackground(async () => {
     await processDueNotifications(dbRepo);

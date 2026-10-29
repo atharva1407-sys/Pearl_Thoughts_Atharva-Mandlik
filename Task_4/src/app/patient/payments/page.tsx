@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/actions/auth";
 import { dbRepo } from "@/db/repo";
 import { formatDate } from "@/lib/utils";
 import { formatPaise } from "@/lib/payments";
+import { refundLabel, refundBadgeClass } from "@/lib/payments/labels";
 import { CreditCard, FileText, ArrowLeft, ShieldCheck, CheckCircle2, Clock3, AlertCircle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +24,9 @@ export default async function PatientPaymentsPage() {
 
   const patient = patientId ? await dbRepo.getPatientById(patientId) : undefined;
   const payments = patientId ? await dbRepo.getPaymentsByPatientId(patientId) : [];
+  const refundsByPayment = new Map(
+    await Promise.all(payments.map(async (p) => [p.id, await dbRepo.getRefundsByPaymentId(p.id)] as const))
+  );
 
   return (
     <div className="space-y-6">
@@ -147,6 +151,12 @@ export default async function PatientPaymentsPage() {
                         >
                           {p.status}
                         </span>
+                        {(refundsByPayment.get(p.id) ?? []).map((r) => (
+                          <small key={r.id} className="block mt-1">
+                            <span className={`badge ${refundBadgeClass(r.status)}`}>{refundLabel(r.status)}</span>{" "}
+                            <span className="font-mono text-[11px] text-slate-600">{formatPaise(r.amountPaise)}</span>
+                          </small>
+                        ))}
                       </td>
                       <td>
                         <Link

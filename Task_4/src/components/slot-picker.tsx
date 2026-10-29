@@ -4,10 +4,7 @@ import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getDoctorSessionsAction } from "@/actions/availability";
-import {
-  createBookingHoldAction,
-  verifyPaymentAndConfirmBookingAction,
-} from "@/actions/appointments";
+import { createBookingHoldAction, verifyPaymentAndConfirmBookingAction, simulateMockPaymentAction } from "@/actions/appointments";
 import {
   CalendarDays,
   Clock3,
@@ -301,6 +298,11 @@ export function SlotPicker({
   };
 
   const tryLaunchRazorpayCheckout = async (hold: ActiveHold) => {
+    if (hold.provider !== "RAZORPAY") {
+      // Test gateway: use the built-in simulated checkout dialog.
+      setIsCheckoutModalOpen(true);
+      return;
+    }
     const loaded = await loadRazorpayScript();
     if (loaded && (window as any).Razorpay && hold.keyId) {
       setIsCheckoutModalOpen(false);
@@ -365,6 +367,7 @@ export function SlotPicker({
     setIsSimulatingPayment(false);
 
     if (res.success) {
+      setError(null);
       setSuccess(
         `Consultation confirmed with Dr. ${doctorName}! Token #${res.tokenNumber} assigned.`
       );
@@ -398,39 +401,25 @@ export function SlotPicker({
       return;
     }
 
-    // In mock provider / test mode: generate mock payment ID and mock signature
-    const mockPaymentId = `pay_mock_${Date.now()}`;
-    const secret = "mock_secret_key_12345";
-    const text = `${activeHold.orderId}|${mockPaymentId}`;
-
-    // Simple sha256 hex calculation using browser crypto API
-    const encoder = new TextEncoder();
-    const keyData = encoder.encode(secret);
-    const msgData = encoder.encode(text);
-
-    let signatureHex = "mock_sig";
-    try {
-      const cryptoKey = await window.crypto.subtle.importKey(
-        "raw",
-        keyData,
-        { name: "HMAC", hash: "SHA-256" },
-        false,
-        ["sign"]
-      );
-      const sigBuffer = await window.crypto.subtle.sign("HMAC", cryptoKey, msgData);
-      signatureHex = Array.from(new Uint8Array(sigBuffer))
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("");
-    } catch {
-      signatureHex = "mock_sig_fallback";
+    // Test gateway: the server plays the customer's bank and returns what Razorpay Checkout would.
+    setIsSimulatingPayment(true);
+    const paid = await simulateMockPaymentAction({
+      appointmentId: activeHold.appointmentId,
+      paymentId: activeHold.paymentId,
+    });
+    setIsSimulatingPayment(false);
+    if (!paid.success) {
+      setError(paid.error || "Could not simulate the payment.");
+      setIsCheckoutModalOpen(false);
+      return;
     }
 
     await verifyAndFinalizePayment({
       appointmentId: activeHold.appointmentId,
       paymentId: activeHold.paymentId,
-      providerOrderId: activeHold.orderId,
-      providerPaymentId: mockPaymentId,
-      signature: signatureHex,
+      providerOrderId: paid.providerOrderId,
+      providerPaymentId: paid.providerPaymentId,
+      signature: paid.signature,
     });
   };
 

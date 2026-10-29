@@ -1,20 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sweepExpiredHolds } from "@/lib/payments/expire";
+import { dbRepo } from "@/db/repo";
+import { rejectUnauthorizedCron } from "@/lib/cron-auth";
 
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
-  // Authorization via Bearer CRON_SECRET if configured
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const authHeader = request.headers.get("authorization");
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  const rejected = rejectUnauthorizedCron(request);
+  if (rejected) return rejected;
 
   try {
-    const result = await sweepExpiredHolds();
+    const result = await sweepExpiredHolds(dbRepo);
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),

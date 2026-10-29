@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/actions/auth";
 import { dbRepo } from "@/db/repo";
 import { formatDate } from "@/lib/utils";
 import { formatPaise } from "@/lib/payments";
+import { refundLabel, refundBadgeClass, refundHint } from "@/lib/payments/labels";
 import { ArrowLeft, Printer, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { PrintButton } from "./print-button";
 
@@ -173,27 +174,26 @@ export default async function PaymentReceiptPage({ params }: ReceiptPageProps) {
           </table>
         </div>
 
-        {/* Refund Details (if any) */}
-        {refunds.length > 0 && (
-          <div className="p-4 bg-purple-50/70 border border-purple-200 rounded-xl text-xs space-y-2">
+        {/* Refund Details (if any): one block per refund, with its real status */}
+        {refunds.map((refund) => (
+          <div key={refund.id} className="p-4 bg-purple-50/70 border border-purple-200 rounded-xl text-xs space-y-2">
             <div className="font-bold text-purple-900 flex items-center justify-between">
-              <span>Refund Record</span>
-              <span className="badge purple">{refunds[0].status}</span>
+              <span>Refund</span>
+              <span className={`badge ${refundBadgeClass(refund.status)}`}>{refundLabel(refund.status)}</span>
             </div>
             <div className="flex justify-between items-center text-purple-800">
-              <span>Amount Refunded:</span>
-              <b className="font-mono">{formatPaise(refunds[0].amountPaise)}</b>
+              <span>{refund.status === "PROCESSED" ? "Amount refunded:" : "Amount being refunded:"}</span>
+              <b className="font-mono">{formatPaise(refund.amountPaise)}</b>
             </div>
+            <div className="text-[11px] text-purple-700">{refundHint(refund.status)}</div>
             <div className="text-[11px] text-purple-700">
-              Reason: {refunds[0].reason || "Appointment cancellation refund"}
+              Reason: {refund.reason || "Appointment cancellation refund"}
             </div>
-            {refunds[0].providerRefundId && (
-              <div className="text-[11px] font-mono text-purple-600">
-                Refund ID: {refunds[0].providerRefundId}
-              </div>
+            {refund.providerRefundId && (
+              <div className="text-[11px] font-mono text-purple-600">Refund ID: {refund.providerRefundId}</div>
             )}
           </div>
-        )}
+        ))}
 
         {/* Payment Gateway Audit Metadata */}
         <div className="border-t border-slate-200 pt-4 text-[11px] text-slate-400 space-y-1">

@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dbRepo } from "@/db/repo";
 import { processDueNotifications } from "@/lib/notifications";
+import { rejectUnauthorizedCron } from "@/lib/cron-auth";
 
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const authHeader = request.headers.get("authorization");
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  const rejected = rejectUnauthorizedCron(request);
+  if (rejected) return rejected;
 
   try {
     const result = await processDueNotifications(dbRepo);
