@@ -313,9 +313,9 @@ export function SlotPicker({
         description: `OPD Consultation with Dr. ${hold.doctorName}`,
         order_id: hold.orderId,
         prefill: {
-          name: hold.patientName,
-          email: hold.patientEmail,
-          contact: hold.patientPhone,
+          name: hold.patientName || "Patient",
+          email: hold.patientEmail || "patient@medrella.test",
+          contact: (hold.patientPhone || "").replace(/\D/g, "").slice(-10) || "9876543210",
         },
         theme: {
           color: "#0875df",
