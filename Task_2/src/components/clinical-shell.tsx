@@ -45,42 +45,40 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
 
   const handleDeleteAccount = async () => {
     const roleLabel = user?.role === "DOCTOR" ? "Doctor" : "Patient";
-    const password = window.prompt(
-      `⚠️ PERMANENT ACCOUNT DELETION\n\nAre you sure you want to permanently delete your ${roleLabel} account?\n\nAll personal information, active bookings, and associated clinical records will be permanently removed from the database.\n\nPlease enter your account password to confirm deletion:`
+    const confirmed = window.confirm(
+      `⚠️ PERMANENT ACCOUNT DELETION\n\nAre you sure you want to permanently delete your ${roleLabel} account?\n\nAll personal information, active bookings, and associated clinical records will be completely removed from the database.\n\nYou will be logged out and redirected to the signup page.`
     );
-    if (password === null) return;
-    if (!password.trim()) {
-      alert("Password is required to delete your account.");
-      return;
-    }
+    if (!confirmed) return;
 
     try {
-      const res = await deleteAccountAction(password);
+      const res = await deleteAccountAction();
       if (res && res.success) {
         window.location.href = res.redirectPath || "/signup";
       } else {
         alert(res?.error || "Failed to delete account. Please try again.");
       }
-    } catch (e: any) {
-      alert(e?.message || "Failed to delete account.");
+    } catch {
+      window.location.href = "/signup";
     }
   };
 
-  // The public landing page and auth pages bring their own header/footer, so they skip the app sidebar.
-  const isStandalonePage =
-    pathname === "/" ||
+  const isAuthPage =
     pathname.startsWith("/login") ||
     pathname.startsWith("/register") ||
     pathname.startsWith("/signup");
 
-  if (isStandalonePage) {
+  if (isAuthPage) {
     return <main className="w-full min-h-screen">{children}</main>;
   }
 
   const getBreadcrumb = () => {
+    if (pathname === "/") return "Dashboard";
     if (pathname.startsWith("/queue")) return "Live Token Queue";
+    if (pathname.startsWith("/reception")) return "Reception Desk";
     if (pathname === "/doctors") return "Specialists Directory";
     if (pathname.startsWith("/doctors/")) return "Book Consultation";
+    if (pathname.startsWith("/schedule")) return "Weekly Calendar Schedule";
+    if (pathname.startsWith("/encounters")) return "Doctor Encounters & Vitals";
     if (pathname.startsWith("/reports")) return "Visit Reports & Analytics";
     if (pathname.startsWith("/patient/dashboard")) return "Patient Portal";
     if (pathname.startsWith("/doctor/dashboard")) return "Doctor Agenda";
@@ -148,8 +146,8 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
                 onClick={() => setSidebarOpen(false)}
                 className={`nav-item ${pathname === "/" ? "active" : ""}`}
               >
-                <Home size={17} />
-                <span>Home</span>
+                <LayoutDashboard size={17} />
+                <span>Dashboard</span>
               </Link>
 
               <Link
@@ -180,8 +178,8 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
                 onClick={() => setSidebarOpen(false)}
                 className={`nav-item ${pathname === "/" ? "active" : ""}`}
               >
-                <Home size={17} />
-                <span>Home</span>
+                <LayoutDashboard size={17} />
+                <span>Dashboard</span>
               </Link>
 
               <Link
@@ -222,6 +220,33 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
               >
                 <Clock3 size={17} />
                 <span>Live Queue</span>
+              </Link>
+
+              <Link
+                href="/reception"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname.startsWith("/reception") ? "active" : ""}`}
+              >
+                <Users size={17} />
+                <span>Reception Desk</span>
+              </Link>
+
+              <Link
+                href="/schedule"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname.startsWith("/schedule") ? "active" : ""}`}
+              >
+                <CalendarDays size={17} />
+                <span>Schedule Matrix</span>
+              </Link>
+
+              <Link
+                href="/encounters"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname.startsWith("/encounters") ? "active" : ""}`}
+              >
+                <HeartPulse size={17} />
+                <span>Encounters &amp; Vitals</span>
               </Link>
 
               <Link
