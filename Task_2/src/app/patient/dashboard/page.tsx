@@ -18,6 +18,10 @@ import {
   XCircle
 } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 export default async function PatientDashboard() {
   const user = await getCurrentUser();
   if (!user) {
@@ -59,59 +63,59 @@ export default async function PatientDashboard() {
 
       {/* Metrics Row */}
       <div className="stat-grid">
-        <div className="card stat-card">
+        <Card className="stat-card">
           <div className="stat-top">
             <span className="stat-icon">
               <CalendarDays />
             </span>
-            <span className="badge blue">Active</span>
+            <Badge variant="blue">Active</Badge>
           </div>
           <div className="stat-value">{upcoming.length}</div>
           <div className="stat-label">Upcoming Visits</div>
           <div className="stat-note">
             {upcoming.length > 0 ? `Next: ${upcoming[0].appointmentDate}` : "No pending visits"}
           </div>
-        </div>
+        </Card>
 
-        <div className="card stat-card">
+        <Card className="stat-card">
           <div className="stat-top">
             <span className="stat-icon text-emerald-600 bg-emerald-50">
               <CheckCircle2 />
             </span>
-            <span className="badge green">Completed</span>
+            <Badge variant="green">Completed</Badge>
           </div>
           <div className="stat-value">{past.filter((a) => a.status === "COMPLETED").length}</div>
           <div className="stat-label">Past Consultations</div>
           <div className="stat-note">Medical history recorded</div>
-        </div>
+        </Card>
 
-        <div className="card stat-card">
+        <Card className="stat-card">
           <div className="stat-top">
             <span className="stat-icon text-blue-600 bg-blue-50">
               <User />
             </span>
-            <span className="badge sky">Verified</span>
+            <Badge variant="sky">Verified</Badge>
           </div>
           <div className="stat-value text-lg mt-3 truncate">{patient?.firstName} {patient?.lastName}</div>
           <div className="stat-label">Patient Record</div>
           <div className="stat-note">Phone: {patient?.phone}</div>
-        </div>
+        </Card>
 
-        <div className="card stat-card">
+        <Card className="stat-card">
           <div className="stat-top">
             <span className="stat-icon text-amber-600 bg-amber-50">
               <Clock3 />
             </span>
-            <span className="badge amber">Pune</span>
+            <Badge variant="amber">Pune</Badge>
           </div>
           <div className="stat-value text-lg mt-3">Ruby Hall</div>
           <div className="stat-label">Assigned Facility</div>
           <div className="stat-note">Pune, Maharashtra</div>
-        </div>
+        </Card>
       </div>
 
       {/* Upcoming Appointments Card */}
-      <div className="card space-y-4">
+      <Card className="space-y-4">
         <div className="card-head">
           <div>
             <h2>Upcoming Hospital Consultations</h2>
@@ -131,63 +135,63 @@ export default async function PatientDashboard() {
           </div>
         ) : (
           <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Date & Time</th>
-                  <th>Consulting Specialist</th>
-                  <th>Specialty</th>
-                  <th>Reason</th>
-                  <th>Fee</th>
-                  <th>Status</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date & Time</TableHead>
+                  <TableHead>Consulting Specialist</TableHead>
+                  <TableHead>Specialty</TableHead>
+                  <TableHead>Reason</TableHead>
+                  <TableHead>Fee</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {upcoming.map((apt) => (
-                  <tr key={apt.id}>
-                    <td>
+                  <TableRow key={apt.id}>
+                    <TableCell>
                       <b className="text-slate-800">{formatDate(apt.appointmentDate)}</b>
                       <small className="font-mono text-blue-600">{apt.startTime} – {apt.endTime}</small>
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell>
                       <b>Dr. {apt.doctor.firstName} {apt.doctor.lastName}</b>
                       <small>Ruby Hall, Pune</small>
-                    </td>
-                    <td>
-                      <span className="badge blue">{apt.doctor.specialization}</span>
-                    </td>
-                    <td>{apt.reason}</td>
-                    <td className="font-bold text-slate-900">₹{apt.doctor.consultationFee}</td>
-                    <td>
-                      <span className="badge green">Confirmed</span>
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="blue">{apt.doctor.specialization}</Badge>
+                    </TableCell>
+                    <TableCell>{apt.reason}</TableCell>
+                    <TableCell className="font-bold text-slate-900">₹{apt.doctor.consultationFee}</TableCell>
+                    <TableCell>
+                      <Badge variant="green">Confirmed</Badge>
+                    </TableCell>
+                    <TableCell>
                       <form
                         action={async () => {
                           "use server";
                           await cancelAppointmentAction(apt.id);
                         }}
                       >
-                        <button
+                        <Button variant="bare"
                           type="submit"
                           className="px-2.5 py-1 text-xs text-red-600 border border-red-200 hover:bg-red-50 rounded-md transition-colors"
                         >
                           Cancel
-                        </button>
+                        </Button>
                       </form>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Past Appointments Card */}
       {past.length > 0 && (
-        <div className="card space-y-4">
+        <Card className="space-y-4">
           <div className="card-head">
             <div>
               <h2>Past Consultation History</h2>
@@ -196,35 +200,35 @@ export default async function PatientDashboard() {
           </div>
 
           <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Specialist</th>
-                  <th>Reason</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Specialist</TableHead>
+                  <TableHead>Reason</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {past.map((apt) => (
-                  <tr key={apt.id}>
-                    <td>
+                  <TableRow key={apt.id}>
+                    <TableCell>
                       <b>{formatDate(apt.appointmentDate)}</b>
                       <small>{apt.startTime}</small>
-                    </td>
-                    <td>Dr. {apt.doctor.firstName} {apt.doctor.lastName} ({apt.doctor.specialization})</td>
-                    <td>{apt.reason}</td>
-                    <td>
+                    </TableCell>
+                    <TableCell>Dr. {apt.doctor.firstName} {apt.doctor.lastName} ({apt.doctor.specialization})</TableCell>
+                    <TableCell>{apt.reason}</TableCell>
+                    <TableCell>
                       <span className={`badge ${apt.status === "COMPLETED" ? "blue" : "red"}`}>
                         {apt.status}
                       </span>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );

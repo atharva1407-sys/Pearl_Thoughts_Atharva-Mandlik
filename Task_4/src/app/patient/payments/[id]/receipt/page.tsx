@@ -8,6 +8,8 @@ import { refundLabel, refundBadgeClass, refundHint } from "@/lib/payments/labels
 import { ArrowLeft, Printer, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { PrintButton } from "./print-button";
 
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 export const dynamic = "force-dynamic";
 
 interface ReceiptPageProps {
@@ -76,9 +78,9 @@ export default async function PaymentReceiptPage({ params }: ReceiptPageProps) {
             </div>
           </div>
           <div className="text-right">
-            <span className="badge green text-xs font-mono font-bold">
+            <Badge variant="green" className="text-xs font-mono font-bold">
               {payment.status}
-            </span>
+            </Badge>
             <div className="text-[11px] text-slate-400 mt-1 font-mono">
               Receipt No: <b className="text-slate-800">{payment.receiptNo}</b>
             </div>
@@ -144,34 +146,34 @@ export default async function PaymentReceiptPage({ params }: ReceiptPageProps) {
           <div className="text-xs font-bold text-slate-700 uppercase tracking-wider">
             Billing Breakdown
           </div>
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-slate-200 text-slate-500 text-left">
-                <th className="py-2">Description</th>
-                <th className="py-2 text-right">Fee (INR)</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              <tr>
-                <td className="py-2.5 font-medium text-slate-800">
+          <Table className="w-full text-xs">
+            <TableHeader>
+              <TableRow className="border-b border-slate-200 text-slate-500 text-left">
+                <TableHead className="py-2">Description</TableHead>
+                <TableHead className="py-2 text-right">Fee (INR)</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-slate-100">
+              <TableRow>
+                <TableCell className="py-2.5 font-medium text-slate-800">
                   Specialist Consultation Fee (Dr. {doctor?.firstName} {doctor?.lastName})
-                </td>
-                <td className="py-2.5 text-right font-mono font-bold text-slate-800">
+                </TableCell>
+                <TableCell className="py-2.5 text-right font-mono font-bold text-slate-800">
                   {formatPaise(payment.amountPaise)}
-                </td>
-              </tr>
-              <tr>
-                <td className="py-2 text-slate-500">Hospital Administration & Facility Charge</td>
-                <td className="py-2 text-right font-mono text-slate-500">₹0.00</td>
-              </tr>
-              <tr className="border-t border-slate-200 font-bold text-sm text-slate-900">
-                <td className="py-3">Total Paid</td>
-                <td className="py-3 text-right font-mono text-blue-700">
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="py-2 text-slate-500">Hospital Administration & Facility Charge</TableCell>
+                <TableCell className="py-2 text-right font-mono text-slate-500">₹0.00</TableCell>
+              </TableRow>
+              <TableRow className="border-t border-slate-200 font-bold text-sm text-slate-900">
+                <TableCell className="py-3">Total Paid</TableCell>
+                <TableCell className="py-3 text-right font-mono text-blue-700">
                   {formatPaise(payment.amountPaise)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
         </div>
 
         {/* Refund Details (if any): one block per refund, with its real status */}

@@ -8,6 +8,12 @@ import {
   Printer,
 } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 export function ReceptionClient() {
   const [phone, setPhone] = useState("");
   const [complaint, setComplaint] = useState("");
@@ -29,7 +35,7 @@ export function ReceptionClient() {
         <div>
           <div className="eyebrow flex items-center gap-2">
             <span>FRONT DESK &amp; REGISTRATION</span>
-            <span className="badge amber text-[10px] px-1.5 py-0.5">Ops Preview</span>
+            <Badge variant="amber" className="text-[10px] px-1.5 py-0.5">Ops Preview</Badge>
           </div>
           <h1>Reception Desk</h1>
           <p>Walk-in patient registration, token printing, and OPD doctor shift coordination.</p>
@@ -44,7 +50,7 @@ export function ReceptionClient() {
 
       <div className="reception-grid grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Walk-in Form Card */}
-        <div className="card space-y-4">
+        <Card className="space-y-4">
           <div className="card-head">
             <div>
               <h2>Walk-in Token Allocation</h2>
@@ -55,24 +61,24 @@ export function ReceptionClient() {
           {issuedToken && (
             <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-xs flex items-center justify-between">
               <span><b>{issuedToken}</b> issued successfully!</span>
-              <button
+              <Button variant="bare"
                 type="button"
                 onClick={() => setIssuedToken(null)}
                 className="text-xs font-bold text-emerald-700 underline cursor-pointer"
               >
                 Clear
-              </button>
+              </Button>
             </div>
           )}
 
           <form className="space-y-3" onSubmit={handleSubmit}>
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">
+              <Label className="text-xs font-bold text-slate-700 block mb-1">
                 Patient Search / Phone *
-              </label>
+              </Label>
               <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-2.5 bg-white">
                 <Search size={15} className="text-slate-400" />
-                <input
+                <Input
                   type="text"
                   required
                   placeholder="Enter patient name or phone number..."
@@ -84,23 +90,28 @@ export function ReceptionClient() {
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">
+              <Label className="text-xs font-bold text-slate-700 block mb-1">
                 Clinical Department
-              </label>
-              <select className="w-full p-2 border border-slate-200 rounded-lg text-xs bg-white text-slate-800">
-                <option>General Medicine</option>
-                <option>Cardiology</option>
-                <option>Dermatology</option>
-                <option>Pediatrics</option>
-                <option>Orthopedics</option>
-              </select>
+              </Label>
+              <Select defaultValue="General Medicine">
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="General Medicine">General Medicine</SelectItem>
+                  <SelectItem value="Cardiology">Cardiology</SelectItem>
+                  <SelectItem value="Dermatology">Dermatology</SelectItem>
+                  <SelectItem value="Pediatrics">Pediatrics</SelectItem>
+                  <SelectItem value="Orthopedics">Orthopedics</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">
+              <Label className="text-xs font-bold text-slate-700 block mb-1">
                 Chief Complaint / Symptoms
-              </label>
-              <input
+              </Label>
+              <Input
                 type="text"
                 placeholder="Enter symptoms or reason for visit..."
                 value={complaint}
@@ -109,20 +120,20 @@ export function ReceptionClient() {
               />
             </div>
 
-            <button type="submit" className="btn primary w-full justify-center">
+            <Button variant="default" type="submit" className="w-full justify-center">
               <Printer size={15} />
               <span>Issue Walk-in Token</span>
-            </button>
+            </Button>
           </form>
 
           <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
             <span>Shortcut: Enter to Issue</span>
             <span>Facility: Ruby Hall, Pune</span>
           </div>
-        </div>
+        </Card>
 
         {/* Doctor OPD Sessions */}
-        <div className="lg:col-span-2 card space-y-4">
+        <Card className="lg:col-span-2 space-y-4">
           <div className="card-head">
             <div>
               <h2>OPD Department Shift Overview</h2>
@@ -146,7 +157,7 @@ export function ReceptionClient() {
               Browse Specialists →
             </Link>
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   );

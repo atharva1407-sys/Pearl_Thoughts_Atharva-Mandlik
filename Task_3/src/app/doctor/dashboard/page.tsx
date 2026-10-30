@@ -19,6 +19,9 @@ import {
   Users
 } from "lucide-react";
 
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 export default async function DoctorDashboard() {
   const user = await getCurrentUser();
   if (!user || user.role !== "DOCTOR") {
@@ -60,65 +63,65 @@ export default async function DoctorDashboard() {
 
       {/* Metric Cards */}
       <div className="stat-grid">
-        <div className="card stat-card">
+        <Card className="stat-card">
           <div className="stat-top">
             <span className="stat-icon">
               <Users />
             </span>
-            <span className="badge amber">Queue</span>
+            <Badge variant="amber">Queue</Badge>
           </div>
           <div className="stat-value">{activeBookings.length}</div>
           <div className="stat-label">Active Bookings</div>
           <div className="stat-note">Waiting for consultation</div>
-        </div>
+        </Card>
 
-        <div className="card stat-card">
+        <Card className="stat-card">
           <div className="stat-top">
             <span className="stat-icon text-emerald-600 bg-emerald-50">
               <CheckCircle2 />
             </span>
-            <span className="badge green">Done</span>
+            <Badge variant="green">Done</Badge>
           </div>
           <div className="stat-value">{completedBookings.length}</div>
           <div className="stat-label">Completed Consults</div>
           <div className="stat-note">Clinical notes filed</div>
-        </div>
+        </Card>
 
-        <div className="card stat-card">
+        <Card className="stat-card">
           <div className="stat-top">
             <span className="stat-icon text-blue-600 bg-blue-50">
               <CalendarClock />
             </span>
-            <span className="badge blue">Shifts</span>
+            <Badge variant="blue">Shifts</Badge>
           </div>
           <div className="stat-value">{activeShifts.length} Days</div>
           <div className="stat-label">Weekly Schedule</div>
           <div className="stat-note truncate">
             {activeShifts.map((s) => s.dayOfWeek).join(", ")}
           </div>
-        </div>
+        </Card>
 
-        <div className="card stat-card">
+        <Card className="stat-card">
           <div className="stat-top">
             <span className="stat-icon text-purple-600 bg-purple-50">
               <Clock3 />
             </span>
-            <span className="badge green">On Track</span>
+            <Badge variant="green">On Track</Badge>
           </div>
           <div className="stat-value">30m</div>
           <div className="stat-label">Slot Duration</div>
           <div className="stat-note">OPD consultation window</div>
-        </div>
+        </Card>
       </div>
 
       {/* Active Consultations Table Card */}
-      <div className="card space-y-4">
+      <Card className="space-y-4">
         <div className="card-head">
           <div>
             <h2>Consultation Queue for Review</h2>
             <p>{activeBookings.length} patient appointments booked</p>
           </div>
-          <span className="badge blue">Live Clinic Session</span>
+          <Badge variant="blue">Live Clinic Session</Badge>
         </div>
 
         {activeBookings.length === 0 ? (
@@ -127,21 +130,21 @@ export default async function DoctorDashboard() {
           </div>
         ) : (
           <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Token #</th>
-                  <th>Date & Time</th>
-                  <th>Patient</th>
-                  <th>Contact</th>
-                  <th>Chief Complaint</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Token #</TableHead>
+                  <TableHead>Date & Time</TableHead>
+                  <TableHead>Patient</TableHead>
+                  <TableHead>Contact</TableHead>
+                  <TableHead>Chief Complaint</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {activeBookings.map((apt, index) => (
-                  <tr key={apt.id}>
-                    <td>
+                  <TableRow key={apt.id}>
+                    <TableCell>
                       <div className="flex flex-col items-center">
                         <span className="token w-8 h-8 text-xs font-black bg-blue-100 text-blue-800 rounded-lg flex items-center justify-center">
                           #{apt.tokenNumber}
@@ -150,8 +153,8 @@ export default async function DoctorDashboard() {
                           ~{(apt.tokenNumber - 1) * 20}m wait
                         </span>
                       </div>
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell>
                       <div className="flex items-center gap-1.5">
                         <b className="text-slate-900">{formatDate(apt.appointmentDate)}</b>
                         {apt.rescheduledAt && (
@@ -166,16 +169,16 @@ export default async function DoctorDashboard() {
                           was {apt.originalAppointmentDate} {apt.originalStartTime}
                         </small>
                       )}
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell>
                       <b>{apt.patient.firstName} {apt.patient.lastName}</b>
                       <small>Patient ID: {apt.patientId.slice(0, 8)}</small>
-                    </td>
-                    <td className="font-mono text-xs">{apt.patient.phone}</td>
-                    <td>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{apt.patient.phone}</TableCell>
+                    <TableCell>
                       <span className="text-slate-700 font-medium">{apt.reason}</span>
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell>
                       <DoctorAppointmentActions
                         appointmentId={apt.id}
                         patientName={`${apt.patient.firstName} ${apt.patient.lastName}`}
@@ -184,18 +187,18 @@ export default async function DoctorDashboard() {
                         appointmentDate={apt.appointmentDate}
                         startTime={apt.startTime}
                       />
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Completed Consultations Card */}
       {completedBookings.length > 0 && (
-        <div className="card space-y-4">
+        <Card className="space-y-4">
           <div className="card-head">
             <div>
               <h2>Completed Consultations History</h2>
@@ -204,32 +207,32 @@ export default async function DoctorDashboard() {
           </div>
 
           <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Patient</th>
-                  <th>Time Slot</th>
-                  <th>Chief Complaint</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Patient</TableHead>
+                  <TableHead>Time Slot</TableHead>
+                  <TableHead>Chief Complaint</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {completedBookings.map((apt) => (
-                  <tr key={apt.id}>
-                    <td><b>{formatDate(apt.appointmentDate)}</b></td>
-                    <td>{apt.patient.firstName} {apt.patient.lastName}</td>
-                    <td className="font-mono">{apt.startTime} – {apt.endTime}</td>
-                    <td>{apt.reason}</td>
-                    <td>
-                      <span className="badge green">Completed</span>
-                    </td>
-                  </tr>
+                  <TableRow key={apt.id}>
+                    <TableCell><b>{formatDate(apt.appointmentDate)}</b></TableCell>
+                    <TableCell>{apt.patient.firstName} {apt.patient.lastName}</TableCell>
+                    <TableCell className="font-mono">{apt.startTime} – {apt.endTime}</TableCell>
+                    <TableCell>{apt.reason}</TableCell>
+                    <TableCell>
+                      <Badge variant="green">Completed</Badge>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );

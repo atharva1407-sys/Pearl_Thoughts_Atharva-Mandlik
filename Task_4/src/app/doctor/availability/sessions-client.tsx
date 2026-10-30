@@ -24,6 +24,14 @@ import {
 } from "lucide-react";
 import type { AvailabilityEntity, DoctorLeaveEntity } from "@/db/repo";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 interface SessionsClientProps {
   initialSessions: AvailabilityEntity[];
   initialLeaves: DoctorLeaveEntity[];
@@ -174,9 +182,9 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
             <AlertCircle size={16} className="shrink-0" />
             <span>{errorMessage}</span>
           </div>
-          <button onClick={() => setErrorMessage(null)} className="text-red-500 hover:text-red-800">
+          <Button variant="bare" onClick={() => setErrorMessage(null)} className="text-red-500 hover:text-red-800">
             <X size={14} />
-          </button>
+          </Button>
         </div>
       )}
 
@@ -186,27 +194,27 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
             <CheckCircle2 size={16} className="shrink-0" />
             <span>{successMessage}</span>
           </div>
-          <button onClick={() => setSuccessMessage(null)} className="text-emerald-600 hover:text-emerald-900">
+          <Button variant="bare" onClick={() => setSuccessMessage(null)} className="text-emerald-600 hover:text-emerald-900">
             <X size={14} />
-          </button>
+          </Button>
         </div>
       )}
 
       {/* Main Sessions Card */}
-      <div className="card space-y-6">
+      <Card className="space-y-6">
         <div className="card-head">
           <div>
             <h2>Weekly Consultation Sessions Roster</h2>
             <p>Define multiple non-overlapping OPD sessions per day (e.g. Morning & Evening shifts) with Stream or Wave scheduling.</p>
           </div>
-          <button
+          <Button variant="default"
             type="button"
             onClick={() => openAddModal()}
-            className="btn primary text-xs flex items-center gap-1.5 cursor-pointer"
+            className="text-xs flex items-center gap-1.5 cursor-pointer"
           >
             <Plus size={15} />
             <span>Add OPD Session</span>
-          </button>
+          </Button>
         </div>
 
         <div className="space-y-6">
@@ -226,14 +234,14 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
                         : `${daySessions.length} session${daySessions.length === 1 ? "" : "s"} scheduled`}
                     </span>
                   </div>
-                  <button
+                  <Button variant="bare"
                     type="button"
                     onClick={() => openAddModal(day)}
                     className="text-xs font-semibold text-[#0875df] hover:underline flex items-center gap-1 cursor-pointer"
                   >
                     <Plus size={13} />
                     <span>Add {day} Session</span>
-                  </button>
+                  </Button>
                 </div>
 
                 {daySessions.length === 0 ? (
@@ -281,22 +289,22 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
                           </div>
 
                           <div className="flex items-center gap-1">
-                            <button
+                            <Button variant="bare"
                               type="button"
                               onClick={() => openEditModal(session)}
                               className="p-1.5 text-slate-500 hover:text-[#0875df] hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
                               title="Edit Session"
                             >
                               <Edit2 size={13} />
-                            </button>
-                            <button
+                            </Button>
+                            <Button variant="bare"
                               type="button"
                               onClick={() => handleDeleteSession(session)}
                               className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                               title="Delete Session"
                             >
                               <Trash2 size={13} />
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       </div>
@@ -307,16 +315,16 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
             );
           })}
         </div>
-      </div>
+      </Card>
 
       {/* Doctor Leave / Blocked Dates Section */}
-      <div className="card space-y-6">
+      <Card className="space-y-6">
         <div className="card-head">
           <div>
             <h2>Clinical Leave & Blocked Dates</h2>
             <p>Block specific calendar dates for conferences, holidays, or emergency absences. Patients cannot book on leave dates.</p>
           </div>
-          <span className="badge amber">Outpatient Blackout</span>
+          <Badge variant="amber">Outpatient Blackout</Badge>
         </div>
 
         <form onSubmit={handleAddLeave} className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
@@ -326,8 +334,8 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="text-[11px] font-bold text-slate-600 block mb-1">Leave Date *</label>
-              <input
+              <Label className="text-[11px] font-bold text-slate-600 block mb-1">Leave Date *</Label>
+              <Input
                 type="date"
                 required
                 value={leaveDate}
@@ -336,8 +344,8 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
               />
             </div>
             <div>
-              <label className="text-[11px] font-bold text-slate-600 block mb-1">Reason / Note (Optional)</label>
-              <input
+              <Label className="text-[11px] font-bold text-slate-600 block mb-1">Reason / Note (Optional)</Label>
+              <Input
                 type="text"
                 placeholder="e.g. Annual Medical Conference, Personal Leave"
                 value={leaveReason}
@@ -346,13 +354,13 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
               />
             </div>
             <div className="flex items-end">
-              <button
+              <Button variant="default"
                 type="submit"
                 disabled={isPending || !leaveDate}
-                className="btn primary w-full text-xs py-2 justify-center cursor-pointer disabled:opacity-50"
+                className="w-full text-xs py-2 justify-center cursor-pointer disabled:opacity-50"
               >
                 {isPending ? "Booking Leave..." : "Book Leave Date"}
-              </button>
+              </Button>
             </div>
           </div>
         </form>
@@ -369,41 +377,42 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
                   <b className="font-mono text-slate-900">{leave.leaveDate}</b>
                   {leave.reason && <span className="text-slate-500 ml-2">({leave.reason})</span>}
                 </div>
-                <button
+                <Button variant="bare"
                   type="button"
                   onClick={() => handleRemoveLeave(leave.leaveDate)}
                   className="text-red-600 hover:underline font-semibold cursor-pointer"
                 >
                   Remove Leave
-                </button>
+                </Button>
               </div>
             ))}
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Add / Edit Session Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95">
+        <Dialog open onOpenChange={(open) => { if (!open) setIsModalOpen(false); }}>
+<DialogContent showCloseButton={false} className="max-w-md gap-0 overflow-hidden rounded-2xl border-slate-200 p-0">
+<DialogDescription className="sr-only">Create or edit an OPD session.</DialogDescription>
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="p-1.5 rounded-lg bg-blue-100 text-blue-700">
                   <Layers size={17} />
                 </span>
-                <h3 className="font-bold text-sm text-slate-900">
+                <DialogTitle className="font-bold text-sm text-slate-900">
                   {editingSession ? "Edit OPD Session" : "Create New OPD Session"}
-                </h3>
+                </DialogTitle>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <Button variant="bare" onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
                 <X size={18} />
-              </button>
+              </Button>
             </div>
 
             <form onSubmit={handleSaveSession} className="p-6 space-y-4 text-xs">
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Session Name *</label>
-                <input
+                <Label className="font-bold text-slate-700 block mb-1">Session Name *</Label>
+                <Input
                   type="text"
                   required
                   value={name}
@@ -415,37 +424,39 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Day of Week *</label>
-                  <select
-                    value={dayOfWeek}
-                    onChange={(e) => setDayOfWeek(e.target.value as any)}
-                    className="w-full p-2.5 border border-slate-200 rounded-lg bg-white"
-                  >
-                    {DAYS.map((d) => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
+                  <Label className="font-bold text-slate-700 block mb-1">Day of Week *</Label>
+                  <Select value={String(dayOfWeek)} onValueChange={(v) => setDayOfWeek(v as any)}>
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DAYS.map((d) => (
+                      <SelectItem key={d} value={d}>{d}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Slot Length (Minutes)</label>
-                  <select
-                    value={slotDurationMinutes}
-                    onChange={(e) => setSlotDurationMinutes(Number(e.target.value))}
-                    className="w-full p-2.5 border border-slate-200 rounded-lg bg-white"
-                  >
-                    <option value={15}>15 minutes</option>
-                    <option value={20}>20 minutes</option>
-                    <option value={30}>30 minutes</option>
-                    <option value={45}>45 minutes</option>
-                    <option value={60}>60 minutes</option>
-                  </select>
+                  <Label className="font-bold text-slate-700 block mb-1">Slot Length (Minutes)</Label>
+                  <Select value={String(slotDurationMinutes)} onValueChange={(v) => setSlotDurationMinutes(Number(v))}>
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="15">15 minutes</SelectItem>
+                      <SelectItem value="20">20 minutes</SelectItem>
+                      <SelectItem value="30">30 minutes</SelectItem>
+                      <SelectItem value="45">45 minutes</SelectItem>
+                      <SelectItem value="60">60 minutes</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Start Time (HH:MM) *</label>
-                  <input
+                  <Label className="font-bold text-slate-700 block mb-1">Start Time (HH:MM) *</Label>
+                  <Input
                     type="time"
                     required
                     value={startTime}
@@ -454,8 +465,8 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">End Time (HH:MM) *</label>
-                  <input
+                  <Label className="font-bold text-slate-700 block mb-1">End Time (HH:MM) *</Label>
+                  <Input
                     type="time"
                     required
                     value={endTime}
@@ -467,9 +478,9 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
 
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
                 <div>
-                  <label className="font-bold text-slate-800 block mb-1">Scheduling Paradigm</label>
+                  <Label className="font-bold text-slate-800 block mb-1">Scheduling Paradigm</Label>
                   <div className="grid grid-cols-2 gap-2">
-                    <button
+                    <Button variant="bare"
                       type="button"
                       onClick={() => setSchedulingType("STREAM")}
                       className={`p-2 rounded-lg font-semibold text-center border cursor-pointer transition-all ${
@@ -479,8 +490,8 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
                       }`}
                     >
                       Stream (1:1)
-                    </button>
-                    <button
+                    </Button>
+                    <Button variant="bare"
                       type="button"
                       onClick={() => setSchedulingType("WAVE")}
                       className={`p-2 rounded-lg font-semibold text-center border cursor-pointer transition-all ${
@@ -490,16 +501,16 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
                       }`}
                     >
                       Wave Scheduling
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
                 {schedulingType === "WAVE" && (
                   <div className="pt-2 border-t border-slate-200">
-                    <label className="font-bold text-purple-900 block mb-1">
+                    <Label className="font-bold text-purple-900 block mb-1">
                       Patients per Wave Start *
-                    </label>
-                    <input
+                    </Label>
+                    <Input
                       type="number"
                       min={2}
                       max={10}
@@ -515,38 +526,36 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
               </div>
 
               <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
+                <Checkbox
                   id="isActiveCheck"
                   checked={isActive}
-                  onChange={(e) => setIsActive(e.target.checked)}
-                  className="rounded text-blue-600 focus:ring-blue-500"
+                  onCheckedChange={(v) => setIsActive(v === true)}
                 />
-                <label htmlFor="isActiveCheck" className="text-slate-700 font-medium">
+                <Label htmlFor="isActiveCheck" className="text-slate-700 font-medium">
                   Active (Patients can book appointments during this session)
-                </label>
+                </Label>
               </div>
 
               <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
-                <button
+                <Button variant="outline"
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-slate-700 bg-white border border-slate-200 hover:bg-slate-50"
+                  className="px-4 py-2"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button variant="default"
                   type="submit"
                   disabled={isPending}
-                  className="px-5 py-2 rounded-xl bg-[#0875df] text-white hover:bg-[#0764be] font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
+                  className="px-5 py-2 font-bold cursor-pointer flex items-center gap-1.5"
                 >
                   {isPending && <Loader2 size={13} className="animate-spin" />}
                   <span>{isPending ? "Saving..." : editingSession ? "Update Session" : "Create Session"}</span>
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
-        </div>
+          </DialogContent>
+</Dialog>
       )}
     </div>
   );

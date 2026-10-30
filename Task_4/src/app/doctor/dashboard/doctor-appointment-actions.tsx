@@ -10,6 +10,7 @@ import {
 } from "@/actions/appointments";
 import { RescheduleModal } from "@/components/reschedule-modal";
 
+import { Button } from "@/components/ui/button";
 interface DoctorAppointmentActionsProps {
   appointmentId: string;
   patientName: string;
@@ -90,11 +91,11 @@ export function DoctorAppointmentActions({
     <>
       <div className="flex flex-col items-end gap-1">
         <div className="flex flex-wrap items-center justify-end gap-1.5">
-          <button
+          <Button variant="default"
             type="button"
             onClick={handleComplete}
             disabled={isPending}
-            className="btn primary text-xs py-1 px-2.5 inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
+            className="text-xs py-1 px-2.5 inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
             title="Mark Consultation Complete"
           >
             {isPending && actionType === "complete" ? (
@@ -103,24 +104,24 @@ export function DoctorAppointmentActions({
               <Check size={13} />
             )}
             <span>{isPending && actionType === "complete" ? "Completing..." : "Done"}</span>
-          </button>
+          </Button>
 
-          <button
+          <Button variant="outline"
             type="button"
             onClick={() => setIsRescheduleOpen(true)}
             disabled={isPending}
-            className="btn text-xs py-1 px-2 text-[#0875df] hover:bg-blue-50 inline-flex items-center gap-1 cursor-pointer disabled:opacity-60 border border-blue-200"
+            className="text-xs py-1 px-2 text-[#0875df] hover:bg-blue-50 inline-flex items-center gap-1 cursor-pointer disabled:opacity-60 border border-blue-200"
             title="Reschedule to New Time Slot"
           >
             <CalendarClock size={13} />
             <span>Reschedule</span>
-          </button>
+          </Button>
 
-          <button
+          <Button variant="outline"
             type="button"
             onClick={handleNoShow}
             disabled={isPending}
-            className="btn text-xs py-1 px-2 text-amber-700 hover:bg-amber-50 inline-flex items-center gap-1 cursor-pointer disabled:opacity-60 border border-amber-200"
+            className="text-xs py-1 px-2 text-amber-700 hover:bg-amber-50 inline-flex items-center gap-1 cursor-pointer disabled:opacity-60 border border-amber-200"
             title="Mark Patient as No-Show"
           >
             {isPending && actionType === "noshow" ? (
@@ -129,13 +130,13 @@ export function DoctorAppointmentActions({
               <UserX size={13} />
             )}
             <span>No-Show</span>
-          </button>
+          </Button>
 
-          <button
+          <Button variant="outline"
             type="button"
             onClick={handleCancel}
             disabled={isPending}
-            className="btn text-xs py-1 px-2 text-red-600 hover:bg-red-50 inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
+            className="text-xs py-1 px-2 text-red-600 hover:bg-red-50 inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
             title="Cancel Appointment"
           >
             {isPending && actionType === "cancel" ? (
@@ -144,7 +145,7 @@ export function DoctorAppointmentActions({
               <X size={13} />
             )}
             <span>Cancel</span>
-          </button>
+          </Button>
         </div>
 
         {errorMessage && (

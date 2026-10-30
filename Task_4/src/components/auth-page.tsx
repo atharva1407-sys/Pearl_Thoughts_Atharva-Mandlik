@@ -24,6 +24,11 @@ import {
 } from "lucide-react";
 import { loginAction, registerPatientAction, registerDoctorAction } from "@/actions/auth";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 type AuthPageProps = {
   mode: "login" | "signup";
 };
@@ -229,7 +234,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
 
           {/* Role Switcher Pill Bar */}
           <div className="mb-4 p-1 bg-slate-100 rounded-xl border border-slate-200 grid grid-cols-2 gap-1">
-            <button
+            <Button variant="bare"
               type="button"
               onClick={() => {
                 setRole("PATIENT");
@@ -243,8 +248,8 @@ export default function AuthPage({ mode }: AuthPageProps) {
             >
               <UserRound size={14} />
               <span>Patient Portal</span>
-            </button>
-            <button
+            </Button>
+            <Button variant="bare"
               type="button"
               onClick={() => {
                 setRole("DOCTOR");
@@ -258,7 +263,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
             >
               <Stethoscope size={14} />
               <span>Doctor Portal</span>
-            </button>
+            </Button>
           </div>
 
           {error && (
@@ -279,9 +284,9 @@ export default function AuthPage({ mode }: AuthPageProps) {
           <form onSubmit={handleSubmit}>
             {isSignup && (
               <div className="name-row">
-                <label className="input-wrap">
+                <Label className="input-wrap">
                   <UserRound size={17} />
-                  <input
+                  <Input
                     type="text"
                     required
                     autoComplete="given-name"
@@ -290,10 +295,10 @@ export default function AuthPage({ mode }: AuthPageProps) {
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                   />
-                </label>
-                <label className="input-wrap">
+                </Label>
+                <Label className="input-wrap">
                   <UserRound size={17} />
-                  <input
+                  <Input
                     type="text"
                     required
                     autoComplete="family-name"
@@ -302,13 +307,13 @@ export default function AuthPage({ mode }: AuthPageProps) {
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                   />
-                </label>
+                </Label>
               </div>
             )}
 
-            <label className="input-wrap">
+            <Label className="input-wrap">
               <Mail size={17} />
-              <input
+              <Input
                 type="email"
                 required
                 autoComplete="email"
@@ -317,12 +322,12 @@ export default function AuthPage({ mode }: AuthPageProps) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
-            </label>
+            </Label>
 
             {isSignup && (
-              <label className="input-wrap">
+              <Label className="input-wrap">
                 <Phone size={17} />
-                <input
+                <Input
                   type="tel"
                   required
                   autoComplete="tel"
@@ -331,34 +336,34 @@ export default function AuthPage({ mode }: AuthPageProps) {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                 />
-              </label>
+              </Label>
             )}
 
             {isSignup && role === "DOCTOR" && (
-              <label className="input-wrap">
+              <Label className="input-wrap">
                 <Briefcase size={17} />
-                <select
-                  value={specialization}
-                  onChange={(e) => setSpecialization(e.target.value)}
-                  aria-label="Clinical specialization"
-                  className="bg-transparent text-slate-800"
-                >
-                  <option value="General Medicine">General Medicine</option>
-                  <option value="Cardiology">Cardiology</option>
-                  <option value="Dermatology">Dermatology</option>
-                  <option value="Pediatrics">Pediatrics</option>
-                  <option value="Orthopedics">Orthopedics</option>
-                  <option value="Gynecology">Gynecology</option>
-                  <option value="Ophthalmology">Ophthalmology</option>
-                  <option value="General Surgery">General Surgery</option>
-                  <option value="Neurology">Neurology</option>
-                </select>
-              </label>
+                <Select value={String(specialization)} onValueChange={(v) => setSpecialization(v)}>
+                  <SelectTrigger className="h-auto w-full border-0 bg-transparent px-0 shadow-none focus-visible:ring-0" aria-label="Clinical specialization">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="General Medicine">General Medicine</SelectItem>
+                    <SelectItem value="Cardiology">Cardiology</SelectItem>
+                    <SelectItem value="Dermatology">Dermatology</SelectItem>
+                    <SelectItem value="Pediatrics">Pediatrics</SelectItem>
+                    <SelectItem value="Orthopedics">Orthopedics</SelectItem>
+                    <SelectItem value="Gynecology">Gynecology</SelectItem>
+                    <SelectItem value="Ophthalmology">Ophthalmology</SelectItem>
+                    <SelectItem value="General Surgery">General Surgery</SelectItem>
+                    <SelectItem value="Neurology">Neurology</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Label>
             )}
 
-            <label className="input-wrap">
+            <Label className="input-wrap">
               <LockKeyhole size={17} />
-              <input
+              <Input
                 type={showPassword ? "text" : "password"}
                 required
                 minLength={8}
@@ -368,27 +373,26 @@ export default function AuthPage({ mode }: AuthPageProps) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
-              <button
+              <Button variant="bare"
                 type="button"
                 className="icon-button"
                 onClick={() => setShowPassword(!showPassword)}
                 aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-              </button>
-            </label>
+              </Button>
+            </Label>
 
             {!isSignup && (
               <div className="form-options">
-                <label className="check-label">
-                  <input
-                    type="checkbox"
+                <Label className="check-label">
+                  <Checkbox
                     checked={remember}
-                    onChange={(e) => setRemember(e.target.checked)}
+                    onCheckedChange={(v) => setRemember(v === true)}
                   />
                   <span>Remember me</span>
-                </label>
-                <button
+                </Label>
+                <Button variant="bare"
                   type="button"
                   className="text-button"
                   onClick={() =>
@@ -396,16 +400,15 @@ export default function AuthPage({ mode }: AuthPageProps) {
                   }
                 >
                   Forgot password?
-                </button>
+                </Button>
               </div>
             )}
 
             {isSignup && (
-              <label className="check-label terms-check">
-                <input
-                  type="checkbox"
+              <Label className="check-label terms-check">
+                <Checkbox
                   checked={agree}
-                  onChange={(e) => setAgree(e.target.checked)}
+                  onCheckedChange={(v) => setAgree(v === true)}
                   required
                 />
                 <span>
@@ -428,10 +431,10 @@ export default function AuthPage({ mode }: AuthPageProps) {
                     Privacy Policy
                   </Link>
                 </span>
-              </label>
+              </Label>
             )}
 
-            <button type="submit" className="primary-button" disabled={isPending}>
+            <Button variant="default" type="submit" className="primary-button" disabled={isPending}>
               {isPending ? (
                 <>
                   <Loader2 size={17} className="animate-spin" />
@@ -443,7 +446,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
                   <ArrowRight size={17} />
                 </>
               )}
-            </button>
+            </Button>
           </form>
 
           <p className="switch-auth">
