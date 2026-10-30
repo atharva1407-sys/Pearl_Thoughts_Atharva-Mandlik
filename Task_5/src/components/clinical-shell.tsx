@@ -34,6 +34,7 @@ import {
 import type { SessionPayload } from "@/lib/auth-crypto";
 import { logoutAction, deleteAccountAction } from "@/actions/auth";
 
+import { Button } from "@/components/ui/button";
 interface ClinicalShellProps {
   user: SessionPayload | null;
   children: React.ReactNode;
@@ -348,22 +349,22 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
                 </small>
               </div>
               <div className="flex items-center gap-1 shrink-0">
-                <button
+                <Button variant="bare"
                   type="button"
                   onClick={handleDeleteAccount}
                   title="Permanently delete account and all records from database"
                   className="icon-btn text-slate-400 hover:text-red-600 hover:bg-red-50 cursor-pointer p-1.5 rounded-md transition-colors"
                 >
                   <Trash2 size={16} />
-                </button>
+                </Button>
                 <form action={logoutAction}>
-                  <button
+                  <Button variant="bare"
                     type="submit"
                     title="Sign out of hospital account"
                     className="icon-btn text-slate-400 hover:text-slate-700 cursor-pointer p-1.5 rounded-md"
                   >
                     <LogOut size={16} />
-                  </button>
+                  </Button>
                 </form>
               </div>
             </div>
@@ -393,14 +394,14 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
         {/* Sticky Topbar */}
         <header className="topbar">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <button
+            <Button variant="bare"
               type="button"
               className="icon-btn mobile-menu-btn"
               onClick={() => setSidebarOpen(!sidebarOpen)}
               aria-label="Toggle Navigation Drawer"
             >
               {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
-            </button>
+            </Button>
 
             <div className="breadcrumbs">
               <span className="breadcrumb-root">Workspace</span>
@@ -423,14 +424,14 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
             </Link>
 
             {/* Notifications Button */}
-            <button
+            <Button variant="bare"
               className="icon-btn notification"
               onClick={() => alert("All hospital appointment queues are operating smoothly.")}
               title="Clinical Alerts"
             >
               <Bell size={18} />
               <i />
-            </button>
+            </Button>
 
             {/* User Profile Mini Trigger */}
             {user ? (

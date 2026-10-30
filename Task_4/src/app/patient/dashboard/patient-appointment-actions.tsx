@@ -17,6 +17,9 @@ import {
 } from "@/actions/appointments";
 import { RescheduleModal } from "@/components/reschedule-modal";
 
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 interface PatientAppointmentActionsProps {
   appointmentId: string;
   doctorId: string;
@@ -97,7 +100,7 @@ export function PatientAppointmentActions({
     <>
       <div className="flex flex-col items-end gap-1">
         <div className="flex items-center gap-1.5">
-          <button
+          <Button variant="bare"
             type="button"
             onClick={() => setIsRescheduleOpen(true)}
             disabled={isPending}
@@ -106,9 +109,9 @@ export function PatientAppointmentActions({
           >
             <CalendarClock size={12} />
             <span>Reschedule</span>
-          </button>
+          </Button>
 
-          <button
+          <Button variant="bare"
             type="button"
             onClick={handleOpenCancelModal}
             disabled={isPending}
@@ -117,7 +120,7 @@ export function PatientAppointmentActions({
           >
             <X size={12} />
             <span>Cancel</span>
-          </button>
+          </Button>
         </div>
 
         {errorMessage && !isCancelModalOpen && (
@@ -140,21 +143,22 @@ export function PatientAppointmentActions({
 
       {/* Cancellation & Refund Preview Modal */}
       {isCancelModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <Dialog open onOpenChange={(open) => { if (!open) setIsCancelModalOpen(false); }}>
+<DialogContent showCloseButton={false} className="max-w-md gap-0 overflow-hidden rounded-2xl border-slate-200 p-0">
+<DialogDescription className="sr-only">Review the refund before cancelling this appointment.</DialogDescription>
             {/* Modal Header */}
             <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <AlertTriangle size={18} className="text-amber-400" />
-                <h3 className="font-bold text-sm text-white">Cancel Appointment & Refund Preview</h3>
+                <DialogTitle className="font-bold text-sm text-white">Cancel Appointment & Refund Preview</DialogTitle>
               </div>
-              <button
+              <Button variant="bare"
                 type="button"
                 onClick={() => setIsCancelModalOpen(false)}
                 className="text-white/80 hover:text-white p-1 rounded-lg cursor-pointer"
               >
                 <X size={18} />
-              </button>
+              </Button>
             </div>
 
             {/* Modal Body */}
@@ -191,9 +195,9 @@ export function PatientAppointmentActions({
                         <span>Estimated Refund</span>
                       </span>
                       {refundPreview?.hasPayment && (
-                        <span className="badge blue font-mono">
+                        <Badge variant="blue" className="font-mono">
                           {refundPreview.policyTier}
-                        </span>
+                        </Badge>
                       )}
                     </div>
 
@@ -241,19 +245,19 @@ export function PatientAppointmentActions({
 
                   {/* Modal Actions */}
                   <div className="flex gap-2 pt-2">
-                    <button
+                    <Button variant="outline"
                       type="button"
                       disabled={isPending}
                       onClick={() => setIsCancelModalOpen(false)}
-                      className="btn flex-1 justify-center py-2 text-xs"
+                      className="flex-1 justify-center py-2 text-xs"
                     >
                       Keep Appointment
-                    </button>
-                    <button
+                    </Button>
+                    <Button variant="outline"
                       type="button"
                       disabled={isPending}
                       onClick={handleConfirmCancel}
-                      className="btn flex-1 justify-center py-2 text-xs bg-red-600 text-white hover:bg-red-700 cursor-pointer font-bold flex items-center gap-1.5"
+                      className="flex-1 justify-center py-2 text-xs bg-red-600 text-white hover:bg-red-700 cursor-pointer font-bold flex items-center gap-1.5"
                     >
                       {isPending ? (
                         <>
@@ -263,13 +267,13 @@ export function PatientAppointmentActions({
                       ) : (
                         <span>Confirm Cancel</span>
                       )}
-                    </button>
+                    </Button>
                   </div>
                 </>
               )}
             </div>
-          </div>
-        </div>
+          </DialogContent>
+</Dialog>
       )}
     </>
   );

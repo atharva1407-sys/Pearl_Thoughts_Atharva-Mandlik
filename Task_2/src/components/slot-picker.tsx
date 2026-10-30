@@ -15,6 +15,11 @@ import {
   Check
 } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 interface SlotPickerProps {
   doctorId: string;
   doctorName: string;
@@ -146,25 +151,25 @@ export function SlotPicker({
   const availableSlotsCount = slots.filter((s) => !s.isBooked).length;
 
   return (
-    <div className="card space-y-6">
+    <Card className="space-y-6">
       <div className="card-head">
         <div>
           <h2>Select Consultation Date & Time</h2>
           <p>Real-time slot availability for Ruby Hall OPD</p>
         </div>
-        <span className="badge sky">Conflict-Free</span>
+        <Badge variant="sky">Conflict-Free</Badge>
       </div>
 
       {/* Date Selection Pills */}
       <div>
-        <label className="text-xs font-bold text-slate-700 block mb-2">
+        <Label className="text-xs font-bold text-slate-700 block mb-2">
           Step 1: Choose Appointment Date
-        </label>
+        </Label>
         <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
           {availableDates.map((item) => {
             const isSelected = selectedDate === item.dateString;
             return (
-              <button
+              <Button variant="bare"
                 key={item.dateString}
                 type="button"
                 onClick={() => setSelectedDate(item.dateString)}
@@ -183,7 +188,7 @@ export function SlotPicker({
                 <span className="block text-[11px] opacity-80">
                   {item.isToday ? "Today" : "Open"}
                 </span>
-              </button>
+              </Button>
             );
           })}
         </div>
@@ -192,9 +197,9 @@ export function SlotPicker({
       {/* Available Slots Section */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-xs font-bold text-slate-700">
+          <Label className="text-xs font-bold text-slate-700">
             Step 2: Choose Available Slot
-          </label>
+          </Label>
           <span className="text-xs text-slate-500">
             {isLoadingSlots
               ? "Checking schedule..."
@@ -217,7 +222,7 @@ export function SlotPicker({
               const isBooked = slot.isBooked;
 
               return (
-                <button
+                <Button variant="bare"
                   key={slot.startTime}
                   type="button"
                   disabled={isBooked}
@@ -232,7 +237,7 @@ export function SlotPicker({
                 >
                   {slot.startTime}
                   {isBooked ? " (Booked)" : ""}
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -264,13 +269,13 @@ export function SlotPicker({
               <span>View in My Appointments</span>
               <ArrowRight size={14} />
             </Link>
-            <button
+            <Button variant="outline"
               type="button"
               onClick={() => setSuccess(null)}
-              className="btn text-xs py-1.5 px-3"
+              className="text-xs py-1.5 px-3"
             >
               Book Another Slot
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -278,10 +283,10 @@ export function SlotPicker({
       {/* Booking Form Details */}
       <form onSubmit={handleBooking} className="space-y-4 pt-3 border-t border-slate-100">
         <div>
-          <label className="text-xs font-bold text-slate-700 block mb-1">
+          <Label className="text-xs font-bold text-slate-700 block mb-1">
             Reason for Visit / Symptoms *
-          </label>
-          <input
+          </Label>
+          <Input
             type="text"
             required
             value={reason}
@@ -319,7 +324,7 @@ export function SlotPicker({
         {/* Submit Button */}
         <div>
           {isLoggedIn ? (
-            <button
+            <Button variant="bare"
               type="submit"
               disabled={isPending || !selectedSlot}
               className={`btn primary w-full justify-center py-2.5 text-xs font-bold ${
@@ -327,21 +332,21 @@ export function SlotPicker({
               }`}
             >
               {isPending ? "Confirming Appointment..." : "Confirm & Book Appointment"}
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button variant="default"
               type="button"
               onClick={() => {
                 const currentPath = typeof window !== "undefined" ? window.location.pathname : `/doctors/${doctorId}`;
                 window.location.href = `/login?redirectTo=${encodeURIComponent(currentPath)}&message=Please sign in to complete your booking.`;
               }}
-              className="btn primary w-full justify-center py-2.5 text-xs font-bold"
+              className="w-full justify-center py-2.5 text-xs font-bold"
             >
               Sign In to Reserve Slot
-            </button>
+            </Button>
           )}
         </div>
       </form>
-    </div>
+    </Card>
   );
 }

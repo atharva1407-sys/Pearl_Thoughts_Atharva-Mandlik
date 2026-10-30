@@ -16,6 +16,10 @@ import {
   triggerManualDispatchAction,
 } from "@/actions/admin-notifications";
 
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 interface FormattedNotification {
   id: string;
   userId: string;
@@ -106,14 +110,14 @@ export function AdminNotificationsClient({
         </div>
 
         <div className="flex items-center gap-2">
-          <button
+          <Button variant="default"
             onClick={handleManualDispatch}
             disabled={isPending}
-            className="btn primary text-xs inline-flex items-center gap-2 cursor-pointer"
+            className="text-xs inline-flex items-center gap-2 cursor-pointer"
           >
             <RefreshCw size={14} className={isPending ? "animate-spin" : ""} />
             <span>{isPending ? "Dispatching..." : "Sweep Due Outbox"}</span>
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -131,14 +135,14 @@ export function AdminNotificationsClient({
 
       {/* Metrics Row */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <div className="card p-3.5 space-y-1">
+        <Card className="p-3.5 space-y-1">
           <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
             Total Messages
           </span>
           <div className="text-xl font-black text-slate-800">{total}</div>
-        </div>
+        </Card>
 
-        <div className="card p-3.5 space-y-1 border-emerald-200 bg-emerald-50/20">
+        <Card className="p-3.5 space-y-1 border-emerald-200 bg-emerald-50/20">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">
               Sent
@@ -146,9 +150,9 @@ export function AdminNotificationsClient({
             <CheckCircle2 size={15} className="text-emerald-600" />
           </div>
           <div className="text-xl font-black text-emerald-700">{counts.SENT}</div>
-        </div>
+        </Card>
 
-        <div className="card p-3.5 space-y-1 border-amber-200 bg-amber-50/20">
+        <Card className="p-3.5 space-y-1 border-amber-200 bg-amber-50/20">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">
               Pending
@@ -156,9 +160,9 @@ export function AdminNotificationsClient({
             <Clock size={15} className="text-amber-600" />
           </div>
           <div className="text-xl font-black text-amber-700">{counts.PENDING}</div>
-        </div>
+        </Card>
 
-        <div className="card p-3.5 space-y-1 border-red-200 bg-red-50/20">
+        <Card className="p-3.5 space-y-1 border-red-200 bg-red-50/20">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-red-700 uppercase tracking-wider">
               Failed
@@ -166,9 +170,9 @@ export function AdminNotificationsClient({
             <AlertTriangle size={15} className="text-red-600" />
           </div>
           <div className="text-xl font-black text-red-700">{counts.FAILED}</div>
-        </div>
+        </Card>
 
-        <div className="card p-3.5 space-y-1 border-slate-200">
+        <Card className="p-3.5 space-y-1 border-slate-200">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
               Cancelled
@@ -176,14 +180,14 @@ export function AdminNotificationsClient({
             <Ban size={15} className="text-slate-400" />
           </div>
           <div className="text-xl font-black text-slate-600">{counts.CANCELLED}</div>
-        </div>
+        </Card>
       </div>
 
       {/* Main Table Card */}
-      <div className="card space-y-4">
+      <Card className="space-y-4">
         <div className="card-head">
           <div className="flex items-center gap-3">
-            <button
+            <Button variant="bare"
               onClick={() => setActiveTab("failed")}
               className={`text-xs font-bold pb-1 cursor-pointer transition-colors border-b-2 ${
                 activeTab === "failed"
@@ -192,8 +196,8 @@ export function AdminNotificationsClient({
               }`}
             >
               Failed / Dead-Letter ({failedItems.length})
-            </button>
-            <button
+            </Button>
+            <Button variant="bare"
               onClick={() => setActiveTab("stuck")}
               className={`text-xs font-bold pb-1 cursor-pointer transition-colors border-b-2 ${
                 activeTab === "stuck"
@@ -202,7 +206,7 @@ export function AdminNotificationsClient({
               }`}
             >
               Stuck / Delayed (&gt;15m) ({stuckItems.length})
-            </button>
+            </Button>
           </div>
 
           <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
@@ -224,30 +228,30 @@ export function AdminNotificationsClient({
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50/60 text-slate-600 font-bold">
-                      <th className="py-2.5 px-3">Event / Template</th>
-                      <th className="py-2.5 px-3">Category</th>
-                      <th className="py-2.5 px-3">Recipient</th>
-                      <th className="py-2.5 px-3 text-center">Attempts</th>
-                      <th className="py-2.5 px-3">Scheduled / Sent (IST)</th>
-                      <th className="py-2.5 px-3">Error Reason</th>
-                      <th className="py-2.5 px-3 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
+                <Table className="w-full text-left text-xs border-collapse">
+                  <TableHeader>
+                    <TableRow className="border-b border-slate-200 bg-slate-50/60 text-slate-600 font-bold">
+                      <TableHead className="py-2.5 px-3">Event / Template</TableHead>
+                      <TableHead className="py-2.5 px-3">Category</TableHead>
+                      <TableHead className="py-2.5 px-3">Recipient</TableHead>
+                      <TableHead className="py-2.5 px-3 text-center">Attempts</TableHead>
+                      <TableHead className="py-2.5 px-3">Scheduled / Sent (IST)</TableHead>
+                      <TableHead className="py-2.5 px-3">Error Reason</TableHead>
+                      <TableHead className="py-2.5 px-3 text-right">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="divide-y divide-slate-100">
                     {failedItems.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-50/50">
-                        <td className="py-2.5 px-3">
+                      <TableRow key={item.id} className="hover:bg-slate-50/50">
+                        <TableCell className="py-2.5 px-3">
                           <div className="font-mono font-bold text-slate-800 text-[11px]">
                             {item.template}
                           </div>
                           <div className="text-[10px] text-slate-400 font-mono">
                             {item.id.slice(0, 16)}...
                           </div>
-                        </td>
-                        <td className="py-2.5 px-3">
+                        </TableCell>
+                        <TableCell className="py-2.5 px-3">
                           <span
                             className={`badge text-[10px] ${
                               item.category === "promotional" ? "sky" : "green"
@@ -255,33 +259,33 @@ export function AdminNotificationsClient({
                           >
                             {item.category}
                           </span>
-                        </td>
-                        <td className="py-2.5 px-3 font-mono text-slate-700">
+                        </TableCell>
+                        <TableCell className="py-2.5 px-3 font-mono text-slate-700">
                           {item.recipientMasked}
-                        </td>
-                        <td className="py-2.5 px-3 text-center font-bold text-red-600">
+                        </TableCell>
+                        <TableCell className="py-2.5 px-3 text-center font-bold text-red-600">
                           {item.attempts} / 3
-                        </td>
-                        <td className="py-2.5 px-3 text-slate-500 text-[11px]">
+                        </TableCell>
+                        <TableCell className="py-2.5 px-3 text-slate-500 text-[11px]">
                           {item.scheduledForFormatted}
-                        </td>
-                        <td className="py-2.5 px-3 text-red-700 max-w-xs truncate text-[11px]">
+                        </TableCell>
+                        <TableCell className="py-2.5 px-3 text-red-700 max-w-xs truncate text-[11px]">
                           {item.lastError || "No error details available"}
-                        </td>
-                        <td className="py-2.5 px-3 text-right">
-                          <button
+                        </TableCell>
+                        <TableCell className="py-2.5 px-3 text-right">
+                          <Button variant="outline"
                             onClick={() => handleRequeue(item.id)}
                             disabled={requeuingIds.has(item.id) || isPending}
-                            className="btn text-[11px] py-1 px-2.5 inline-flex items-center gap-1 cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700"
+                            className="text-[11px] py-1 px-2.5 inline-flex items-center gap-1 cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700"
                           >
                             <RotateCcw size={12} className={requeuingIds.has(item.id) ? "animate-spin" : ""} />
                             <span>Retry</span>
-                          </button>
-                        </td>
-                      </tr>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             )}
           </div>
@@ -299,45 +303,45 @@ export function AdminNotificationsClient({
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50/60 text-slate-600 font-bold">
-                      <th className="py-2.5 px-3">Event / Template</th>
-                      <th className="py-2.5 px-3">Recipient</th>
-                      <th className="py-2.5 px-3 text-center">Attempts</th>
-                      <th className="py-2.5 px-3">Scheduled For (IST)</th>
-                      <th className="py-2.5 px-3">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
+                <Table className="w-full text-left text-xs border-collapse">
+                  <TableHeader>
+                    <TableRow className="border-b border-slate-200 bg-slate-50/60 text-slate-600 font-bold">
+                      <TableHead className="py-2.5 px-3">Event / Template</TableHead>
+                      <TableHead className="py-2.5 px-3">Recipient</TableHead>
+                      <TableHead className="py-2.5 px-3 text-center">Attempts</TableHead>
+                      <TableHead className="py-2.5 px-3">Scheduled For (IST)</TableHead>
+                      <TableHead className="py-2.5 px-3">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="divide-y divide-slate-100">
                     {stuckItems.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-50/50">
-                        <td className="py-2.5 px-3">
+                      <TableRow key={item.id} className="hover:bg-slate-50/50">
+                        <TableCell className="py-2.5 px-3">
                           <div className="font-mono font-bold text-slate-800 text-[11px]">
                             {item.template}
                           </div>
-                        </td>
-                        <td className="py-2.5 px-3 font-mono text-slate-700">
+                        </TableCell>
+                        <TableCell className="py-2.5 px-3 font-mono text-slate-700">
                           {item.recipientMasked}
-                        </td>
-                        <td className="py-2.5 px-3 text-center font-bold text-amber-700">
+                        </TableCell>
+                        <TableCell className="py-2.5 px-3 text-center font-bold text-amber-700">
                           {item.attempts}
-                        </td>
-                        <td className="py-2.5 px-3 text-slate-500 text-[11px]">
+                        </TableCell>
+                        <TableCell className="py-2.5 px-3 text-slate-500 text-[11px]">
                           {item.scheduledForFormatted}
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <span className="badge amber text-[10px]">PENDING</span>
-                        </td>
-                      </tr>
+                        </TableCell>
+                        <TableCell className="py-2.5 px-3">
+                          <Badge variant="amber" className="text-[10px]">PENDING</Badge>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             )}
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

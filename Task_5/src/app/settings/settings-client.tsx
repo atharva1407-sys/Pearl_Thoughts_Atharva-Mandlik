@@ -15,6 +15,13 @@ import { restoreTestDataAction, clearTestDataAction } from "@/actions/seed";
 import { updateNotificationPreferencesAction } from "@/actions/notifications";
 import type { NotificationPreferencesEntity } from "@/lib/notifications/types";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 interface SettingsClientProps {
   isProduction: boolean;
   userRole: "PATIENT" | "DOCTOR";
@@ -111,7 +118,7 @@ export function SettingsClient({
       )}
 
       {/* Notifications Preferences Card (Available to Patients & Doctors) */}
-      <div className="card space-y-5">
+      <Card className="space-y-5">
         <div className="card-head">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-emerald-50 text-emerald-700 rounded-lg">
@@ -122,7 +129,7 @@ export function SettingsClient({
               <p>Email delivery channels and consent management</p>
             </div>
           </div>
-          <span className="badge green">Email Active</span>
+          <Badge variant="green">Email Active</Badge>
         </div>
 
         <form onSubmit={handleSaveNotificationPreferences} className="space-y-5">
@@ -137,7 +144,7 @@ export function SettingsClient({
                   <span className="text-xs font-bold text-slate-800">
                     Mandatory Operational Communications
                   </span>
-                  <span className="badge green text-[10px] py-0 px-1.5">Always Enabled</span>
+                  <Badge variant="green" className="text-[10px] py-0 px-1.5">Always Enabled</Badge>
                 </div>
                 <p className="text-xs text-slate-600 leading-relaxed">
                   Transactional messages are essential for healthcare service delivery and patient safety.
@@ -163,9 +170,9 @@ export function SettingsClient({
                   <Mail size={18} />
                 </div>
                 <div className="space-y-1">
-                  <label htmlFor="promoToggle" className="text-xs font-bold text-slate-800 cursor-pointer">
+                  <Label htmlFor="promoToggle" className="text-xs font-bold text-slate-800 cursor-pointer">
                     Promotional &amp; Preventive Health Updates
-                  </label>
+                  </Label>
                   <p className="text-xs text-slate-500 leading-relaxed">
                     Receive optional periodic health tips, preventive wellness advisories, outpatient camp notices,
                     and seasonal health guidance from Medrella specialists.
@@ -183,38 +190,36 @@ export function SettingsClient({
               </div>
 
               <div className="pt-1">
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
+                <Label className="relative inline-flex items-center cursor-pointer">
+                  <Checkbox
                     id="promoToggle"
-                    type="checkbox"
                     checked={emailPromotional}
-                    onChange={(e) => setEmailPromotional(e.target.checked)}
-                    className="sr-only peer"
+                    onCheckedChange={(v) => setEmailPromotional(v === true)}
                   />
                   <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                </label>
+                </Label>
               </div>
             </div>
           </div>
 
           <div className="flex justify-end pt-2">
-            <button
+            <Button variant="default"
               type="submit"
               disabled={isPending}
-              className="btn primary text-xs inline-flex items-center gap-2 cursor-pointer"
+              className="text-xs inline-flex items-center gap-2 cursor-pointer"
             >
               <Save size={14} />
               <span>{isPending ? "Saving..." : "Save Preferences"}</span>
-            </button>
+            </Button>
           </div>
         </form>
-      </div>
+      </Card>
 
       {/* Hospital Workspace Settings (Doctors Only) */}
       {userRole === "DOCTOR" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {/* Hospital Configuration Form */}
-          <div className="lg:col-span-2 card space-y-4">
+          <Card className="lg:col-span-2 space-y-4">
             <div className="card-head">
               <div>
                 <h2>Facility Information</h2>
@@ -230,10 +235,10 @@ export function SettingsClient({
               }}
             >
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
+                <Label className="text-xs font-bold text-slate-700 block mb-1">
                   Hospital Facility Name
-                </label>
-                <input
+                </Label>
+                <Input
                   type="text"
                   defaultValue="Ruby Hall, Pune"
                   className="w-full p-2.5 border border-slate-200 rounded-lg text-xs"
@@ -242,20 +247,20 @@ export function SettingsClient({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                  <Label className="text-xs font-bold text-slate-700 block mb-1">
                     Location / City
-                  </label>
-                  <input
+                  </Label>
+                  <Input
                     type="text"
                     defaultValue="Pune, Maharashtra"
                     className="w-full p-2.5 border border-slate-200 rounded-lg text-xs"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                  <Label className="text-xs font-bold text-slate-700 block mb-1">
                     Primary Helpline Phone
-                  </label>
-                  <input
+                  </Label>
+                  <Input
                     type="text"
                     defaultValue="+91 20 6645 5100"
                     className="w-full p-2.5 border border-slate-200 rounded-lg text-xs"
@@ -264,10 +269,10 @@ export function SettingsClient({
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
+                <Label className="text-xs font-bold text-slate-700 block mb-1">
                   Full Street Address
-                </label>
-                <input
+                </Label>
+                <Input
                   type="text"
                   defaultValue="40, Sassoon Road, Sangamvadi, Pune – 411001"
                   className="w-full p-2.5 border border-slate-200 rounded-lg text-xs"
@@ -276,49 +281,54 @@ export function SettingsClient({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                  <Label className="text-xs font-bold text-slate-700 block mb-1">
                     Administrative Email
-                  </label>
-                  <input
+                  </Label>
+                  <Input
                     type="email"
                     defaultValue="info@rubyhall-pune.medrella.com"
                     className="w-full p-2.5 border border-slate-200 rounded-lg text-xs"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                  <Label className="text-xs font-bold text-slate-700 block mb-1">
                     Timezone
-                  </label>
-                  <select className="w-full p-2.5 border border-slate-200 rounded-lg text-xs bg-white">
-                    <option>(GMT+5:30) India Standard Time (IST)</option>
-                  </select>
+                  </Label>
+                  <Select >
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="(GMT+5:30) India Standard Time (IST)">(GMT+5:30) India Standard Time (IST)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex justify-end">
-                <button type="submit" className="btn primary text-xs">
+                <Button variant="default" type="submit" className="text-xs">
                   <Save size={14} />
                   <span>Save Facility Info</span>
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
+          </Card>
 
           {/* System Health & Test Data Controls */}
           <div className="space-y-5">
-            <div className="card space-y-4">
+            <Card className="space-y-4">
               <div className="card-head">
                 <div>
                   <h2>System Health &amp; Status</h2>
                   <p>Operational infrastructure</p>
                 </div>
-                <span className="badge green">Live</span>
+                <Badge variant="green">Live</Badge>
               </div>
 
               <div className="space-y-3 text-xs">
                 <div className="flex justify-between items-center py-2 border-b border-slate-100">
                   <span className="text-slate-500">Service Status</span>
-                  <span className="badge green">Operational</span>
+                  <Badge variant="green">Operational</Badge>
                 </div>
 
                 <div className="flex justify-between items-center py-2 border-b border-slate-100">
@@ -336,10 +346,10 @@ export function SettingsClient({
                   <span className="font-bold text-emerald-700">JWT (HttpOnly Cookie)</span>
                 </div>
               </div>
-            </div>
+            </Card>
 
             {/* Test Data Controls (Development Only) */}
-            <div className="card space-y-3">
+            <Card className="space-y-3">
               <div className="card-head">
                 <div>
                   <h2>Database Management</h2>
@@ -361,29 +371,29 @@ export function SettingsClient({
                   </p>
 
                   <div className="flex flex-col gap-2 pt-2 border-t border-slate-100">
-                    <button
+                    <Button variant="default"
                       type="button"
                       disabled={isPending}
                       onClick={handleRestore}
-                      className="btn primary text-xs justify-center cursor-pointer"
+                      className="text-xs justify-center cursor-pointer"
                     >
                       <RotateCcw size={14} />
                       <span>{isPending ? "Processing..." : "Seed Development Data"}</span>
-                    </button>
+                    </Button>
 
-                    <button
+                    <Button variant="outline"
                       type="button"
                       disabled={isPending}
                       onClick={handleClear}
-                      className="btn text-xs justify-center text-slate-600 hover:text-red-600 cursor-pointer"
+                      className="text-xs justify-center text-slate-600 hover:text-red-600 cursor-pointer"
                     >
                       <Trash2 size={14} />
                       <span>Clear Dev Data</span>
-                    </button>
+                    </Button>
                   </div>
                 </>
               )}
-            </div>
+            </Card>
           </div>
         </div>
       )}

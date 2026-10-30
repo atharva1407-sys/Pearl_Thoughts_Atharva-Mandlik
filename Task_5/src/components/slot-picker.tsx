@@ -20,6 +20,12 @@ import {
   Loader2,
 } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 interface SlotPickerProps {
   doctorId: string;
   doctorName: string;
@@ -429,15 +435,15 @@ export function SlotPicker({
   );
 
   return (
-    <div className="card space-y-6">
+    <Card className="space-y-6">
       <div className="card-head">
         <div>
           <h2>Select Consultation Date & Time</h2>
           <p>Real-time slot availability for Ruby Hall OPD · Stream & Wave Sessions</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="badge sky">Capacity Managed</span>
-          <span className="badge amber text-[11px] font-mono">Test Mode (rzp_test_)</span>
+          <Badge variant="sky">Capacity Managed</Badge>
+          <Badge variant="amber" className="text-[11px] font-mono">Test Mode (rzp_test_)</Badge>
         </div>
       </div>
 
@@ -454,14 +460,14 @@ export function SlotPicker({
 
       {/* Date Selection Ribbon */}
       <div>
-        <label className="text-xs font-bold text-slate-700 block mb-2">
+        <Label className="text-xs font-bold text-slate-700 block mb-2">
           Step 1: Choose Appointment Date
-        </label>
+        </Label>
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
           {availableDates.map((item) => {
             const isSelected = selectedDate === item.dateString;
             return (
-              <button
+              <Button variant="bare"
                 key={item.dateString}
                 type="button"
                 onClick={() => setSelectedDate(item.dateString)}
@@ -480,7 +486,7 @@ export function SlotPicker({
                 <span className="block text-[10px] opacity-75">
                   {item.isToday ? "Today" : "Open"}
                 </span>
-              </button>
+              </Button>
             );
           })}
         </div>
@@ -489,9 +495,9 @@ export function SlotPicker({
       {/* Available Slots & Sessions Section */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-xs font-bold text-slate-700">
+          <Label className="text-xs font-bold text-slate-700">
             Step 2: Choose Available Session & Slot
-          </label>
+          </Label>
           <span className="text-xs text-slate-500">
             {isLoadingSlots
               ? "Checking doctor schedule..."
@@ -541,7 +547,7 @@ export function SlotPicker({
                   {group.slots.map((slot) => {
                     const isSelected = selectedSlot?.startTime === slot.startTime && selectedSlot?.sessionId === slot.sessionId;
                     return (
-                      <button
+                      <Button variant="bare"
                         key={`${slot.sessionId}-${slot.startTime}`}
                         type="button"
                         disabled={slot.isBooked}
@@ -562,7 +568,7 @@ export function SlotPicker({
                             ? `${slot.seatsLeft} seat${slot.seatsLeft === 1 ? "" : "s"}`
                             : "Open"}
                         </div>
-                      </button>
+                      </Button>
                     );
                   })}
                 </div>
@@ -585,13 +591,13 @@ export function SlotPicker({
               </span>
             </div>
           </div>
-          <button
+          <Button variant="default"
             type="button"
             onClick={() => setIsCheckoutModalOpen(true)}
-            className="btn primary text-xs py-1 px-2.5"
+            className="text-xs py-1 px-2.5"
           >
             Pay ₹{activeHold.amountRupees}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -634,7 +640,7 @@ export function SlotPicker({
                   </div>
                 )}
               </div>
-              <span className="badge green">Paid · Test Mode</span>
+              <Badge variant="green">Paid · Test Mode</Badge>
             </div>
           )}
 
@@ -655,16 +661,16 @@ export function SlotPicker({
                 <span>Print Payment Receipt</span>
               </Link>
             )}
-            <button
+            <Button variant="outline"
               type="button"
               onClick={() => {
                 setSuccess(null);
                 setConfirmedDetails(null);
               }}
-              className="btn text-xs py-1.5 px-3"
+              className="text-xs py-1.5 px-3"
             >
               Book Another Slot
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -672,10 +678,10 @@ export function SlotPicker({
       {/* Booking Form Details */}
       <form onSubmit={handleBooking} className="space-y-4 pt-3 border-t border-slate-100">
         <div>
-          <label className="text-xs font-bold text-slate-700 block mb-1">
+          <Label className="text-xs font-bold text-slate-700 block mb-1">
             Reason for Consultation / Chief Complaint *
-          </label>
-          <input
+          </Label>
+          <Input
             type="text"
             required
             value={reason}
@@ -724,7 +730,7 @@ export function SlotPicker({
         {/* Submit / Pay Button */}
         <div>
           {isLoggedIn ? (
-            <button
+            <Button variant="bare"
               type="submit"
               disabled={isPending || !selectedSlot}
               className={`btn primary w-full justify-center py-2.5 text-xs font-bold cursor-pointer flex items-center gap-1.5 ${
@@ -739,9 +745,9 @@ export function SlotPicker({
                   ? `Pay ₹${consultationFee} & Book (Test Mode)`
                   : "Confirm & Book Consultation (Free)"}
               </span>
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button variant="default"
               type="button"
               onClick={() => {
                 const currentPath = typeof window !== "undefined" ? window.location.pathname : `/doctors/${doctorId}`;
@@ -751,34 +757,35 @@ export function SlotPicker({
                   )}`
                 );
               }}
-              className="btn primary w-full justify-center py-2.5 text-xs font-bold cursor-pointer"
+              className="w-full justify-center py-2.5 text-xs font-bold cursor-pointer"
             >
               Sign In to Reserve Slot
-            </button>
+            </Button>
           )}
         </div>
       </form>
 
       {/* Interactive Mock / Razorpay Test Mode Checkout Dialog */}
       {isCheckoutModalOpen && activeHold && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <Dialog open onOpenChange={(open) => { if (!open) setIsCheckoutModalOpen(false); }}>
+<DialogContent showCloseButton={false} className="max-w-md gap-0 overflow-hidden rounded-2xl border-slate-200 p-0">
+<DialogDescription className="sr-only">Complete your test payment to confirm the booking.</DialogDescription>
             {/* Modal Header */}
             <div className="p-4 bg-gradient-to-r from-blue-700 to-indigo-800 text-white flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <ShieldCheck size={20} className="text-blue-200" />
                 <div>
-                  <h3 className="font-bold text-sm text-white">Razorpay Test Checkout</h3>
+                  <DialogTitle className="font-bold text-sm text-white">Razorpay Test Checkout</DialogTitle>
                   <span className="text-[11px] text-blue-200">Medrella Healthcare OPD</span>
                 </div>
               </div>
-              <button
+              <Button variant="bare"
                 type="button"
                 onClick={() => setIsCheckoutModalOpen(false)}
                 className="text-white/80 hover:text-white p-1 rounded-lg cursor-pointer"
               >
                 <X size={18} />
-              </button>
+              </Button>
             </div>
 
             {/* Modal Body */}
@@ -821,18 +828,18 @@ export function SlotPicker({
               {/* Gateway Controls */}
               <div className="space-y-2 pt-1">
                 {activeHold.provider === "RAZORPAY" && (
-                  <button
+                  <Button variant="default"
                     type="button"
                     disabled={isSimulatingPayment}
                     onClick={() => tryLaunchRazorpayCheckout(activeHold)}
-                    className="btn primary w-full justify-center py-2.5 text-xs font-bold cursor-pointer flex items-center gap-2 shadow-xs"
+                    className="w-full justify-center py-2.5 text-xs font-bold cursor-pointer flex items-center gap-2 shadow-xs"
                   >
                     <CreditCard size={15} />
                     <span>Open Official Razorpay Checkout Popup</span>
-                  </button>
+                  </Button>
                 )}
 
-                <button
+                <Button variant="bare"
                   type="button"
                   disabled={isSimulatingPayment}
                   onClick={() => handleSimulatePayment(true)}
@@ -853,16 +860,16 @@ export function SlotPicker({
                       <span>Simulate Successful Payment (Test ₹{activeHold.amountRupees})</span>
                     </>
                   )}
-                </button>
+                </Button>
 
-                <button
+                <Button variant="outline"
                   type="button"
                   disabled={isSimulatingPayment}
                   onClick={() => handleSimulatePayment(false)}
-                  className="btn w-full justify-center py-2 text-xs text-red-600 border border-red-200 hover:bg-red-50 cursor-pointer"
+                  className="w-full justify-center py-2 text-xs text-red-600 border border-red-200 hover:bg-red-50 cursor-pointer"
                 >
                   Simulate Bank Payment Failure
-                </button>
+                </Button>
               </div>
 
               <div className="text-[11px] text-slate-400 text-center">
@@ -871,9 +878,9 @@ export function SlotPicker({
                   : "Test mode simulator. In production, this opens Razorpay's checkout iframe."}
               </div>
             </div>
-          </div>
-        </div>
+          </DialogContent>
+</Dialog>
       )}
-    </div>
+    </Card>
   );
 }

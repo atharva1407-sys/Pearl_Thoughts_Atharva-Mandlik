@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { ReportsClientControls } from "./reports-client";
 
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 export default async function ReportsPage() {
   const user = await getCurrentUser();
   if (!user || user.role !== "DOCTOR") {
@@ -100,73 +102,73 @@ export default async function ReportsPage() {
 
       {/* 4 Real Metric Stat Cards */}
       <div className="stat-grid">
-        <div className="card stat-card">
+        <Card className="stat-card">
           <div className="stat-top">
             <span className="stat-icon">
               <Users />
             </span>
-            <span className="badge sky">Practice Census</span>
+            <Badge variant="sky">Practice Census</Badge>
           </div>
           <div className="stat-value">{total}</div>
           <div className="stat-label">Total Patient Visits</div>
           <div className="stat-note">
             {total > 0 ? "Active clinical bookings on your schedule" : "No visits currently logged"}
           </div>
-        </div>
+        </Card>
 
-        <div className="card stat-card">
+        <Card className="stat-card">
           <div className="stat-top">
             <span className="stat-icon text-emerald-600 bg-emerald-50">
               <CheckCircle2 />
             </span>
-            <span className="badge green">Completed</span>
+            <Badge variant="green">Completed</Badge>
           </div>
           <div className="stat-value">{completedVisits.length}</div>
           <div className="stat-label">Completed Consultations</div>
           <div className="stat-note">
             {completedVisits.length > 0 ? "Successfully charted and concluded" : "No completed visits"}
           </div>
-        </div>
+        </Card>
 
-        <div className="card stat-card">
+        <Card className="stat-card">
           <div className="stat-top">
             <span className="stat-icon text-amber-600 bg-amber-50">
               <Clock3 />
             </span>
-            <span className="badge amber">Queue</span>
+            <Badge variant="amber">Queue</Badge>
           </div>
           <div className="stat-value">{bookedVisits.length}</div>
           <div className="stat-label">Scheduled in Queue</div>
           <div className="stat-note">
             {bookedVisits.length > 0 ? "Awaiting your consultation" : "No pending queue"}
           </div>
-        </div>
+        </Card>
 
-        <div className="card stat-card">
+        <Card className="stat-card">
           <div className="stat-top">
             <span className="stat-icon text-blue-600 bg-blue-50">
               <CalendarCheck />
             </span>
-            <span className="badge blue">Throughput</span>
+            <Badge variant="blue">Throughput</Badge>
           </div>
           <div className="stat-value">{completionRate}%</div>
           <div className="stat-label">Consultation Completion Rate</div>
           <div className="stat-note">
             {cancelledVisits.length > 0 ? `${cancelledVisits.length} cancelled visit(s)` : "Zero patient cancellations"}
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* Content Grid: Real Dynamic Chart & Breakdown */}
       <div className="content-grid">
         {/* Left: Visits Over Time */}
-        <div className="card">
+        <Card>
           <div className="card-head">
             <div>
               <h2>My Visits Over Time</h2>
               <p>Daily patient volume on your schedule · Real clinical records</p>
             </div>
-            <span className="badge blue">Recent Timeline</span>
+            <Badge variant="blue">Recent Timeline</Badge>
           </div>
 
           {total === 0 ? (
@@ -201,16 +203,16 @@ export default async function ReportsPage() {
               })}
             </div>
           )}
-        </div>
+        </Card>
 
         {/* Right: Visit Breakdown */}
-        <div className="card space-y-4">
+        <Card className="space-y-4">
           <div className="card-head">
             <div>
               <h2>Practice Visit Breakdown</h2>
               <p>Categorized by consultation type</p>
             </div>
-            <span className="badge sky">{total} Total</span>
+            <Badge variant="sky">{total} Total</Badge>
           </div>
 
           {total === 0 ? (
@@ -278,7 +280,7 @@ export default async function ReportsPage() {
               )}
             </div>
           )}
-        </div>
+        </Card>
       </div>
     </div>
   );
