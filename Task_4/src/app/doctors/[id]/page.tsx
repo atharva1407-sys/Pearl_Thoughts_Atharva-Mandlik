@@ -6,6 +6,8 @@ import { getCurrentUser } from "@/actions/auth";
 import { SlotPicker } from "@/components/slot-picker";
 import { ArrowLeft, Stethoscope, ShieldCheck, CheckCircle2 } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -42,7 +44,7 @@ export default async function DoctorProfilePage({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Doctor Profile Card */}
-        <div className="card space-y-5 h-fit">
+        <Card className="space-y-5 h-fit">
           <div className="space-y-2">
             {doctor.profileImage && (
               <div className="relative h-40 w-full overflow-hidden rounded-xl bg-blue-50">
@@ -56,9 +58,9 @@ export default async function DoctorProfilePage({
                 />
               </div>
             )}
-            <span className="badge blue">
+            <Badge variant="blue">
               {doctor.specialization}
-            </span>
+            </Badge>
             <h1 className="text-2xl font-bold text-slate-900 m-0">
               Dr. {doctor.firstName} {doctor.lastName}
             </h1>
@@ -82,9 +84,9 @@ export default async function DoctorProfilePage({
             </div>
             <div className="flex justify-between items-center">
               <span className="text-slate-500">Active Shift Days</span>
-              <span className="badge sky">
+              <Badge variant="sky">
                 {activeDays.length > 0 ? activeDays.join(", ") : "No active sessions"}
-              </span>
+              </Badge>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-slate-500">OPD Phone Contact</span>
@@ -110,7 +112,7 @@ export default async function DoctorProfilePage({
               Real-time slot locking guarantees no double-booking. Cancellations are permitted up to 1 hour prior to appointment.
             </p>
           </div>
-        </div>
+        </Card>
 
         {/* Right Column: Interactive Slot Picker */}
         <div className="lg:col-span-2">

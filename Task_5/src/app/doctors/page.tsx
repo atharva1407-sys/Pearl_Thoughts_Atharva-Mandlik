@@ -5,6 +5,8 @@ import { dbRepo } from "@/db/repo";
 import { getCurrentUser } from "@/actions/auth";
 import { ArrowRight, Stethoscope, CheckCircle2 } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -71,7 +73,7 @@ export default async function DoctorsPage({
 
       {/* Doctor Cards Grid */}
       {doctors.length === 0 ? (
-        <div className="card py-12 text-center text-xs text-slate-500 space-y-2">
+        <Card className="py-12 text-center text-xs text-slate-500 space-y-2">
           <Stethoscope size={28} className="mx-auto text-slate-300" />
           <div className="font-bold text-slate-800 text-sm">No specialists currently listed</div>
           <p className="text-slate-400 max-w-md mx-auto m-0">
@@ -82,13 +84,12 @@ export default async function DoctorsPage({
               + Register Doctor Profile
             </Link>
           </div>
-        </div>
+        </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {doctors.map((doctor) => (
-            <div
-              key={doctor.id}
-              className="card flex flex-col justify-between space-y-4 hover:border-blue-200 transition-all"
+            <Card
+              key={doctor.id} className="flex flex-col justify-between space-y-4 hover:border-blue-200 transition-all"
             >
               <div className="space-y-3">
                 <div className="flex items-start gap-3">
@@ -110,9 +111,9 @@ export default async function DoctorsPage({
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <span className="badge blue">
+                      <Badge variant="blue">
                         {doctor.specialization}
-                      </span>
+                      </Badge>
                       <span className="live-dot" title="Available for appointments" />
                     </div>
                     <h3 className="font-bold text-slate-900 text-base mt-1">
@@ -151,7 +152,7 @@ export default async function DoctorsPage({
                 <span>Select & View Time Slots</span>
                 <ArrowRight size={14} />
               </Link>
-            </div>
+            </Card>
           ))}
         </div>
       )}

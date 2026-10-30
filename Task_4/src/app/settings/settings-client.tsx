@@ -8,6 +8,12 @@ import {
 } from "lucide-react";
 import { restoreTestDataAction, clearTestDataAction } from "@/actions/seed";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 export function SettingsClient({ isProduction }: { isProduction: boolean }) {
   const [isPending, startTransition] = useTransition();
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -50,7 +56,7 @@ export function SettingsClient({ isProduction }: { isProduction: boolean }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Hospital Configuration Form */}
-        <div className="lg:col-span-2 card space-y-4">
+        <Card className="lg:col-span-2 space-y-4">
           <div className="card-head">
             <div>
               <h2>Facility Information</h2>
@@ -66,10 +72,10 @@ export function SettingsClient({ isProduction }: { isProduction: boolean }) {
             }}
           >
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">
+              <Label className="text-xs font-bold text-slate-700 block mb-1">
                 Hospital Facility Name
-              </label>
-              <input
+              </Label>
+              <Input
                 type="text"
                 defaultValue="Ruby Hall, Pune"
                 className="w-full p-2.5 border border-slate-200 rounded-lg text-xs"
@@ -78,20 +84,20 @@ export function SettingsClient({ isProduction }: { isProduction: boolean }) {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
+                <Label className="text-xs font-bold text-slate-700 block mb-1">
                   Location / City
-                </label>
-                <input
+                </Label>
+                <Input
                   type="text"
                   defaultValue="Pune, Maharashtra"
                   className="w-full p-2.5 border border-slate-200 rounded-lg text-xs"
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
+                <Label className="text-xs font-bold text-slate-700 block mb-1">
                   Primary Helpline Phone
-                </label>
-                <input
+                </Label>
+                <Input
                   type="text"
                   defaultValue="+91 20 6645 5100"
                   className="w-full p-2.5 border border-slate-200 rounded-lg text-xs"
@@ -100,10 +106,10 @@ export function SettingsClient({ isProduction }: { isProduction: boolean }) {
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">
+              <Label className="text-xs font-bold text-slate-700 block mb-1">
                 Full Street Address
-              </label>
-              <input
+              </Label>
+              <Input
                 type="text"
                 defaultValue="40, Sassoon Road, Sangamvadi, Pune – 411001"
                 className="w-full p-2.5 border border-slate-200 rounded-lg text-xs"
@@ -112,49 +118,54 @@ export function SettingsClient({ isProduction }: { isProduction: boolean }) {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
+                <Label className="text-xs font-bold text-slate-700 block mb-1">
                   Administrative Email
-                </label>
-                <input
+                </Label>
+                <Input
                   type="email"
                   defaultValue="info@rubyhall-pune.medrella.com"
                   className="w-full p-2.5 border border-slate-200 rounded-lg text-xs"
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
+                <Label className="text-xs font-bold text-slate-700 block mb-1">
                   Timezone
-                </label>
-                <select className="w-full p-2.5 border border-slate-200 rounded-lg text-xs bg-white">
-                  <option>(GMT+5:30) India Standard Time (IST)</option>
-                </select>
+                </Label>
+                <Select >
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="(GMT+5:30) India Standard Time (IST)">(GMT+5:30) India Standard Time (IST)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
             <div className="pt-3 border-t border-slate-100 flex justify-end">
-              <button type="submit" className="btn primary text-xs">
+              <Button variant="default" type="submit" className="text-xs">
                 <Save size={14} />
                 <span>Save Changes</span>
-              </button>
+              </Button>
             </div>
           </form>
-        </div>
+        </Card>
 
         {/* System Health & Test Data Controls */}
         <div className="space-y-5">
-          <div className="card space-y-4">
+          <Card className="space-y-4">
             <div className="card-head">
               <div>
                 <h2>System Health &amp; Status</h2>
                 <p>Operational infrastructure</p>
               </div>
-              <span className="badge green">Live</span>
+              <Badge variant="green">Live</Badge>
             </div>
 
             <div className="space-y-3 text-xs">
               <div className="flex justify-between items-center py-2 border-b border-slate-100">
                 <span className="text-slate-500">Service Status</span>
-                <span className="badge green">Operational</span>
+                <Badge variant="green">Operational</Badge>
               </div>
 
               <div className="flex justify-between items-center py-2 border-b border-slate-100">
@@ -172,10 +183,10 @@ export function SettingsClient({ isProduction }: { isProduction: boolean }) {
                 <span className="font-bold text-emerald-700">JWT (HttpOnly Cookie)</span>
               </div>
             </div>
-          </div>
+          </Card>
 
           {/* Test Data Controls (Development Only) */}
-          <div className="card space-y-3">
+          <Card className="space-y-3">
             <div className="card-head">
               <div>
                 <h2>Database Management</h2>
@@ -197,29 +208,29 @@ export function SettingsClient({ isProduction }: { isProduction: boolean }) {
                 </p>
 
                 <div className="flex flex-col gap-2 pt-2 border-t border-slate-100">
-                  <button
+                  <Button variant="default"
                     type="button"
                     disabled={isPending}
                     onClick={handleRestore}
-                    className="btn primary text-xs justify-center cursor-pointer"
+                    className="text-xs justify-center cursor-pointer"
                   >
                     <RotateCcw size={14} />
                     <span>{isPending ? "Processing..." : "Seed Development Data"}</span>
-                  </button>
+                  </Button>
 
-                  <button
+                  <Button variant="outline"
                     type="button"
                     disabled={isPending}
                     onClick={handleClear}
-                    className="btn text-xs justify-center text-slate-600 hover:text-red-600 cursor-pointer"
+                    className="text-xs justify-center text-slate-600 hover:text-red-600 cursor-pointer"
                   >
                     <Trash2 size={14} />
                     <span>Clear Dev Data</span>
-                  </button>
+                  </Button>
                 </div>
               </>
             )}
-          </div>
+          </Card>
         </div>
       </div>
     </div>

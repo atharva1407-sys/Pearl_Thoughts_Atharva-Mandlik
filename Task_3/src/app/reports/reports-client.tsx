@@ -3,6 +3,11 @@
 import { useState } from "react";
 import { FileText, RefreshCw, Download } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 interface DoctorOption {
   id: string;
   name: string;
@@ -56,24 +61,24 @@ export function ReportsClientControls({
     <div className="space-y-3">
       {/* Action button in heading */}
       <div className="flex justify-end -mt-12 mb-3">
-        <button
+        <Button variant="default"
           type="button"
           onClick={handleExportCSV}
-          className="btn primary text-xs flex items-center gap-1.5"
+          className="text-xs flex items-center gap-1.5"
           title="Export records to CSV"
         >
           <FileText size={14} />
           <span>Export CSV</span>
-        </button>
+        </Button>
       </div>
 
       {/* Filter Row */}
-      <div className="card grid grid-cols-2 sm:grid-cols-5 gap-3 items-end text-xs">
+      <Card className="grid grid-cols-2 sm:grid-cols-5 gap-3 items-end text-xs">
         <div>
-          <label className="text-[11px] font-bold text-slate-700 block mb-1">
+          <Label className="text-[11px] font-bold text-slate-700 block mb-1">
             From Date
-          </label>
-          <input
+          </Label>
+          <Input
             type="date"
             value={fromDate}
             onChange={(e) => setFromDate(e.target.value)}
@@ -82,10 +87,10 @@ export function ReportsClientControls({
         </div>
 
         <div>
-          <label className="text-[11px] font-bold text-slate-700 block mb-1">
+          <Label className="text-[11px] font-bold text-slate-700 block mb-1">
             To Date
-          </label>
-          <input
+          </Label>
+          <Input
             type="date"
             value={toDate}
             onChange={(e) => setToDate(e.target.value)}
@@ -94,47 +99,49 @@ export function ReportsClientControls({
         </div>
 
         <div>
-          <label className="text-[11px] font-bold text-slate-700 block mb-1">
+          <Label className="text-[11px] font-bold text-slate-700 block mb-1">
             Doctor
-          </label>
-          <select
-            value={selectedDoctor}
-            onChange={(e) => setSelectedDoctor(e.target.value)}
-            className="w-full p-2 border border-slate-200 rounded-lg text-xs bg-white text-slate-800"
-          >
-            <option value="ALL">All Doctors (Hospital-Wide)</option>
-            {doctors.map((doc) => (
-              <option key={doc.id} value={doc.id}>
-                {doc.name} ({doc.specialization})
-              </option>
-            ))}
-          </select>
+          </Label>
+          <Select value={String(selectedDoctor)} onValueChange={(v) => setSelectedDoctor(v)}>
+            <SelectTrigger className="h-9 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Doctors (Hospital-Wide)</SelectItem>
+              {doctors.map((doc) => (
+              <SelectItem key={doc.id} value={doc.id}>
+              {doc.name} ({doc.specialization})
+              </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
-          <label className="text-[11px] font-bold text-slate-700 block mb-1">
+          <Label className="text-[11px] font-bold text-slate-700 block mb-1">
             Status
-          </label>
-          <select
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-            className="w-full p-2 border border-slate-200 rounded-lg text-xs bg-white text-slate-800"
-          >
-            <option value="ALL">All Statuses</option>
-            <option value="COMPLETED">Completed Visits</option>
-            <option value="BOOKED">Booked / Queue</option>
-            <option value="CANCELLED">Cancelled</option>
-          </select>
+          </Label>
+          <Select value={String(selectedStatus)} onValueChange={(v) => setSelectedStatus(v)}>
+            <SelectTrigger className="h-9 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Statuses</SelectItem>
+              <SelectItem value="COMPLETED">Completed Visits</SelectItem>
+              <SelectItem value="BOOKED">Booked / Queue</SelectItem>
+              <SelectItem value="CANCELLED">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
-        <button
+        <Button variant="default"
           type="button"
           onClick={handleGenerate}
-          className="btn primary text-xs justify-center h-[34px] col-span-2 sm:col-span-1"
+          className="text-xs justify-center h-[34px] col-span-2 sm:col-span-1"
         >
           Generate Report
-        </button>
-      </div>
+        </Button>
+      </Card>
 
       {message && (
         <div className="p-2.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-800 text-xs">
