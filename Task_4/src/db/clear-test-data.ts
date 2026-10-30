@@ -13,13 +13,14 @@ async function main() {
 
   const pool = new Pool({ connectionString });
   try {
-    console.log("🧹 Clearing test payments, refunds, notifications, and appointments from database...");
+    console.log("🧹 Clearing test payments, refunds, notifications, appointments, and login attempts from database...");
     await pool.query(`DELETE FROM refunds;`);
     await pool.query(`DELETE FROM payments;`);
     await pool.query(`DELETE FROM payment_events;`);
     await pool.query(`DELETE FROM notifications;`);
     await pool.query(`DELETE FROM appointments;`);
-    console.log("✅ All test transactions, payments, holds, and appointments cleared cleanly!");
+    await pool.query(`DELETE FROM login_attempts;`);
+    console.log("✅ All test transactions, payments, holds, appointments, and login attempts cleared cleanly!");
   } finally {
     await pool.end();
   }
