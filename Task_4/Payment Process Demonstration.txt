@@ -1,0 +1,90 @@
+Here is the complete, step-by-step booking and payment walkthrough with all verified test credentials that bypass card restrictions.
+
+---
+
+### Step 1: Log In as a Patient
+
+1. Open **`http://localhost:3000/login`** in your browser.
+2. Sign in with standard test patient credentials (or your registered account):
+   - **Email**: `patient1@medrella.test`
+   - **Password**: `Password123!`
+
+---
+
+### Step 2: Select Doctor & Slot
+
+1. Go to **`http://localhost:3000/doctors`**.
+2. Click on any doctor (e.g. **Dr. Rajesh Sharma** — consultation fee: ₹800).
+3. Select an available date and click an open time slot.
+4. Click the blue button: **"Confirm Booking & Pay ₹800"**.
+   - Medrella creates a **10-minute temporary seat hold** and initializes an official Razorpay order.
+
+---
+
+### Step 3: Launch Razorpay Checkout
+
+In the popup modal that appears on your screen:
+- Click **"Open Official Razorpay Checkout Popup"**.
+
+---
+
+### Step 4: Contact Details Screen
+
+When Razorpay's popup asks for contact details:
+- **Country**: Ensure the flag on the left is **India 🇮🇳 (+91)**.
+- **Phone Number**: Enter:
+  ```text
+  9822012345
+  ```
+  *(or `9123456789` / your personal 10-digit mobile number)*
+- **Email**: Enter:
+  ```text
+  patient@medrella.test
+  ```
+- Click **Proceed**.
+
+---
+
+### Step 5: Choose Payment Method & Enter Test Credentials
+
+Choose **Option A** (Domestic Card) or **Option B** (UPI):
+
+#### Option A: Domestic Card *(Avoids international card errors)*
+- Click **Card**.
+- Enter:
+  | Field | Value |
+  | :--- | :--- |
+  | **Card Number** | `4718 6091 0820 4366` *(Visa Domestic)* <br> *or* `5267 3181 8797 5449` *(Mastercard Domestic)* |
+  | **Expiry Date** | `12/28` *(any future MM/YY)* |
+  | **CVV** | `123` |
+  | **Card Holder** | `Patient` |
+- Click **Pay ₹800**.
+- On the bank authorization screen:
+  - Enter OTP: **`1234`** *(or click the green **Success** button)*.
+
+#### Option B: Test UPI *(Fastest method)*
+- Click **UPI / QR**.
+- In the UPI ID / VPA field, enter:
+  ```text
+  success@razorpay
+  ```
+- Click **Pay Now** (it completes instantly).
+
+---
+
+### Step 6: Confirmation & Receipt
+
+1. Razorpay completes the transaction and returns the cryptographic signature.
+2. Medrella verifies the signature on the server, commits the transaction, and locks your appointment with status **`BOOKED`**.
+3. You will be directed to your dashboard where you can click **"Print Receipt"** or go to `http://localhost:3000/patient/payments` to see your printable invoice.
+
+---
+
+### Step 7: View on Razorpay Dashboard
+
+1. Open **[https://dashboard.razorpay.com](https://dashboard.razorpay.com)**.
+2. Make sure the toggle in the top bar is set to **Test Mode**.
+3. Click **Transactions > Payments**:
+   - You will see your payment for **₹800.00** marked as **Captured** with the customer details and matching Medrella Order ID.
+4. Click **Transactions > Orders**:
+   - You will see the corresponding order marked as **Paid**.
