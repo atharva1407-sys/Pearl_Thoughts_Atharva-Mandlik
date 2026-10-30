@@ -27,6 +27,8 @@ async function main() {
     .filter((s) => s.length > 0);
 
   console.log(`🚀 Connecting to Neon PostgreSQL and applying migration 0003 (${statements.length} statements)...`);
+  const host = new URL(connectionString).hostname;
+  console.log(`   Target database host: ${host.split(".")[0]} (check this is the database you intend to change)`);
   const pool = new Pool({ connectionString });
 
   try {
@@ -37,7 +39,7 @@ async function main() {
         console.log(`  ✅ [${i + 1}/${statements.length}] Executed statement`);
       } catch (err: any) {
         // If column/table already exists, log and continue safely
-        if (err.code === "42701" || err.code === "42P07") {
+        if (err.code === "42701" || err.code === "42P07" || err.code === "42710") {
           console.log(`  ℹ️ [${i + 1}/${statements.length}] Already applied (skipping): ${err.message}`);
         } else {
           throw err;
