@@ -7,6 +7,8 @@ import { formatPaise } from "@/lib/payments";
 import { refundLabel, refundBadgeClass } from "@/lib/payments/labels";
 import { CreditCard, FileText, ArrowLeft, ShieldCheck, CheckCircle2, Clock3, AlertCircle } from "lucide-react";
 
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card } from "@/components/ui/card";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -67,7 +69,7 @@ export default async function PatientPaymentsPage() {
       </div>
 
       {/* Payments Table */}
-      <div className="card space-y-4">
+      <Card className="space-y-4">
         <div className="card-head">
           <div>
             <h2>Transaction Records</h2>
@@ -81,63 +83,63 @@ export default async function PatientPaymentsPage() {
           </div>
         ) : (
           <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Receipt #</th>
-                  <th>Date Paid</th>
-                  <th>Consulting Specialist</th>
-                  <th>Visit Date</th>
-                  <th>Amount</th>
-                  <th>Provider</th>
-                  <th>Status</th>
-                  <th>Invoice / Receipt</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Receipt #</TableHead>
+                  <TableHead>Date Paid</TableHead>
+                  <TableHead>Consulting Specialist</TableHead>
+                  <TableHead>Visit Date</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Provider</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Invoice / Receipt</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {payments.map((p) => {
                   const isPaid = p.status === "PAID";
                   const isRefunded = p.status === "REFUNDED" || p.status === "PARTIALLY_REFUNDED";
                   const isFailed = p.status === "FAILED";
 
                   return (
-                    <tr key={p.id}>
-                      <td>
+                    <TableRow key={p.id}>
+                      <TableCell>
                         <span className="font-mono text-xs font-bold text-slate-800">
                           {p.receiptNo}
                         </span>
-                      </td>
-                      <td>
+                      </TableCell>
+                      <TableCell>
                         <span className="text-xs text-slate-700 block">
                           {formatDate(p.createdAt.toISOString().split("T")[0])}
                         </span>
                         <small className="text-[10px] text-slate-400 font-mono">
                           {p.createdAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         </small>
-                      </td>
-                      <td>
+                      </TableCell>
+                      <TableCell>
                         <b>Dr. {p.doctor.firstName} {p.doctor.lastName}</b>
                         <small className="block text-blue-600">{p.doctor.specialization}</small>
-                      </td>
-                      <td>
+                      </TableCell>
+                      <TableCell>
                         <span className="text-xs font-semibold text-slate-800">
                           {formatDate(p.appointment.appointmentDate)}
                         </span>
                         <small className="block font-mono text-slate-500">
                           {p.appointment.startTime} – {p.appointment.endTime} (Token #{p.appointment.tokenNumber})
                         </small>
-                      </td>
-                      <td>
+                      </TableCell>
+                      <TableCell>
                         <span className="font-bold text-slate-900 text-xs">
                           {formatPaise(p.amountPaise)}
                         </span>
-                      </td>
-                      <td>
+                      </TableCell>
+                      <TableCell>
                         <span className="font-mono text-[11px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded">
                           {p.provider}
                         </span>
-                      </td>
-                      <td>
+                      </TableCell>
+                      <TableCell>
                         <span
                           className={`badge ${
                             isPaid
@@ -157,8 +159,8 @@ export default async function PatientPaymentsPage() {
                             <span className="font-mono text-[11px] text-slate-600">{formatPaise(r.amountPaise)}</span>
                           </small>
                         ))}
-                      </td>
-                      <td>
+                      </TableCell>
+                      <TableCell>
                         <Link
                           href={`/patient/payments/${p.id}/receipt`}
                           className="btn text-xs py-1 px-2.5 inline-flex items-center gap-1.5"
@@ -166,15 +168,15 @@ export default async function PatientPaymentsPage() {
                           <FileText size={13} />
                           <span>View Receipt</span>
                         </Link>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

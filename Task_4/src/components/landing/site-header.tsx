@@ -6,6 +6,7 @@ import { Menu, Phone, X } from "lucide-react";
 import { Logo } from "./logo";
 import { HOSPITAL_PHONE_DISPLAY, HOSPITAL_PHONE_TEL } from "./contact";
 
+import { Button } from "@/components/ui/button";
 const navLinks = [
   { id: "home", label: "Home" },
   { id: "departments", label: "Departments" },
@@ -132,7 +133,7 @@ export default function SiteHeader({ dashboardHref, bookHref }: SiteHeaderProps)
           <Link href={bookHref} className="rounded-lg bg-[#1769e8] px-3.5 py-2 text-[13px] font-semibold text-white">
             Book
           </Link>
-          <button
+          <Button variant="bare"
             type="button"
             onClick={() => setMenuOpen((open) => !open)}
             aria-expanded={menuOpen}
@@ -141,7 +142,7 @@ export default function SiteHeader({ dashboardHref, bookHref }: SiteHeaderProps)
             className="rounded-lg p-2 text-[#14243d] hover:bg-[#f2f6fd]"
           >
             {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+          </Button>
         </div>
       </div>
 

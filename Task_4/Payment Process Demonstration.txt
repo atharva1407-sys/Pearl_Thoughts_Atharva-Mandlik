@@ -88,3 +88,25 @@ Choose **Option A** (Domestic Card) or **Option B** (UPI):
    - You will see your payment for **₹800.00** marked as **Captured** with the customer details and matching Medrella Order ID.
 4. Click **Transactions > Orders**:
    - You will see the corresponding order marked as **Paid**.
+
+
+Method 1: Domestic Test Cards (No International Restrictions)
+
+In the card screen, enter an official Razorpay Indian domestic test card:
+
+Visa Domestic Card:
+4718 6091 0820 4366
+Mastercard Domestic Card:
+5267 3181 8797 5449
+Expiry: Any future date (e.g., 12/28)
+CVV: 123
+OTP: 1234 (or click Success on the mock bank screen)
+Method 2: Test UPI (Fastest & Guaranteed)
+In the Razorpay popup, select UPI.
+For the UPI ID / VPA, enter:
+success@razorpay
+Click Pay. It will immediately succeed without any card checks!
+Method 3: Test Netbanking
+In the Razorpay popup, select Netbanking.
+Click any bank (e.g., HDFC Bank or State Bank of India).
+Click Pay. On the mock banking page, click the green Success button.

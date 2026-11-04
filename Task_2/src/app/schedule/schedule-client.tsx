@@ -8,6 +8,8 @@ import {
   Plus
 } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 export function ScheduleClient() {
   const today = new Date();
   const currentDay = today.getDay(); // 0 is Sun, 1 is Mon
@@ -56,16 +58,16 @@ export function ScheduleClient() {
       </div>
 
       {/* Schedule Toolbar */}
-      <div className="card schedule-toolbar flex flex-col sm:flex-row items-center justify-between gap-4">
+      <Card className="schedule-toolbar flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-2">
-          <button className="btn p-2" title="Previous Week">
+          <Button variant="outline" className="p-2" title="Previous Week">
             <ChevronLeft size={16} />
-          </button>
-          <button className="btn p-2" title="Next Week">
+          </Button>
+          <Button variant="outline" className="p-2" title="Next Week">
             <ChevronRight size={16} />
-          </button>
+          </Button>
           <b className="font-mono text-sm px-2">{weekLabel}</b>
-          <button className="btn text-xs font-bold">Today</button>
+          <Button variant="outline" className="text-xs font-bold">Today</Button>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -82,10 +84,10 @@ export function ScheduleClient() {
             Filter by Doctor →
           </Link>
         </div>
-      </div>
+      </Card>
 
       {/* Calendar Card */}
-      <div className="card calendar-card">
+      <Card className="calendar-card">
         <div className="calendar-grid">
           <div className="calendar-head time-col">Time</div>
           {days.map((d) => (
@@ -124,7 +126,7 @@ export function ScheduleClient() {
             <i className="dot gray-dot" /> Open Slot
           </span>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

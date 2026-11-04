@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
+@import "tw-animate-css";
 
 @font-face {
   font-family: 'Helvetica Neue LT Pro';
@@ -44,11 +45,37 @@
   --card: #ffffff;
   --card-foreground: #14243d;
   --border: #e5ebf3;
+  --primary: var(--blue);
+  --primary-dark: var(--blue-dark);
+  --primary-foreground: #ffffff;
+  --secondary: #f0f2f6;
+  --secondary-foreground: #455671;
+  --destructive: var(--red);
+  --muted-foreground: var(--muted);
+  --input: #dce5f0;
+  --ring: #6aa5ff;
   --font-sans: 'Helvetica Neue LT Pro', 'Helvetica Neue', Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 /* Element defaults live in the base layer so Tailwind utilities (e.g. text colours on links) can override them. */
 @layer base {
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-dark);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-destructive: var(--destructive);
+  --color-muted-foreground: var(--muted-foreground);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -1967,9 +1994,18 @@ td small {
   outline: none;
   border: 0;
   background: transparent;
+  height: auto;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
   color: #152947;
   font: inherit;
   font-size: 14px;
+}
+
+.input-wrap input:focus-visible {
+  box-shadow: none;
+  border: 0;
 }
 
 .input-wrap input::placeholder {
