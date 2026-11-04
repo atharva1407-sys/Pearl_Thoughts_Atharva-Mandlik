@@ -5,6 +5,13 @@ import { updateAvailabilityAction } from "@/actions/availability";
 import { dbRepo } from "@/db/repo";
 import { ArrowLeft, Clock3, Save, CalendarDays, Check } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -49,13 +56,13 @@ export default async function DoctorAvailabilityPage() {
         </div>
       </div>
 
-      <div className="card space-y-4">
+      <Card className="space-y-4">
         <div className="card-head">
           <div>
             <h2>7-Day Weekly Shift Roster</h2>
             <p>Patients will only see booking slots for days marked as Active.</p>
           </div>
-          <span className="badge blue">Auto-Calculated Slots</span>
+          <Badge variant="blue">Auto-Calculated Slots</Badge>
         </div>
 
         <div className="divide-y divide-slate-100">
@@ -93,7 +100,7 @@ export default async function DoctorAvailabilityPage() {
                 <div className="flex flex-wrap items-center gap-3 text-xs">
                   <div className="flex items-center gap-1.5">
                     <span className="text-slate-500 font-medium">Start:</span>
-                    <input
+                    <Input
                       type="time"
                       name="startTime"
                       defaultValue={shift.startTime}
@@ -103,7 +110,7 @@ export default async function DoctorAvailabilityPage() {
 
                   <div className="flex items-center gap-1.5">
                     <span className="text-slate-500 font-medium">End:</span>
-                    <input
+                    <Input
                       type="time"
                       name="endTime"
                       defaultValue={shift.endTime}
@@ -113,43 +120,38 @@ export default async function DoctorAvailabilityPage() {
 
                   <div className="flex items-center gap-1.5">
                     <span className="text-slate-500 font-medium">Duration:</span>
-                    <select
-                      name="slotDurationMinutes"
-                      defaultValue={shift.slotDurationMinutes}
-                      className="px-2 py-1 rounded-md border border-slate-200 text-slate-800 text-xs bg-white focus:outline-none"
-                    >
-                      <option value="15">15 min</option>
-                      <option value="20">20 min</option>
-                      <option value="30">30 min</option>
-                      <option value="45">45 min</option>
-                      <option value="60">60 min</option>
-                    </select>
+                    <Select name="slotDurationMinutes" defaultValue={String(shift.slotDurationMinutes)}>
+                      <SelectTrigger className="h-8 w-24 px-2 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[15, 20, 30, 45, 60].map((m) => (
+                          <SelectItem key={m} value={String(m)}>
+                            {m} min
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
-                  <label className="flex items-center gap-2 cursor-pointer ml-2">
-                    <input
-                      type="checkbox"
-                      name="isActive"
-                      value="true"
-                      defaultChecked={shift.isActive}
-                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
-                    />
+                  <Label className="flex items-center gap-2 cursor-pointer ml-2">
+                    <Checkbox name="isActive" value="true" defaultChecked={shift.isActive} />
                     <span className="text-xs font-semibold text-slate-700">Open for Bookings</span>
-                  </label>
+                  </Label>
                 </div>
 
-                <button
+                <Button variant="default"
                   type="submit"
-                  className="btn primary text-xs py-1 px-3 self-end md:self-auto"
+                  className="text-xs py-1 px-3 self-end md:self-auto"
                 >
                   <Save size={13} />
                   <span>Update Shift</span>
-                </button>
+                </Button>
               </form>
             );
           })}
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

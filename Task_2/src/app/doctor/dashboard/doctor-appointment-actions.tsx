@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, X, Loader2 } from "lucide-react";
 import { completeAppointmentAction, cancelAppointmentAction } from "@/actions/appointments";
 
+import { Button } from "@/components/ui/button";
 interface DoctorAppointmentActionsProps {
   appointmentId: string;
   patientName: string;
@@ -56,11 +57,11 @@ export function DoctorAppointmentActions({
   return (
     <div className="flex flex-col items-end gap-1">
       <div className="flex items-center gap-2">
-        <button
+        <Button variant="default"
           type="button"
           onClick={handleComplete}
           disabled={isPending}
-          className="btn primary text-xs py-1 px-2.5 inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
+          className="text-xs py-1 px-2.5 inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
           title="Mark Consultation Complete"
         >
           {isPending && actionType === "complete" ? (
@@ -69,13 +70,13 @@ export function DoctorAppointmentActions({
             <Check size={13} />
           )}
           <span>{isPending && actionType === "complete" ? "Completing..." : "Done"}</span>
-        </button>
+        </Button>
 
-        <button
+        <Button variant="outline"
           type="button"
           onClick={handleCancel}
           disabled={isPending}
-          className="btn text-xs py-1 px-2 text-red-600 hover:bg-red-50 inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
+          className="text-xs py-1 px-2 text-red-600 hover:bg-red-50 inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
           title="Cancel Appointment"
         >
           {isPending && actionType === "cancel" ? (
@@ -84,7 +85,7 @@ export function DoctorAppointmentActions({
             <X size={13} />
           )}
           <span>Cancel</span>
-        </button>
+        </Button>
       </div>
 
       {errorMessage && (

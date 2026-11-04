@@ -6,6 +6,7 @@ import { CalendarClock, X, Loader2 } from "lucide-react";
 import { cancelAppointmentAction } from "@/actions/appointments";
 import { RescheduleModal } from "@/components/reschedule-modal";
 
+import { Button } from "@/components/ui/button";
 interface PatientAppointmentActionsProps {
   appointmentId: string;
   doctorId: string;
@@ -46,7 +47,7 @@ export function PatientAppointmentActions({
     <>
       <div className="flex flex-col items-end gap-1">
         <div className="flex items-center gap-1.5">
-          <button
+          <Button variant="bare"
             type="button"
             onClick={() => setIsRescheduleOpen(true)}
             disabled={isPending}
@@ -55,9 +56,9 @@ export function PatientAppointmentActions({
           >
             <CalendarClock size={12} />
             <span>Reschedule</span>
-          </button>
+          </Button>
 
-          <button
+          <Button variant="bare"
             type="button"
             onClick={handleCancel}
             disabled={isPending}
@@ -66,7 +67,7 @@ export function PatientAppointmentActions({
           >
             {isPending ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
             <span>Cancel</span>
-          </button>
+          </Button>
         </div>
 
         {errorMessage && (

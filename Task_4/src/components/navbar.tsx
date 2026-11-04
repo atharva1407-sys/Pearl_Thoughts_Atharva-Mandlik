@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCurrentUser, logoutAction } from "@/actions/auth";
 import { Building2, ArrowUpRight } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 export async function Navbar() {
   const user = await getCurrentUser();
 
@@ -64,12 +65,12 @@ export async function Navbar() {
               <span className="text-xs text-zinc-500 font-mono uppercase">({user.role})</span>
             </Link>
             <form action={logoutAction}>
-              <button
+              <Button variant="bare"
                 type="submit"
                 className="text-xs px-2.5 py-1.5 rounded-md text-zinc-500 hover:text-rose-400 transition-colors cursor-pointer"
               >
                 Sign out
-              </button>
+              </Button>
             </form>
           </div>
         ) : (

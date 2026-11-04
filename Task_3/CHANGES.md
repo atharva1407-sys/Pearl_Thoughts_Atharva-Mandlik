@@ -85,3 +85,7 @@ Compared with [`Task_2`](../Task_2). Every other file in this folder is unchange
 | `266315b` | Reschedule validation, unique tokens, per-day booking lock, session ownership |
 | `700a025` | Founding doctors listed in the landing design order |
 | `be90f7e` | Smooth page transitions |
+
+## UI components (shadcn/ui)
+
+Interactive UI now uses shadcn/ui components instead of plain HTML elements: `Button`, `Input`, `Textarea`, `Label`, `Select`, `Checkbox`, `Switch`, `Tabs`, `Card`, `Badge`, `Table` and `Dialog` (modals). They live in `src/components/ui/` (configured by `components.json`) and are built on Radix UI, `class-variance-authority` and the existing `cn()` helper. Theme tokens map to the existing design colours in `globals.css`, so the look is unchanged. Add more components with `npx shadcn@latest add <name>`.

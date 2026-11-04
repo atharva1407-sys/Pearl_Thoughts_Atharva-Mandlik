@@ -16,6 +16,8 @@ import {
   Plus
 } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 export default async function QueuePage() {
   const user = await getCurrentUser();
   if (!user || user.role !== "DOCTOR") {
@@ -44,14 +46,14 @@ export default async function QueuePage() {
           <h2>Queue at Ruby Hall, Pune</h2>
           <p>Live token session, sorted by appointment time and arrival priority</p>
         </div>
-        <span className="badge green">
+        <Badge variant="green">
           <span className="live-dot" /> {queueAppointments.length} waiting · Live
-        </span>
+        </Badge>
       </div>
 
       <div className="queue-layout">
         {/* Left Side: Active Queue List */}
-        <div className="card">
+        <Card>
           <div className="card-head">
             <h2>Patients in queue</h2>
             <Link href="/doctors" className="btn text-xs">
@@ -92,8 +94,8 @@ export default async function QueuePage() {
                       <span>{apt.reason}</span>
 
                       <div className="chips">
-                        <span className="badge sky">Scheduled</span>
-                        <span className="badge gray">Date: {apt.appointmentDate}</span>
+                        <Badge variant="sky">Scheduled</Badge>
+                        <Badge variant="gray">Date: {apt.appointmentDate}</Badge>
                       </div>
                     </div>
 
@@ -112,10 +114,10 @@ export default async function QueuePage() {
               })}
             </div>
           )}
-        </div>
+        </Card>
 
         {/* Right Side: Next Patient Priority Card */}
-        <div className="card next-patient space-y-4">
+        <Card className="next-patient space-y-4">
           <div className="card-head">
             <div>
               <p className="text-xs text-slate-400">Next patient in line</p>
@@ -126,9 +128,9 @@ export default async function QueuePage() {
               </h2>
             </div>
             {nextPatient ? (
-              <span className="badge blue">Next</span>
+              <Badge variant="blue">Next</Badge>
             ) : (
-              <span className="badge green">All Done</span>
+              <Badge variant="green">All Done</Badge>
             )}
           </div>
 
@@ -173,7 +175,7 @@ export default async function QueuePage() {
               </Link>
             </div>
           )}
-        </div>
+        </Card>
       </div>
     </div>
   );
