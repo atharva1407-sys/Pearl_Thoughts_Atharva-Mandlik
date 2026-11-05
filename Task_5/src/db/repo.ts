@@ -7,6 +7,7 @@ import { RUBY_HALL_SPECIALISTS, specialistSessionId, getSeedDoctorPassword } fro
 import { seedSpecialists } from "./seed-specialists";
 import { appointmentOccupiesSeat, occupiesSeatSql } from "../lib/seat-occupancy";
 
+import { buildInstantFromKolkataTime, istDateString, istMinutesOfDay } from "../lib/time";
 export interface UserEntity {
   id: string;
   email: string;
@@ -207,7 +208,7 @@ const DAY_CODES: Array<AvailabilityEntity["dayOfWeek"]> = ["SUN", "MON", "TUE", 
 
 /** YYYY-MM-DD in local time (never UTC, so early-morning IST dates don't shift a day). */
 export function toLocalDateString(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return istDateString(d);
 }
 
 export function dayOfWeekFor(dateString: string): AvailabilityEntity["dayOfWeek"] {
@@ -227,7 +228,7 @@ export function buildSessionSlotGroups(
   const targetDay = dayOfWeekFor(dateString);
   const activeSessions = sessions.filter((s) => s.dayOfWeek === targetDay && s.isActive);
   const isToday = dateString === toLocalDateString(now);
-  const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
+  const currentTotalMinutes = istMinutesOfDay(now);
 
   const groups: SessionSlotGroup[] = [];
 
@@ -1329,7 +1330,7 @@ export class MedrellaRepository {
           }
 
           // 1-hour cancellation/reschedule policy enforcement
-          const apptDateTime = new Date(`${appt.appointmentDate}T${appt.startTime}:00`);
+          const apptDateTime = buildInstantFromKolkataTime(appt.appointmentDate, appt.startTime);
           const diffMs = apptDateTime.getTime() - Date.now();
           if (diffMs < 60 * 60 * 1000) {
             return {
@@ -1429,7 +1430,7 @@ export class MedrellaRepository {
     if (data.actorRole === "PATIENT") {
       const p = this.memPatients.find((pt) => pt.userId === data.actorUserId);
       if (!p || p.id !== appt.patientId) return { success: false, message: "Unauthorized." };
-      const apptDateTime = new Date(`${appt.appointmentDate}T${appt.startTime}:00`);
+      const apptDateTime = buildInstantFromKolkataTime(appt.appointmentDate, appt.startTime);
       if (apptDateTime.getTime() - Date.now() < 60 * 60 * 1000) {
         return { success: false, message: "Appointments can only be rescheduled at least 1 hour in advance." };
       }

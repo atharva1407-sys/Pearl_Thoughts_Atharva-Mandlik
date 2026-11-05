@@ -11,6 +11,8 @@
  * - Refund amount is capped at (amountPaidPaise - alreadyRefundedPaise).
  */
 
+import { buildInstantFromKolkataTime } from "./time";
+
 export interface ComputeRefundInput {
   appointmentDate: string; // YYYY-MM-DD
   startTime: string; // HH:mm
@@ -62,7 +64,7 @@ export function computeRefund(input: ComputeRefundInput): ComputeRefundResult {
 
   // Calculate hours until appointment start
   // Appointment date and start time in local hospital time
-  const appointmentStart = new Date(`${appointmentDate}T${startTime}:00`);
+  const appointmentStart = buildInstantFromKolkataTime(appointmentDate, startTime);
   const diffMs = appointmentStart.getTime() - now.getTime();
   const hoursUntilStart = diffMs / (1000 * 60 * 60);
 

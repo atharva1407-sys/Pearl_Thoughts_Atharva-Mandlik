@@ -9,6 +9,17 @@ export const IST_OFFSET_HOURS = 5;
 export const IST_OFFSET_MINUTES = 30;
 export const IST_TOTAL_OFFSET_MINUTES = 330; // 5 hours * 60 + 30
 
+/** YYYY-MM-DD in Indian time for the given instant (independent of the server's timezone). */
+export function istDateString(instant: Date): string {
+  return new Date(instant.getTime() + IST_TOTAL_OFFSET_MINUTES * 60_000).toISOString().slice(0, 10);
+}
+
+/** Minutes since midnight in Indian time for the given instant (independent of the server's timezone). */
+export function istMinutesOfDay(instant: Date): number {
+  const shifted = new Date(instant.getTime() + IST_TOTAL_OFFSET_MINUTES * 60_000);
+  return shifted.getUTCHours() * 60 + shifted.getUTCMinutes();
+}
+
 /**
  * Builds a deterministic Date instant (UTC) from a calendar date (YYYY-MM-DD)
  * and clock time (HH:mm) interpreted strictly in Asia/Kolkata (+05:30).
