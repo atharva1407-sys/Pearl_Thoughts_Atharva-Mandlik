@@ -1,6 +1,7 @@
 import { MedrellaRepository, AppointmentEntity, DoctorEntity, UserEntity } from "../../db/repo";
 import { formatPaise } from "../payments";
 
+import { buildInstantFromKolkataTime } from "../time";
 /**
  * Returns reminder offsets in minutes from environment variable (default: 1440, 120 -> 24h and 2h).
  */
@@ -25,7 +26,7 @@ export async function scheduleAppointmentReminders(
   now: Date = new Date()
 ): Promise<number> {
   const offsets = getReminderOffsetsMinutes();
-  const appointmentStart = new Date(`${appointment.appointmentDate}T${appointment.startTime}:00`);
+  const appointmentStart = buildInstantFromKolkataTime(appointment.appointmentDate, appointment.startTime);
 
   let scheduledCount = 0;
   for (const offset of offsets) {
