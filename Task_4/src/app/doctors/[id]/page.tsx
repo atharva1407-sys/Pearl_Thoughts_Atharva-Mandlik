@@ -1,7 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { dbRepo } from "@/db/repo";
+import { dbRepo, toLocalDateString } from "@/db/repo";
+import { summarizeSchedule } from "@/lib/session-schedule";
 import { getCurrentUser } from "@/actions/auth";
 import { SlotPicker } from "@/components/slot-picker";
 import { ArrowLeft, Stethoscope, ShieldCheck, CheckCircle2 } from "lucide-react";
@@ -28,9 +29,8 @@ export default async function DoctorProfilePage({
   }
   const isLoggedIn = Boolean(currentUser);
   const availabilities = await dbRepo.getAvailabilitiesByDoctorId(doctor.id);
-  const weekOrder = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
-  // A doctor can run several sessions on one day, so list each day once, in week order.
-  const activeDays = weekOrder.filter((day) => availabilities.some((a) => a.isActive && a.dayOfWeek === day));
+  // Weekly days (each listed once, in week order), monthly dates and upcoming one-off dates.
+  const scheduleSummary = summarizeSchedule(availabilities, toLocalDateString(new Date()));
 
   return (
     <div className="space-y-6">
@@ -82,10 +82,10 @@ export default async function DoctorProfilePage({
                 {doctor.experienceYears} years
               </span>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-slate-500">Active Shift Days</span>
-              <Badge variant="sky">
-                {activeDays.length > 0 ? activeDays.join(", ") : "No active sessions"}
+            <div className="flex justify-between items-start gap-3">
+              <span className="text-slate-500 shrink-0">Active Shift Days</span>
+              <Badge variant="sky" className="h-auto whitespace-normal text-right leading-snug">
+                {scheduleSummary || "No active sessions"}
               </Badge>
             </div>
             <div className="flex justify-between items-center">

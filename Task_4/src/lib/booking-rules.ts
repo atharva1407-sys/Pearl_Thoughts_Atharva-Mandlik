@@ -1,6 +1,7 @@
 import { dbRepo, dayOfWeekFor, toLocalDateString, type AvailabilityEntity, type DoctorEntity } from "@/db/repo";
 
 import { buildInstantFromKolkataTime, istMinutesOfDay } from "./time";
+import { formatDateLabel, sessionAppliesOnDate } from "./session-schedule";
 export const MAX_BOOKING_DAYS_AHEAD = 30;
 export const MIN_BOOKING_NOTICE_MINUTES = 15;
 
@@ -69,12 +70,12 @@ export async function checkRequestedSlot(
     return { ok: false, error: `Dr. ${doctor.lastName} is on clinical leave on this date.` };
   }
 
-  const targetDay = dayOfWeekFor(date);
-  const daySessions = (await dbRepo.getAvailabilitiesByDoctorId(doctor.id)).filter(
-    (s) => s.dayOfWeek === targetDay && s.isActive
-  );
+  const daySessions = (await dbRepo.getAvailabilitiesByDoctorId(doctor.id)).filter((s) => sessionAppliesOnDate(s, date));
   if (daySessions.length === 0) {
-    return { ok: false, error: `Dr. ${doctor.lastName} is not scheduled for outpatient consultations on ${targetDay}.` };
+    return {
+      ok: false,
+      error: `Dr. ${doctor.lastName} is not scheduled for outpatient consultations on ${formatDateLabel(date)} (${dayOfWeekFor(date)}).`,
+    };
   }
 
   const startMinutes = toMinutes(startTime);

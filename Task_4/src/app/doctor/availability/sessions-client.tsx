@@ -23,6 +23,8 @@ import {
   X
 } from "lucide-react";
 import type { AvailabilityEntity, DoctorLeaveEntity } from "@/db/repo";
+import { describeSchedule, recurrenceOf, type DayCode, type SessionRecurrence } from "@/lib/session-schedule";
+import { istDateString } from "@/lib/time";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +41,88 @@ interface SessionsClientProps {
 }
 
 const DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"] as const;
+const SLOT_LENGTHS = [10, 15, 20, 30, 45, 60, 90, 120];
+
+function minutesBetween(start: string, end: string): number {
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  return eh * 60 + em - (sh * 60 + sm);
+}
+const RECURRENCE_OPTIONS: Array<{ value: SessionRecurrence; label: string }> = [
+  { value: "WEEKLY", label: "Every week" },
+  { value: "MONTHLY_DATE", label: "Date of month" },
+  { value: "ONE_TIME", label: "One date only" },
+];
+
+function SessionCard({
+  session,
+  today,
+  onEdit,
+  onDelete,
+}: {
+  session: AvailabilityEntity;
+  today: string;
+  onEdit: (session: AvailabilityEntity) => void;
+  onDelete: (session: AvailabilityEntity) => void;
+}) {
+  const kind = recurrenceOf(session);
+  const isPast =
+    (kind === "ONE_TIME" && Boolean(session.specificDate) && (session.specificDate as string) < today) ||
+    (kind !== "ONE_TIME" && Boolean(session.validUntil) && (session.validUntil as string) < today);
+  const muted = !session.isActive || isPast;
+  return (
+    <div
+      className={`p-3.5 rounded-xl border transition-all ${
+        muted ? "bg-slate-100/70 border-slate-200 text-slate-400 opacity-70" : "bg-white border-slate-200 shadow-2xs"
+      }`}
+    >
+      <div className="flex items-start justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-bold text-xs text-slate-900">{session.name}</span>
+            <span
+              className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                session.schedulingType === "WAVE" ? "bg-purple-100 text-purple-800" : "bg-blue-100 text-blue-800"
+              }`}
+            >
+              {session.schedulingType === "WAVE" ? "Wave" : "Stream"} · {session.patientsPerWave}/slot
+            </span>
+            {!session.isActive && (
+              <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded">Disabled</span>
+            )}
+            {isPast && <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded">Ended</span>}
+          </div>
+          <div className="text-xs text-slate-600 mt-1">{describeSchedule(session)}</div>
+          <div className="text-xs font-mono text-slate-600 mt-1 flex items-center gap-1">
+            <Clock size={12} className="text-slate-400" />
+            <span>{session.startTime} – {session.endTime}</span>
+            <span className="text-slate-400">•</span>
+            <span>{session.slotDurationMinutes}m slots</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <Button variant="bare"
+            type="button"
+            onClick={() => onEdit(session)}
+            className="p-1.5 text-slate-500 hover:text-[#0875df] hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+            title="Edit Session"
+          >
+            <Edit2 size={13} />
+          </Button>
+          <Button variant="bare"
+            type="button"
+            onClick={() => onDelete(session)}
+            className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+            title="Delete Session"
+          >
+            <Trash2 size={13} />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function SessionsClient({ initialSessions, initialLeaves, doctorId }: SessionsClientProps) {
   const router = useRouter();
@@ -49,12 +133,20 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
 
   // Form State
   const [name, setName] = useState("Morning OPD");
-  const [dayOfWeek, setDayOfWeek] = useState<"MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN">("MON");
+  const [recurrence, setRecurrence] = useState<SessionRecurrence>("WEEKLY");
+  const [dayOfWeek, setDayOfWeek] = useState<DayCode>("MON");
+  const [dayOfMonth, setDayOfMonth] = useState(1);
+  const [specificDate, setSpecificDate] = useState("");
+  const [extraDates, setExtraDates] = useState<string[]>([]);
+  const [pendingExtraDate, setPendingExtraDate] = useState("");
+  const [wholeSession, setWholeSession] = useState(false);
+  const [validFrom, setValidFrom] = useState("");
+  const [validUntil, setValidUntil] = useState("");
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("13:00");
   const [slotDurationMinutes, setSlotDurationMinutes] = useState(30);
   const [schedulingType, setSchedulingType] = useState<"STREAM" | "WAVE">("STREAM");
-  const [patientsPerWave, setPatientsPerWave] = useState(3);
+  const [patientsPerSlot, setPatientsPerSlot] = useState(1);
   const [isActive, setIsActive] = useState(true);
 
   // Leave Form State
@@ -64,15 +156,32 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const openAddModal = (presetDay?: typeof DAYS[number]) => {
+  const today = istDateString(new Date());
+  const weeklySessions = initialSessions.filter((s) => recurrenceOf(s) === "WEEKLY");
+  const monthlySessions = initialSessions
+    .filter((s) => recurrenceOf(s) === "MONTHLY_DATE")
+    .sort((a, b) => (a.dayOfMonth ?? 0) - (b.dayOfMonth ?? 0) || a.startTime.localeCompare(b.startTime));
+  const oneTimeSessions = initialSessions
+    .filter((s) => recurrenceOf(s) === "ONE_TIME")
+    .sort((a, b) => (a.specificDate ?? "").localeCompare(b.specificDate ?? "") || a.startTime.localeCompare(b.startTime));
+
+  const openAddModal = (preset?: { day?: DayCode; recurrence?: SessionRecurrence }) => {
     setEditingSession(null);
-    setName(presetDay ? "Morning OPD" : "OPD Session");
-    setDayOfWeek(presetDay || "MON");
+    setName(preset?.recurrence === "ONE_TIME" ? "Special OPD" : preset?.day ? "Morning OPD" : "OPD Session");
+    setRecurrence(preset?.recurrence ?? "WEEKLY");
+    setDayOfWeek(preset?.day || "MON");
+    setDayOfMonth(1);
+    setSpecificDate("");
+    setExtraDates([]);
+    setPendingExtraDate("");
+    setWholeSession(false);
+    setValidFrom("");
+    setValidUntil("");
     setStartTime("09:00");
     setEndTime("13:00");
     setSlotDurationMinutes(30);
     setSchedulingType("STREAM");
-    setPatientsPerWave(3);
+    setPatientsPerSlot(1);
     setIsActive(true);
     setErrorMessage(null);
     setIsModalOpen(true);
@@ -81,15 +190,30 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
   const openEditModal = (session: AvailabilityEntity) => {
     setEditingSession(session);
     setName(session.name);
-    setDayOfWeek(session.dayOfWeek);
+    setRecurrence(recurrenceOf(session));
+    setDayOfWeek(session.dayOfWeek ?? "MON");
+    setDayOfMonth(session.dayOfMonth ?? 1);
+    setSpecificDate(session.specificDate ?? "");
+    setExtraDates([]);
+    setPendingExtraDate("");
+    setWholeSession(session.slotDurationMinutes > 60 && session.slotDurationMinutes === minutesBetween(session.startTime, session.endTime));
+    setValidFrom(session.validFrom ?? "");
+    setValidUntil(session.validUntil ?? "");
     setStartTime(session.startTime);
     setEndTime(session.endTime);
     setSlotDurationMinutes(session.slotDurationMinutes);
     setSchedulingType(session.schedulingType);
-    setPatientsPerWave(session.patientsPerWave || 3);
+    setPatientsPerSlot(session.patientsPerWave || 1);
     setIsActive(session.isActive);
     setErrorMessage(null);
     setIsModalOpen(true);
+  };
+
+  // Stream defaults to one patient per slot and Wave to three, unless the doctor already typed their own number.
+  const chooseSchedulingType = (next: "STREAM" | "WAVE") => {
+    if (next === schedulingType) return;
+    if (patientsPerSlot === (schedulingType === "STREAM" ? 1 : 3)) setPatientsPerSlot(next === "STREAM" ? 1 : 3);
+    setSchedulingType(next);
   };
 
   const handleSaveSession = (e: React.FormEvent) => {
@@ -101,13 +225,28 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
     if (editingSession) {
       formData.append("sessionId", editingSession.id);
     }
+    const windowMinutes = minutesBetween(startTime, endTime);
+    if (wholeSession && (windowMinutes < 10 || windowMinutes > 600)) {
+      setErrorMessage("For one slot over the whole session, the session must be between 10 minutes and 10 hours long.");
+      return;
+    }
     formData.append("name", name);
-    formData.append("dayOfWeek", dayOfWeek);
+    formData.append("recurrence", recurrence);
+    if (recurrence === "WEEKLY") formData.append("dayOfWeek", dayOfWeek);
+    if (recurrence === "MONTHLY_DATE") formData.append("dayOfMonth", String(dayOfMonth));
+    if (recurrence === "ONE_TIME") {
+      formData.append("specificDate", specificDate);
+      if (!editingSession) extraDates.forEach((d) => formData.append("specificDate", d));
+    }
+    if (recurrence !== "ONE_TIME") {
+      formData.append("validFrom", validFrom);
+      formData.append("validUntil", validUntil);
+    }
     formData.append("startTime", startTime);
     formData.append("endTime", endTime);
-    formData.append("slotDurationMinutes", slotDurationMinutes.toString());
+    formData.append("slotDurationMinutes", String(wholeSession ? windowMinutes : slotDurationMinutes));
     formData.append("schedulingType", schedulingType);
-    formData.append("patientsPerWave", patientsPerWave.toString());
+    formData.append("patientsPerWave", patientsPerSlot.toString());
     formData.append("isActive", isActive ? "true" : "false");
 
     startTransition(async () => {
@@ -126,7 +265,7 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
   };
 
   const handleDeleteSession = (session: AvailabilityEntity) => {
-    if (!window.confirm(`Are you sure you want to delete session "${session.name}" on ${session.dayOfWeek}?`)) {
+    if (!window.confirm(`Are you sure you want to delete session "${session.name}" (${describeSchedule(session)})?`)) {
       return;
     }
     setErrorMessage(null);
@@ -204,22 +343,35 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
       <Card className="space-y-6">
         <div className="card-head">
           <div>
-            <h2>Weekly Consultation Sessions Roster</h2>
-            <p>Define multiple non-overlapping OPD sessions per day (e.g. Morning & Evening shifts) with Stream or Wave scheduling.</p>
+            <h2>OPD Sessions Roster</h2>
+            <p>
+              Create sessions that repeat every week, on a day of every month, or run on one date only. Each session is
+              Stream or Wave and has its own slot length and patients per slot.
+            </p>
           </div>
-          <Button variant="default"
-            type="button"
-            onClick={() => openAddModal()}
-            className="text-xs flex items-center gap-1.5 cursor-pointer"
-          >
-            <Plus size={15} />
-            <span>Add OPD Session</span>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline"
+              type="button"
+              onClick={() => openAddModal({ recurrence: "ONE_TIME" })}
+              className="text-xs flex items-center gap-1.5 cursor-pointer"
+            >
+              <Calendar size={14} />
+              <span>Add One-Date Session</span>
+            </Button>
+            <Button variant="default"
+              type="button"
+              onClick={() => openAddModal()}
+              className="text-xs flex items-center gap-1.5 cursor-pointer"
+            >
+              <Plus size={15} />
+              <span>Add OPD Session</span>
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-6">
           {DAYS.map((day) => {
-            const daySessions = initialSessions
+            const daySessions = weeklySessions
               .filter((s) => s.dayOfWeek === day)
               .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
@@ -230,13 +382,13 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
                     <span className="font-extrabold text-sm text-slate-900 w-12">{day}</span>
                     <span className="text-xs text-slate-500">
                       {daySessions.length === 0
-                        ? "No clinic sessions (Day off)"
-                        : `${daySessions.length} session${daySessions.length === 1 ? "" : "s"} scheduled`}
+                        ? "No weekly sessions (Day off)"
+                        : `${daySessions.length} weekly session${daySessions.length === 1 ? "" : "s"}`}
                     </span>
                   </div>
                   <Button variant="bare"
                     type="button"
-                    onClick={() => openAddModal(day)}
+                    onClick={() => openAddModal({ day })}
                     className="text-xs font-semibold text-[#0875df] hover:underline flex items-center gap-1 cursor-pointer"
                   >
                     <Plus size={13} />
@@ -246,74 +398,74 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
 
                 {daySessions.length === 0 ? (
                   <div className="py-3 text-center text-xs text-slate-400 italic">
-                    Doctor is not seeing outpatients on this day.
+                    No repeating weekly session on this day.
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {daySessions.map((session) => (
-                      <div
-                        key={session.id}
-                        className={`p-3.5 rounded-xl border transition-all ${
-                          session.isActive
-                            ? "bg-white border-slate-200 shadow-2xs"
-                            : "bg-slate-100/70 border-slate-200 text-slate-400 opacity-70"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-xs text-slate-900">{session.name}</span>
-                              <span
-                                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                                  session.schedulingType === "WAVE"
-                                    ? "bg-purple-100 text-purple-800"
-                                    : "bg-blue-100 text-blue-800"
-                                }`}
-                              >
-                                {session.schedulingType === "WAVE"
-                                  ? `Wave (${session.patientsPerWave}/wave)`
-                                  : "Stream"}
-                              </span>
-                              {!session.isActive && (
-                                <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded">
-                                  Disabled
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-xs font-mono text-slate-600 mt-1 flex items-center gap-1">
-                              <Clock size={12} className="text-slate-400" />
-                              <span>{session.startTime} – {session.endTime}</span>
-                              <span className="text-slate-400">•</span>
-                              <span>{session.slotDurationMinutes}m slots</span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-1">
-                            <Button variant="bare"
-                              type="button"
-                              onClick={() => openEditModal(session)}
-                              className="p-1.5 text-slate-500 hover:text-[#0875df] hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
-                              title="Edit Session"
-                            >
-                              <Edit2 size={13} />
-                            </Button>
-                            <Button variant="bare"
-                              type="button"
-                              onClick={() => handleDeleteSession(session)}
-                              className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                              title="Delete Session"
-                            >
-                              <Trash2 size={13} />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
+                      <SessionCard key={session.id} session={session} today={today} onEdit={openEditModal} onDelete={handleDeleteSession} />
                     ))}
                   </div>
                 )}
               </div>
             );
           })}
+
+          <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/40">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200/70 mb-3">
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-sm text-slate-900">Monthly dates</span>
+                <span className="text-xs text-slate-500">
+                  {monthlySessions.length === 0
+                    ? "None"
+                    : `${monthlySessions.length} session${monthlySessions.length === 1 ? "" : "s"}`}
+                </span>
+              </div>
+              <Button variant="bare"
+                type="button"
+                onClick={() => openAddModal({ recurrence: "MONTHLY_DATE" })}
+                className="text-xs font-semibold text-[#0875df] hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <Plus size={13} />
+                <span>Add Monthly Session</span>
+              </Button>
+            </div>
+            {monthlySessions.length === 0 ? (
+              <div className="py-3 text-center text-xs text-slate-400 italic">
+                Sessions that repeat on a date of the month, such as the 1st or the 15th.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {monthlySessions.map((session) => (
+                  <SessionCard key={session.id} session={session} today={today} onEdit={openEditModal} onDelete={handleDeleteSession} />
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/40">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200/70 mb-3">
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-sm text-slate-900">One-date sessions</span>
+                <span className="text-xs text-slate-500">
+                  {oneTimeSessions.length === 0
+                    ? "None"
+                    : `${oneTimeSessions.length} session${oneTimeSessions.length === 1 ? "" : "s"}`}
+                </span>
+              </div>
+            </div>
+            {oneTimeSessions.length === 0 ? (
+              <div className="py-3 text-center text-xs text-slate-400 italic">
+                Extra clinics for a single date, such as a Sunday camp. They never repeat.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {oneTimeSessions.map((session) => (
+                  <SessionCard key={session.id} session={session} today={today} onEdit={openEditModal} onDelete={handleDeleteSession} />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </Card>
 
@@ -422,35 +574,147 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
                 <div>
-                  <Label className="font-bold text-slate-700 block mb-1">Day of Week *</Label>
-                  <Select value={String(dayOfWeek)} onValueChange={(v) => setDayOfWeek(v as any)}>
-                    <SelectTrigger className="h-9 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DAYS.map((d) => (
-                      <SelectItem key={d} value={d}>{d}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label className="font-bold text-slate-800 block mb-1">When does it run?</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {RECURRENCE_OPTIONS.map((opt) => (
+                      <Button variant="bare"
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setRecurrence(opt.value)}
+                        className={`p-2 rounded-lg font-semibold text-center border cursor-pointer transition-all ${
+                          recurrence === opt.value
+                            ? "bg-blue-600 text-white border-blue-600 shadow-2xs"
+                            : "bg-white text-slate-700 border-slate-200"
+                        }`}
+                      >
+                        {opt.label}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
-                <div>
-                  <Label className="font-bold text-slate-700 block mb-1">Slot Length (Minutes)</Label>
-                  <Select value={String(slotDurationMinutes)} onValueChange={(v) => setSlotDurationMinutes(Number(v))}>
-                    <SelectTrigger className="h-9 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="15">15 minutes</SelectItem>
-                      <SelectItem value="20">20 minutes</SelectItem>
-                      <SelectItem value="30">30 minutes</SelectItem>
-                      <SelectItem value="45">45 minutes</SelectItem>
-                      <SelectItem value="60">60 minutes</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+
+                {recurrence === "WEEKLY" && (
+                  <div>
+                    <Label className="font-bold text-slate-700 block mb-1">Day of Week *</Label>
+                    <Select value={String(dayOfWeek)} onValueChange={(v) => setDayOfWeek(v as DayCode)}>
+                      <SelectTrigger className="h-9 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DAYS.map((d) => (
+                          <SelectItem key={d} value={d}>{d}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {recurrence === "MONTHLY_DATE" && (
+                  <div>
+                    <Label className="font-bold text-slate-700 block mb-1">Date of the Month (1-31) *</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={31}
+                      required
+                      value={dayOfMonth}
+                      onChange={(e) => setDayOfMonth(Number(e.target.value))}
+                      className="w-full p-2 border border-slate-200 rounded-lg bg-white"
+                    />
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      Runs on this date every month. Months that do not have the date (for example the 31st in June) are skipped.
+                    </p>
+                  </div>
+                )}
+
+                {recurrence === "ONE_TIME" && (
+                  <div>
+                    <Label className="font-bold text-slate-700 block mb-1">Date *</Label>
+                    <Input
+                      type="date"
+                      required
+                      min={today}
+                      value={specificDate}
+                      onChange={(e) => setSpecificDate(e.target.value)}
+                      className="w-full p-2 border border-slate-200 rounded-lg bg-white"
+                    />
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      Runs on this date only and never repeats. Patients can book up to 30 days ahead.
+                    </p>
+                    {!editingSession && (
+                      <div className="mt-3 pt-3 border-t border-slate-200 space-y-2">
+                        <Label className="font-bold text-slate-700 block">Same session on more dates (optional)</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="date"
+                            min={today}
+                            value={pendingExtraDate}
+                            onChange={(e) => setPendingExtraDate(e.target.value)}
+                            className="w-full p-2 border border-slate-200 rounded-lg bg-white"
+                          />
+                          <Button variant="outline"
+                            type="button"
+                            disabled={!pendingExtraDate || pendingExtraDate === specificDate || extraDates.includes(pendingExtraDate)}
+                            onClick={() => {
+                              setExtraDates((prev) => [...prev, pendingExtraDate].sort());
+                              setPendingExtraDate("");
+                            }}
+                            className="shrink-0 cursor-pointer"
+                          >
+                            Add date
+                          </Button>
+                        </div>
+                        {extraDates.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {extraDates.map((d) => (
+                              <span key={d} className="inline-flex items-center gap-1 bg-blue-50 text-blue-800 border border-blue-100 rounded-full px-2 py-0.5 text-[11px] font-mono">
+                                {d}
+                                <Button variant="bare"
+                                  type="button"
+                                  aria-label={`Remove ${d}`}
+                                  onClick={() => setExtraDates((prev) => prev.filter((x) => x !== d))}
+                                  className="text-blue-500 hover:text-blue-900 cursor-pointer"
+                                >
+                                  <X size={11} />
+                                </Button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <p className="text-[10px] text-slate-500">Each date becomes its own one-date session. If any date clashes, none are created.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {recurrence !== "ONE_TIME" && (
+                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200">
+                    <div>
+                      <Label className="font-bold text-slate-700 block mb-1">Runs from (optional)</Label>
+                      <Input
+                        type="date"
+                        value={validFrom}
+                        onChange={(e) => setValidFrom(e.target.value)}
+                        className="w-full p-2 border border-slate-200 rounded-lg bg-white"
+                      />
+                    </div>
+                    <div>
+                      <Label className="font-bold text-slate-700 block mb-1">Runs until (optional)</Label>
+                      <Input
+                        type="date"
+                        min={validFrom || undefined}
+                        value={validUntil}
+                        onChange={(e) => setValidUntil(e.target.value)}
+                        className="w-full p-2 border border-slate-200 rounded-lg bg-white"
+                      />
+                    </div>
+                    <p className="col-span-2 text-[10px] text-slate-500 -mt-1">
+                      Leave both empty to repeat with no end. Set them to limit it, for example 1 Dec to 31 Dec.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -476,53 +740,81 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
                 </div>
               </div>
 
+              <div>
+                <Label className="font-bold text-slate-700 block mb-1">Slot Length (Minutes)</Label>
+                <Select disabled={wholeSession} value={String(slotDurationMinutes)} onValueChange={(v) => setSlotDurationMinutes(Number(v))}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SLOT_LENGTHS.map((m) => (
+                      <SelectItem key={m} value={String(m)}>{m} minutes</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="flex items-start gap-2 mt-2">
+                  <Checkbox
+                    id="wholeSessionCheck"
+                    checked={wholeSession}
+                    onCheckedChange={(v) => setWholeSession(v === true)}
+                  />
+                  <Label htmlFor="wholeSessionCheck" className="text-slate-700 font-medium leading-snug">
+                    One slot for the whole session
+                    <span className="block text-[10px] font-normal text-slate-500">
+                      For example 10:00 to 12:00 with 20 patients per slot: patients book the session and are seen in token order.
+                    </span>
+                  </Label>
+                </div>
+              </div>
+
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
                 <div>
                   <Label className="font-bold text-slate-800 block mb-1">Scheduling Paradigm</Label>
                   <div className="grid grid-cols-2 gap-2">
                     <Button variant="bare"
                       type="button"
-                      onClick={() => setSchedulingType("STREAM")}
+                      onClick={() => chooseSchedulingType("STREAM")}
                       className={`p-2 rounded-lg font-semibold text-center border cursor-pointer transition-all ${
                         schedulingType === "STREAM"
                           ? "bg-blue-600 text-white border-blue-600 shadow-2xs"
                           : "bg-white text-slate-700 border-slate-200"
                       }`}
                     >
-                      Stream (1:1)
+                      Stream
                     </Button>
                     <Button variant="bare"
                       type="button"
-                      onClick={() => setSchedulingType("WAVE")}
+                      onClick={() => chooseSchedulingType("WAVE")}
                       className={`p-2 rounded-lg font-semibold text-center border cursor-pointer transition-all ${
                         schedulingType === "WAVE"
                           ? "bg-purple-600 text-white border-purple-600 shadow-2xs"
                           : "bg-white text-slate-700 border-slate-200"
                       }`}
                     >
-                      Wave Scheduling
+                      Wave
                     </Button>
                   </div>
                 </div>
 
-                {schedulingType === "WAVE" && (
-                  <div className="pt-2 border-t border-slate-200">
-                    <Label className="font-bold text-purple-900 block mb-1">
-                      Patients per Wave Start *
-                    </Label>
-                    <Input
-                      type="number"
-                      min={2}
-                      max={10}
-                      value={patientsPerWave}
-                      onChange={(e) => setPatientsPerWave(Number(e.target.value))}
-                      className="w-full p-2 border border-purple-200 rounded-lg bg-white"
-                    />
-                    <p className="text-[10px] text-slate-500 mt-1">
-                      Enables batch arrivals (e.g. 3 patients arrive simultaneously at slot start, seen consecutively).
-                    </p>
-                  </div>
-                )}
+                <div className="pt-2 border-t border-slate-200">
+                  <Label className={`font-bold block mb-1 ${schedulingType === "WAVE" ? "text-purple-900" : "text-blue-900"}`}>
+                    Patients per Slot (capacity) *
+                  </Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={20}
+                    required
+                    value={patientsPerSlot}
+                    onChange={(e) => setPatientsPerSlot(Number(e.target.value))}
+                    className="w-full p-2 border border-slate-200 rounded-lg bg-white"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    {schedulingType === "WAVE"
+                      ? "Wave: several patients arrive together at the start of each slot (for example 3 per slot)."
+                      : "Stream: patients are seen one after another through the session. Use 1 for strictly one patient per slot, or raise it to accept more bookings in each slot."}
+                  </p>
+                </div>
               </div>
 
               <div className="flex items-center gap-2">
