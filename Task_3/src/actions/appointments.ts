@@ -7,6 +7,7 @@ import { dbRepo } from "@/db/repo";
 import { bookingSchema } from "@/lib/validators";
 import { checkRequestedSlot, hasAppointmentStarted } from "@/lib/booking-rules";
 
+import { buildInstantFromKolkataTime } from "@/lib/time";
 export async function bookAppointmentAction(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) {
@@ -167,9 +168,7 @@ export async function cancelAppointmentAction(appointmentId: string) {
 
   // Clinical Rule: Patient cancellations permitted up to 1 hour prior to appointment start time
   if (user.role === "PATIENT") {
-    const [year, month, day] = appointment.appointmentDate.split("-").map(Number);
-    const [hours, minutes] = appointment.startTime.split(":").map(Number);
-    const appointmentDateTime = new Date(year, month - 1, day, hours, minutes);
+    const appointmentDateTime = buildInstantFromKolkataTime(appointment.appointmentDate, appointment.startTime);
     const now = new Date();
     const diffMs = appointmentDateTime.getTime() - now.getTime();
     const oneHourMs = 60 * 60 * 1000;
