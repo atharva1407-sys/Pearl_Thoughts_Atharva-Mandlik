@@ -3,6 +3,7 @@ import { NotificationChannel, NotificationItem } from "./types";
 import { EmailChannel } from "./email-channel";
 import { ConsoleChannel } from "./console-channel";
 
+import { buildInstantFromKolkataTime } from "../time";
 export class NotificationDispatcher {
   private emailChannel: NotificationChannel;
   private consoleChannel: NotificationChannel;
@@ -54,7 +55,7 @@ export class NotificationDispatcher {
         }
 
         // If appointment start time has already passed, skip the reminder
-        const startDateTime = new Date(`${appointment.appointmentDate}T${appointment.startTime}:00`);
+        const startDateTime = buildInstantFromKolkataTime(appointment.appointmentDate, appointment.startTime);
         if (startDateTime.getTime() <= now.getTime()) {
           await this.repo.updateNotificationStatus(item.id, "CANCELLED", {
             lastError: "Cancelled because appointment start time has already passed",
