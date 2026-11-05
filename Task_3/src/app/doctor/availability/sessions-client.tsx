@@ -545,7 +545,7 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
       {/* Add / Edit Session Modal */}
       {isModalOpen && (
         <Dialog open onOpenChange={(open) => { if (!open) setIsModalOpen(false); }}>
-<DialogContent showCloseButton={false} className="max-w-md gap-0 overflow-hidden rounded-2xl border-slate-200 p-0">
+<DialogContent showCloseButton={false} className="max-w-md gap-0 overflow-y-auto rounded-2xl border-slate-200 p-0">
 <DialogDescription className="sr-only">Create or edit an OPD session.</DialogDescription>
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <div className="flex items-center gap-2">
