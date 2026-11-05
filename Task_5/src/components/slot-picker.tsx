@@ -535,7 +535,8 @@ export function SlotPicker({
                       {group.sessionName}
                     </span>
                     <span className="text-[11px] text-slate-500 font-mono">
-                      {group.timeRange} · {group.schedulingType === "WAVE" ? `Wave (${group.patientsPerWave}/wave)` : "Individual Stream"}
+                      {group.timeRange} · {group.schedulingType === "WAVE" ? "Wave" : "Stream"}
+                      {group.patientsPerWave > 1 ? ` (${group.patientsPerWave} per slot)` : " (1 per slot)"}
                     </span>
                   </div>
                   <span className="text-[11px] text-slate-400">
@@ -564,7 +565,7 @@ export function SlotPicker({
                         <div className="text-[10px] mt-0.5 opacity-80">
                           {slot.isBooked
                             ? "Full"
-                            : slot.schedulingType === "WAVE"
+                            : slot.capacity > 1
                             ? `${slot.seatsLeft} seat${slot.seatsLeft === 1 ? "" : "s"}`
                             : "Open"}
                         </div>

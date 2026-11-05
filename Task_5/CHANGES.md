@@ -1,3 +1,7 @@
+> **Addendum: Wave & Stream scheduling completed.** Sessions can now repeat every week, on a date of the month (1-31), or run on **one date only**; recurring ones can have an optional "runs from / until" range; **patients per slot (1-20) is configurable for Stream as well as Wave**, a session can be **one slot for the whole window** (for example 10:00-12:00 with 20 patients), and one-date sessions can be created on several dates at once. A doctor's overlapping sessions are refused only when they share a date.
+> Code: `src/lib/session-schedule.ts` (rules), `src/db/repo.ts`, `src/lib/booking-rules.ts`, `src/app/doctor/availability/sessions-client.tsx`. Tests: `src/test-scheduling.ts` (114 checks, chained into `npm test`).
+> Database: migration `0005_scheduling_dates.sql` is additive (existing sessions default to weekly). Apply it to an existing database with `npm run db:migrate-scheduling` **before** deploying this code.
+
 # Task 5 — Reliable Email Notifications (Changes from Task 4)
 
 This document describes all changes introduced in **Task 5 (Reliable Email Notifications)** for Medrella Healthcare.
