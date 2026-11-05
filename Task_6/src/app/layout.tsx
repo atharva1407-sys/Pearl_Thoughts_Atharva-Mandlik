@@ -16,10 +16,7 @@ export const metadata: Metadata = {
     template: "%s | Medrella Healthcare",
   },
   description: "Next.js outpatient hospital appointment scheduling application for Pearl Thoughts Task 2",
-  icons: {
-    icon: "/favicon.ico",
-    apple: "/images/medrella-logo.png",
-  },
+  // Tab and home-screen icons come from src/app/favicon.ico, icon.png and apple-icon.png (all made from the m+ logo).
 };
 
 export default async function RootLayout({
