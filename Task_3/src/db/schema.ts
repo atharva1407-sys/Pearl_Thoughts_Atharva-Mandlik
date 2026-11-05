@@ -41,13 +41,22 @@ export const availabilities = pgTable(
     id: text("id").primaryKey(),
     doctorId: text("doctor_id").notNull().references(() => doctors.id, { onDelete: "cascade" }),
     name: text("name").notNull().default("OPD Session"),
-    dayOfWeek: text("day_of_week").notNull().$type<"MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN">(),
+    // Null only for a MONTHLY_DATE session, which repeats on a day of the month instead of a weekday.
+    dayOfWeek: text("day_of_week").$type<"MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN">(),
     startTime: text("start_time").notNull(),
     endTime: text("end_time").notNull(),
     slotDurationMinutes: integer("slot_duration_minutes").default(30).notNull(),
     isActive: boolean("is_active").default(true).notNull(),
     schedulingType: text("scheduling_type").notNull().$type<"STREAM" | "WAVE">().default("STREAM"),
+    // Patients per slot. Used by both Stream and Wave sessions (Stream used to be fixed at 1).
     patientsPerWave: integer("patients_per_wave").notNull().default(1),
+    // How the session repeats: every week, on a day of every month, or once on a single date.
+    recurrence: text("recurrence").notNull().$type<"WEEKLY" | "MONTHLY_DATE" | "ONE_TIME">().default("WEEKLY"),
+    dayOfMonth: integer("day_of_month"),
+    specificDate: text("specific_date"),
+    // Optional date range (YYYY-MM-DD, inclusive) that limits a recurring session.
+    validFrom: text("valid_from"),
+    validUntil: text("valid_until"),
   },
   (table) => [
     index("availability_doctor_idx").on(table.doctorId),

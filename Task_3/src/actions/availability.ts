@@ -5,6 +5,26 @@ import { getCurrentUser } from "./auth";
 import { dbRepo } from "@/db/repo";
 import { sessionSchema } from "@/lib/validators";
 
+/** Reads the OPD session form: timing, scheduling type, per-slot capacity and when the session runs. */
+function readSessionForm(formData: FormData) {
+  const rawIsActive = formData.get("isActive");
+  return {
+    name: formData.get("name") || "OPD Session",
+    recurrence: formData.get("recurrence"),
+    dayOfWeek: formData.get("dayOfWeek"),
+    dayOfMonth: formData.get("dayOfMonth"),
+    specificDate: formData.get("specificDate"),
+    validFrom: formData.get("validFrom"),
+    validUntil: formData.get("validUntil"),
+    startTime: formData.get("startTime"),
+    endTime: formData.get("endTime"),
+    slotDurationMinutes: formData.get("slotDurationMinutes") || 30,
+    isActive: rawIsActive === "true" || rawIsActive === "on" || rawIsActive === "1",
+    schedulingType: formData.get("schedulingType") || "STREAM",
+    patientsPerWave: formData.get("patientsPerWave") || 1,
+  };
+}
+
 export async function getDoctorSessionsAction(doctorId: string, date: string) {
   try {
     const data = await dbRepo.computeSessionGroups(doctorId, date);
@@ -40,19 +60,10 @@ export async function createSessionAction(formData: FormData) {
     return { success: false, error: "Unauthorized: Only doctors can create sessions." };
   }
 
-  const rawIsActive = formData.get("isActive");
-  const isActive = rawIsActive === "true" || rawIsActive === "on" || rawIsActive === "1";
-
-  const raw = {
-    name: formData.get("name") || "OPD Session",
-    dayOfWeek: formData.get("dayOfWeek"),
-    startTime: formData.get("startTime"),
-    endTime: formData.get("endTime"),
-    slotDurationMinutes: formData.get("slotDurationMinutes") || 30,
-    isActive,
-    schedulingType: formData.get("schedulingType") || "STREAM",
-    patientsPerWave: formData.get("patientsPerWave") || 1,
-  };
+  const raw = readSessionForm(formData);
+  // A one-date session may be created on several dates at once (repeated specificDate fields).
+  const allDates = formData.getAll("specificDate").map(String).filter(Boolean);
+  if (allDates.length > 0) raw.specificDate = allDates[0];
 
   const parsed = sessionSchema.safeParse(raw);
   if (!parsed.success) {
@@ -60,10 +71,35 @@ export async function createSessionAction(formData: FormData) {
   }
 
   try {
+    if (parsed.data.recurrence === "ONE_TIME" && allDates.length > 1) {
+      const sessions = await dbRepo.createSessionsForDates(
+        {
+          doctorId: user.profileId,
+          name: parsed.data.name,
+          startTime: parsed.data.startTime,
+          endTime: parsed.data.endTime,
+          slotDurationMinutes: parsed.data.slotDurationMinutes,
+          isActive: parsed.data.isActive,
+          schedulingType: parsed.data.schedulingType,
+          patientsPerWave: parsed.data.patientsPerWave,
+        },
+        allDates
+      );
+      revalidatePath("/doctor/dashboard");
+      revalidatePath("/doctor/availability");
+      revalidatePath(`/doctors/${user.profileId}`);
+      return { success: true, message: `${sessions.length} one-date sessions created.`, session: sessions[0] };
+    }
+
     const session = await dbRepo.createAvailabilitySession({
       doctorId: user.profileId,
       name: parsed.data.name,
-      dayOfWeek: parsed.data.dayOfWeek,
+      recurrence: parsed.data.recurrence,
+      dayOfWeek: parsed.data.dayOfWeek ?? null,
+      dayOfMonth: parsed.data.dayOfMonth ?? null,
+      specificDate: parsed.data.specificDate ?? null,
+      validFrom: parsed.data.validFrom ?? null,
+      validUntil: parsed.data.validUntil ?? null,
       startTime: parsed.data.startTime,
       endTime: parsed.data.endTime,
       slotDurationMinutes: parsed.data.slotDurationMinutes,
@@ -92,19 +128,7 @@ export async function updateSessionAction(formData: FormData) {
     return { success: false, error: "Session ID is required." };
   }
 
-  const rawIsActive = formData.get("isActive");
-  const isActive = rawIsActive === "true" || rawIsActive === "on" || rawIsActive === "1";
-
-  const raw = {
-    name: formData.get("name") || "OPD Session",
-    dayOfWeek: formData.get("dayOfWeek"),
-    startTime: formData.get("startTime"),
-    endTime: formData.get("endTime"),
-    slotDurationMinutes: formData.get("slotDurationMinutes") || 30,
-    isActive,
-    schedulingType: formData.get("schedulingType") || "STREAM",
-    patientsPerWave: formData.get("patientsPerWave") || 1,
-  };
+  const raw = readSessionForm(formData);
 
   const parsed = sessionSchema.safeParse(raw);
   if (!parsed.success) {
@@ -115,7 +139,12 @@ export async function updateSessionAction(formData: FormData) {
     // Scoped to the signed-in doctor: another doctor's session id is treated as not found.
     const session = await dbRepo.updateAvailabilitySession(user.profileId, sessionId, {
       name: parsed.data.name,
-      dayOfWeek: parsed.data.dayOfWeek,
+      recurrence: parsed.data.recurrence,
+      dayOfWeek: parsed.data.dayOfWeek ?? null,
+      dayOfMonth: parsed.data.dayOfMonth ?? null,
+      specificDate: parsed.data.specificDate ?? null,
+      validFrom: parsed.data.validFrom ?? null,
+      validUntil: parsed.data.validUntil ?? null,
       startTime: parsed.data.startTime,
       endTime: parsed.data.endTime,
       slotDurationMinutes: parsed.data.slotDurationMinutes,
