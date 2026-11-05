@@ -7,8 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx src/test-suite.ts",
+    "test": "tsx src/test-suite.ts && tsx src/test-timezone.ts && tsx src/test-scheduling.ts",
     "db:generate": "drizzle-kit generate",
+    "db:migrate-scheduling": "tsx src/db/apply-scheduling.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/db/seed.ts"

@@ -22,6 +22,13 @@
       "when": 1793210369923,
       "tag": "0002_short_the_twelve",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793793385205,
+      "tag": "0003_scheduling_dates",
+      "breakpoints": true
     }
   ]
 }
