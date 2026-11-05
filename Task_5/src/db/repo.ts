@@ -8,6 +8,18 @@ import { seedSpecialists } from "./seed-specialists";
 import { appointmentOccupiesSeat, occupiesSeatSql } from "../lib/seat-occupancy";
 
 import { buildInstantFromKolkataTime, istDateString, istMinutesOfDay } from "../lib/time";
+import {
+  firstSharedDate,
+  formatDateLabel,
+  normalizeSchedule,
+  sessionAppliesOnDate,
+  sessionCapacity,
+  validateScheduleNotInPast,
+  validateScheduleShape,
+  weekdayOfDate,
+  type DayCode,
+  type SessionRecurrence,
+} from "../lib/session-schedule";
 export interface UserEntity {
   id: string;
   email: string;
@@ -46,13 +58,31 @@ export interface AvailabilityEntity {
   id: string;
   doctorId: string;
   name: string; // e.g. "Morning OPD 09:00–13:00"
-  dayOfWeek: "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN";
+  /** Weekday for WEEKLY and ONE_TIME sessions; null for a MONTHLY_DATE session. */
+  dayOfWeek: DayCode | null;
   startTime: string; // HH:mm
   endTime: string;   // HH:mm
   slotDurationMinutes: number;
   isActive: boolean;
   schedulingType: "STREAM" | "WAVE";
+  /** Patients per slot. Applies to both Stream and Wave sessions. */
   patientsPerWave: number;
+  /** How the session repeats. Missing means WEEKLY (sessions created before dates were supported). */
+  recurrence?: SessionRecurrence;
+  dayOfMonth?: number | null; // 1-31, MONTHLY_DATE only
+  specificDate?: string | null; // YYYY-MM-DD, ONE_TIME only
+  validFrom?: string | null; // YYYY-MM-DD inclusive, recurring sessions only
+  validUntil?: string | null; // YYYY-MM-DD inclusive, recurring sessions only
+}
+
+/** The scheduling fields a caller may set when creating or updating a session. */
+export interface SessionScheduleInput {
+  recurrence?: SessionRecurrence;
+  dayOfWeek?: DayCode | null;
+  dayOfMonth?: number | null;
+  specificDate?: string | null;
+  validFrom?: string | null;
+  validUntil?: string | null;
 }
 
 export interface DoctorLeaveEntity {
@@ -204,15 +234,13 @@ export function doSessionsOverlap(
   return s1.startTime < s2.endTime && s2.startTime < s1.endTime;
 }
 
-const DAY_CODES: Array<AvailabilityEntity["dayOfWeek"]> = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-
 /** YYYY-MM-DD in local time (never UTC, so early-morning IST dates don't shift a day). */
 export function toLocalDateString(d: Date): string {
   return istDateString(d);
 }
 
-export function dayOfWeekFor(dateString: string): AvailabilityEntity["dayOfWeek"] {
-  return DAY_CODES[new Date(dateString + "T00:00:00").getDay()];
+export function dayOfWeekFor(dateString: string): DayCode {
+  return weekdayOfDate(dateString);
 }
 
 /**
@@ -225,16 +253,15 @@ export function buildSessionSlotGroups(
   dateString: string,
   now: Date = new Date()
 ): SessionSlotGroup[] {
-  const targetDay = dayOfWeekFor(dateString);
-  const activeSessions = sessions.filter((s) => s.dayOfWeek === targetDay && s.isActive);
+  const activeSessions = sessions.filter((s) => sessionAppliesOnDate(s, dateString));
   const isToday = dateString === toLocalDateString(now);
   const currentTotalMinutes = istMinutesOfDay(now);
 
   const groups: SessionSlotGroup[] = [];
 
   for (const session of activeSessions) {
-    const { startTime, endTime, slotDurationMinutes, schedulingType, patientsPerWave } = session;
-    const capacity = schedulingType === "WAVE" ? Math.max(1, patientsPerWave) : 1;
+    const { startTime, endTime, slotDurationMinutes } = session;
+    const capacity = sessionCapacity(session);
 
     const [startH, startM] = startTime.split(":").map(Number);
     const [endH, endM] = endTime.split(":").map(Number);
@@ -640,37 +667,62 @@ export class MedrellaRepository {
         name: r.name || "OPD Session",
         schedulingType: (r.schedulingType as "STREAM" | "WAVE") || "STREAM",
         patientsPerWave: r.patientsPerWave || 1,
+        recurrence: (r.recurrence as SessionRecurrence) || "WEEKLY",
       })) as AvailabilityEntity[];
     }
     return this.memAvailabilities.filter((a) => a.doctorId === doctorId);
   }
 
-  public async createAvailabilitySession(data: {
-    doctorId: string;
-    name: string;
-    dayOfWeek: AvailabilityEntity["dayOfWeek"];
-    startTime: string;
-    endTime: string;
-    slotDurationMinutes: number;
-    isActive: boolean;
-    schedulingType: "STREAM" | "WAVE";
-    patientsPerWave: number;
-  }): Promise<AvailabilityEntity> {
+  /**
+   * Refuses a schedule that clashes with another active session of the same doctor: the hours
+   * overlap AND the two sessions run on at least one common date (weekly, monthly or one-off).
+   */
+  private assertNoSessionClash(
+    candidate: { startTime: string; endTime: string } & Parameters<typeof normalizeSchedule>[0],
+    others: AvailabilityEntity[]
+  ): void {
+    const today = toLocalDateString(new Date());
+    for (const existing of others) {
+      if (!existing.isActive) continue;
+      if (!doSessionsOverlap(candidate, existing)) continue;
+      const shared = firstSharedDate(candidate, existing, today);
+      if (shared) {
+        throw new Error(
+          `Session time (${candidate.startTime}–${candidate.endTime}) overlaps with existing session '${existing.name}' (${existing.startTime}–${existing.endTime}) on ${weekdayOfDate(shared)} ${formatDateLabel(shared)}.`
+        );
+      }
+    }
+  }
+
+  public async createAvailabilitySession(
+    data: {
+      doctorId: string;
+      name: string;
+      dayOfWeek?: DayCode | null;
+      startTime: string;
+      endTime: string;
+      slotDurationMinutes: number;
+      isActive: boolean;
+      schedulingType: "STREAM" | "WAVE";
+      patientsPerWave: number;
+    } & SessionScheduleInput
+  ): Promise<AvailabilityEntity> {
     this.checkProductionDatabase();
 
     if (data.startTime >= data.endTime) {
       throw new Error("Session start time must be earlier than end time.");
     }
 
-    // Overlap validation across existing sessions on the same day for this doctor
-    const existingSessions = await this.getAvailabilitiesByDoctorId(data.doctorId);
-    const daySessions = existingSessions.filter((s) => s.dayOfWeek === data.dayOfWeek && s.isActive);
-    for (const existing of daySessions) {
-      if (doSessionsOverlap({ startTime: data.startTime, endTime: data.endTime }, existing)) {
-        throw new Error(
-          `Session time (${data.startTime}–${data.endTime}) overlaps with existing session '${existing.name}' (${existing.startTime}–${existing.endTime}) on ${data.dayOfWeek}.`
-        );
-      }
+    const schedule = normalizeSchedule(data);
+    const shapeError = validateScheduleShape(schedule);
+    if (shapeError) throw new Error(shapeError);
+    const pastError = validateScheduleNotInPast(schedule, toLocalDateString(new Date()));
+    if (pastError) throw new Error(pastError);
+
+    // Overlap validation against this doctor's other sessions that can fall on the same date
+    if (data.isActive ?? true) {
+      const existingSessions = await this.getAvailabilitiesByDoctorId(data.doctorId);
+      this.assertNoSessionClash({ startTime: data.startTime, endTime: data.endTime, ...schedule }, existingSessions);
     }
 
     const id = `avail-${crypto.randomUUID()}`;
@@ -678,13 +730,13 @@ export class MedrellaRepository {
       id,
       doctorId: data.doctorId,
       name: data.name.trim() || "OPD Session",
-      dayOfWeek: data.dayOfWeek,
       startTime: data.startTime,
       endTime: data.endTime,
       slotDurationMinutes: data.slotDurationMinutes || 30,
       isActive: data.isActive ?? true,
       schedulingType: data.schedulingType || "STREAM",
-      patientsPerWave: data.schedulingType === "WAVE" ? Math.max(1, data.patientsPerWave || 3) : 1,
+      patientsPerWave: Math.max(1, Math.floor(data.patientsPerWave || (data.schedulingType === "WAVE" ? 3 : 1))),
+      ...schedule,
     };
 
     if (db) {
@@ -699,12 +751,58 @@ export class MedrellaRepository {
         isActive: session.isActive,
         schedulingType: session.schedulingType,
         patientsPerWave: session.patientsPerWave,
+        recurrence: schedule.recurrence,
+        dayOfMonth: schedule.dayOfMonth,
+        specificDate: schedule.specificDate,
+        validFrom: schedule.validFrom,
+        validUntil: schedule.validUntil,
       });
       return session;
     }
 
     this.memAvailabilities.push(session);
     return session;
+  }
+
+  /**
+   * Creates the same one-date session on several dates in one go. Every date is checked first, so a clash
+   * on any date means nothing is created; if a later insert still fails, the earlier ones are removed.
+   */
+  public async createSessionsForDates(
+    data: Parameters<MedrellaRepository["createAvailabilitySession"]>[0],
+    dates: string[]
+  ): Promise<AvailabilityEntity[]> {
+    this.checkProductionDatabase();
+    const unique = Array.from(new Set(dates.map((d) => d.trim()).filter(Boolean))).sort();
+    if (unique.length === 0) throw new Error("Choose at least one date.");
+    if (unique.length > 31) throw new Error("You can add at most 31 dates at a time.");
+
+    const today = toLocalDateString(new Date());
+    const existing = await this.getAvailabilitiesByDoctorId(data.doctorId);
+    for (const date of unique) {
+      const schedule = normalizeSchedule({ recurrence: "ONE_TIME", specificDate: date });
+      const shapeError = validateScheduleShape(schedule);
+      if (shapeError) throw new Error(`${date}: ${shapeError}`);
+      const pastError = validateScheduleNotInPast(schedule, today);
+      if (pastError) throw new Error(`${date}: ${pastError}`);
+      if (data.startTime >= data.endTime) throw new Error("Session start time must be earlier than end time.");
+      if (data.isActive ?? true) {
+        this.assertNoSessionClash({ startTime: data.startTime, endTime: data.endTime, ...schedule }, existing);
+      }
+    }
+
+    const created: AvailabilityEntity[] = [];
+    try {
+      for (const date of unique) {
+        created.push(await this.createAvailabilitySession({ ...data, recurrence: "ONE_TIME", specificDate: date }));
+      }
+    } catch (err) {
+      for (const session of created) {
+        await this.deleteAvailabilitySession(data.doctorId, session.id).catch(() => undefined);
+      }
+      throw err;
+    }
+    return created;
   }
 
   /** Only the owning doctor's session is found; another doctor's id behaves exactly like a missing one. */
@@ -734,33 +832,58 @@ export class MedrellaRepository {
 
     const newStartTime = updates.startTime || current.startTime;
     const newEndTime = updates.endTime || current.endTime;
-    const newDay = updates.dayOfWeek || current.dayOfWeek;
 
     if (newStartTime >= newEndTime) {
       throw new Error("Session start time must be earlier than end time.");
     }
 
-    // Overlap validation against other sessions on the same day
-    const allSessions = await this.getAvailabilitiesByDoctorId(current.doctorId);
-    const daySessions = allSessions.filter((s) => s.id !== id && s.dayOfWeek === newDay && (updates.isActive ?? s.isActive));
-    for (const existing of daySessions) {
-      if (doSessionsOverlap({ startTime: newStartTime, endTime: newEndTime }, existing)) {
-        throw new Error(
-          `Session time (${newStartTime}–${newEndTime}) overlaps with existing session '${existing.name}' (${existing.startTime}–${existing.endTime}) on ${newDay}.`
-        );
-      }
+    // Fields the caller leaves out keep their current value; the rest of the schedule is re-derived from the recurrence.
+    const pick = <K extends keyof SessionScheduleInput>(key: K) =>
+      (updates[key] !== undefined ? updates[key] : current[key]) as SessionScheduleInput[K];
+    const schedule = normalizeSchedule({
+      recurrence: pick("recurrence"),
+      dayOfWeek: pick("dayOfWeek"),
+      dayOfMonth: pick("dayOfMonth"),
+      specificDate: pick("specificDate"),
+      validFrom: pick("validFrom"),
+      validUntil: pick("validUntil"),
+    });
+    const shapeError = validateScheduleShape(schedule);
+    if (shapeError) throw new Error(shapeError);
+
+    // Only complain about past dates when the dates themselves are being changed.
+    const currentSchedule = normalizeSchedule(current);
+    const datesChanged =
+      schedule.recurrence !== currentSchedule.recurrence ||
+      schedule.specificDate !== currentSchedule.specificDate ||
+      schedule.validUntil !== currentSchedule.validUntil;
+    if (datesChanged) {
+      const pastError = validateScheduleNotInPast(schedule, toLocalDateString(new Date()));
+      if (pastError) throw new Error(pastError);
     }
 
+    const newIsActive = updates.isActive ?? current.isActive;
+    if (newIsActive) {
+      const allSessions = await this.getAvailabilitiesByDoctorId(current.doctorId);
+      this.assertNoSessionClash(
+        { startTime: newStartTime, endTime: newEndTime, ...schedule },
+        allSessions.filter((s) => s.id !== id)
+      );
+    }
+
+    const newSchedulingType = updates.schedulingType || current.schedulingType || "STREAM";
     const updated: AvailabilityEntity = {
       ...current,
       ...updates,
       startTime: newStartTime,
       endTime: newEndTime,
-      dayOfWeek: newDay,
-      schedulingType: updates.schedulingType || current.schedulingType || "STREAM",
-      patientsPerWave: (updates.schedulingType || current.schedulingType) === "WAVE"
-        ? Math.max(1, updates.patientsPerWave || current.patientsPerWave || 3)
-        : 1,
+      isActive: newIsActive,
+      schedulingType: newSchedulingType,
+      patientsPerWave: Math.max(
+        1,
+        Math.floor(updates.patientsPerWave || current.patientsPerWave || (newSchedulingType === "WAVE" ? 3 : 1))
+      ),
+      ...schedule,
     };
 
     if (db) {
@@ -775,6 +898,11 @@ export class MedrellaRepository {
           isActive: updated.isActive,
           schedulingType: updated.schedulingType,
           patientsPerWave: updated.patientsPerWave,
+          recurrence: schedule.recurrence,
+          dayOfMonth: schedule.dayOfMonth,
+          specificDate: schedule.specificDate,
+          validFrom: schedule.validFrom,
+          validUntil: schedule.validUntil,
         })
         .where(and(eq(schema.availabilities.id, id), eq(schema.availabilities.doctorId, doctorId)));
       return updated;
@@ -835,10 +963,12 @@ export class MedrellaRepository {
 
   public async updateDoctorAvailability(
     doctorId: string,
-    dayOfWeek: AvailabilityEntity["dayOfWeek"],
+    dayOfWeek: DayCode,
     updates: Partial<Omit<AvailabilityEntity, "id" | "doctorId" | "dayOfWeek">>
   ): Promise<AvailabilityEntity> {
-    const existing = (await this.getAvailabilitiesByDoctorId(doctorId)).find((s) => s.dayOfWeek === dayOfWeek);
+    const existing = (await this.getAvailabilitiesByDoctorId(doctorId)).find(
+      (s) => (s.recurrence ?? "WEEKLY") === "WEEKLY" && s.dayOfWeek === dayOfWeek
+    );
     if (existing) {
       return await this.updateAvailabilitySession(doctorId, existing.id, updates);
     }
@@ -981,8 +1111,7 @@ export class MedrellaRepository {
     }
 
     const allSessions = await this.getAvailabilitiesByDoctorId(doctorId);
-    const targetDay = dayOfWeekFor(dateString);
-    if (!allSessions.some((s) => s.dayOfWeek === targetDay && s.isActive)) {
+    if (!allSessions.some((s) => sessionAppliesOnDate(s, dateString))) {
       return { isLeave: false, groups: [] };
     }
 
@@ -1141,32 +1270,22 @@ export class MedrellaRepository {
             .from(schema.availabilities)
             .where(eq(schema.availabilities.id, sessionId))
             .limit(1);
-          if (sessionRows[0] && sessionRows[0].schedulingType === "WAVE") {
-            capacity = Math.max(1, sessionRows[0].patientsPerWave);
-          }
+          if (sessionRows[0]) capacity = sessionCapacity(sessionRows[0]);
         } else {
-          // Find matching session by doctor and time
-          const date = new Date(data.appointmentDate + "T00:00:00");
-          const dayMap: Array<"SUN" | "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT"> = [
-            "SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"
-          ];
-          const targetDay = dayMap[date.getDay()];
+          // Find matching session by doctor, date and time
           const sessionRows = await tx
             .select()
             .from(schema.availabilities)
-            .where(
-              and(
-                eq(schema.availabilities.doctorId, data.doctorId),
-                eq(schema.availabilities.dayOfWeek, targetDay),
-                eq(schema.availabilities.isActive, true)
-              )
-            );
-          const match = sessionRows.find((s) => s.startTime <= data.startTime && data.startTime < s.endTime);
+            .where(and(eq(schema.availabilities.doctorId, data.doctorId), eq(schema.availabilities.isActive, true)));
+          const match = sessionRows.find(
+            (s) =>
+              sessionAppliesOnDate(s as AvailabilityEntity, data.appointmentDate) &&
+              s.startTime <= data.startTime &&
+              data.startTime < s.endTime
+          );
           if (match) {
             sessionId = match.id;
-            if (match.schedulingType === "WAVE") {
-              capacity = Math.max(1, match.patientsPerWave);
-            }
+            capacity = sessionCapacity(match);
           }
         }
 
@@ -1192,7 +1311,7 @@ export class MedrellaRepository {
           return {
             success: false,
             message: capacity > 1
-              ? "This wave slot has reached full capacity. Please choose another wave."
+              ? "This slot has reached full capacity. Please choose another slot."
               : "This slot has already been booked by another patient. Please choose another time.",
           };
         }
@@ -1246,7 +1365,7 @@ export class MedrellaRepository {
     let sessionId = data.sessionId || null;
     if (sessionId) {
       const sess = this.memAvailabilities.find((s) => s.id === sessionId);
-      if (sess && sess.schedulingType === "WAVE") capacity = Math.max(1, sess.patientsPerWave);
+      if (sess) capacity = sessionCapacity(sess);
     }
 
     const activeForSlot = this.memAppointments.filter(
@@ -1368,9 +1487,7 @@ export class MedrellaRepository {
             .from(schema.availabilities)
             .where(eq(schema.availabilities.id, newSessionId))
             .limit(1);
-          if (sessionRows[0] && sessionRows[0].schedulingType === "WAVE") {
-            capacity = Math.max(1, sessionRows[0].patientsPerWave);
-          }
+          if (sessionRows[0]) capacity = sessionCapacity(sessionRows[0]);
         }
 
         const activeForNewSlot = await tx
@@ -1457,7 +1574,7 @@ export class MedrellaRepository {
     }
 
     const memSession = data.newSessionId ? this.memAvailabilities.find((a) => a.id === data.newSessionId) : undefined;
-    const memCapacity = memSession?.schedulingType === "WAVE" ? Math.max(1, memSession.patientsPerWave) : 1;
+    const memCapacity = memSession ? sessionCapacity(memSession) : 1;
     const takenSeats = this.memAppointments.filter(
       (a) =>
         a.id !== appt.id &&
@@ -2677,9 +2794,7 @@ export class MedrellaRepository {
               .from(schema.availabilities)
               .where(eq(schema.availabilities.id, appt.sessionId))
               .limit(1);
-            if (sess && sess.schedulingType === "WAVE") {
-              capacity = Math.max(1, sess.patientsPerWave);
-            }
+            if (sess) capacity = sessionCapacity(sess);
           }
 
           const activeForSlot = await tx
@@ -2815,7 +2930,7 @@ export class MedrellaRepository {
       let capacity = 1;
       if (appt.sessionId) {
         const sess = this.memAvailabilities.find((s) => s.id === appt.sessionId);
-        if (sess && sess.schedulingType === "WAVE") capacity = Math.max(1, sess.patientsPerWave);
+        if (sess) capacity = sessionCapacity(sess);
       }
 
       const activeForSlot = this.memAppointments.filter(
