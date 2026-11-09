@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   createSessionAction,
@@ -25,6 +25,7 @@ import {
 import type { AvailabilityEntity, DoctorLeaveEntity } from "@/db/repo";
 import { describeSchedule, recurrenceOf, type DayCode, type SessionRecurrence } from "@/lib/session-schedule";
 import { istDateString } from "@/lib/time";
+import { analyzeSessionChange, type SessionChangeImpact } from "@/lib/elastic-schedule";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -154,6 +155,8 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
   const [leaveReason, setLeaveReason] = useState("");
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Set when an edit would leave booked appointments outside the new hours and the doctor must confirm.
+  const [pendingConfirm, setPendingConfirm] = useState<SessionChangeImpact | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const today = istDateString(new Date());
@@ -216,8 +219,33 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
     setSchedulingType(next);
   };
 
+  // Live preview while editing: which slots the new hours add or remove (bookings are checked on the server).
+  const slotPreview = useMemo(() => {
+    if (!editingSession) return null;
+    const effective = wholeSession ? minutesBetween(startTime, endTime) : slotDurationMinutes;
+    if (!(minutesBetween(startTime, endTime) > 0) || effective < 1) return null;
+    return analyzeSessionChange(
+      {
+        startTime: editingSession.startTime,
+        endTime: editingSession.endTime,
+        slotDurationMinutes: editingSession.slotDurationMinutes,
+      },
+      { startTime, endTime, slotDurationMinutes: effective },
+      []
+    );
+  }, [editingSession, startTime, endTime, slotDurationMinutes, wholeSession]);
+
+  // Any change to the form invalidates a pending "keep these bookings" confirmation.
+  useEffect(() => {
+    setPendingConfirm(null);
+  }, [startTime, endTime, slotDurationMinutes, wholeSession, recurrence, dayOfWeek, dayOfMonth, specificDate, validFrom, validUntil, isActive]);
+
   const handleSaveSession = (e: React.FormEvent) => {
     e.preventDefault();
+    submitSession(false);
+  };
+
+  const submitSession = (acknowledgeOutsideBookings: boolean) => {
     setErrorMessage(null);
     setSuccessMessage(null);
 
@@ -248,16 +276,20 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
     formData.append("schedulingType", schedulingType);
     formData.append("patientsPerWave", patientsPerSlot.toString());
     formData.append("isActive", isActive ? "true" : "false");
+    if (acknowledgeOutsideBookings) formData.append("acknowledgeOutsideBookings", "true");
 
     startTransition(async () => {
-      const res = editingSession
-        ? await updateSessionAction(formData)
-        : await createSessionAction(formData);
+      const res: { success: boolean; message?: string; error?: string; needsConfirmation?: boolean; impact?: SessionChangeImpact } =
+        editingSession ? await updateSessionAction(formData) : await createSessionAction(formData);
 
       if (res.success) {
         setSuccessMessage(res.message || "Session saved!");
+        setPendingConfirm(null);
         setIsModalOpen(false);
         router.refresh();
+      } else if (res.needsConfirmation && res.impact) {
+        // The edit would leave booked appointments outside the new hours: ask before applying it.
+        setPendingConfirm(res.impact);
       } else {
         setErrorMessage(res.error || "Failed to save session.");
       }
@@ -827,6 +859,64 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
                   Active (Patients can book appointments during this session)
                 </Label>
               </div>
+
+              {editingSession && slotPreview && slotPreview.change !== "NONE" && (
+                <div className="p-3 rounded-xl border border-blue-200 bg-blue-50 text-blue-900 space-y-1" data-testid="elastic-preview">
+                  <div className="font-bold">
+                    {slotPreview.change === "EXPANDED"
+                      ? "Extending this session"
+                      : slotPreview.change === "SHRUNK"
+                        ? "Shortening this session"
+                        : "Changing this session"}
+                    {": "}
+                    {editingSession.startTime}–{editingSession.endTime} → {startTime}–{endTime}
+                  </div>
+                  <div>{slotPreview.summary}</div>
+                  <div className="text-[10px] text-blue-700">
+                    Appointments already booked are never moved or cancelled by this change.
+                  </div>
+                </div>
+              )}
+
+              {pendingConfirm && (
+                <div className="p-3 rounded-xl border border-amber-300 bg-amber-50 text-amber-900 space-y-2" role="alert" data-testid="elastic-confirm">
+                  <div className="font-bold">
+                    {pendingConfirm.outsideBookings.length} booked{" "}
+                    {pendingConfirm.outsideBookings.length === 1 ? "appointment is" : "appointments are"} outside the new hours
+                  </div>
+                  <ul className="list-disc pl-4 space-y-0.5">
+                    {pendingConfirm.outsideBookings.slice(0, 5).map((b) => (
+                      <li key={b.id}>
+                        {b.appointmentDate} at {b.startTime}
+                        {b.patientName ? ` · ${b.patientName}` : ""}
+                      </li>
+                    ))}
+                    {pendingConfirm.outsideBookings.length > 5 && (
+                      <li>and {pendingConfirm.outsideBookings.length - 5} more</li>
+                    )}
+                  </ul>
+                  <div>
+                    They stay booked and are not cancelled. Patients can still be seen at those times, and you can
+                    reschedule them from your agenda. New patients can only book inside the new hours.
+                  </div>
+                  <Button
+                    variant="default"
+                    type="button"
+                    disabled={isPending}
+                    onClick={() => submitSession(true)}
+                    className="px-4 py-2 font-bold cursor-pointer"
+                  >
+                    Keep these bookings and apply the change
+                  </Button>
+                </div>
+              )}
+
+              {errorMessage && (
+                <div className="p-3 rounded-xl border border-red-200 bg-red-50 text-red-700 flex items-start gap-2" role="alert" data-testid="session-modal-error">
+                  <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
 
               <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
                 <Button variant="outline"

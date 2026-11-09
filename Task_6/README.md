@@ -61,6 +61,10 @@ A doctor creates sessions on **OPD Sessions & Availability** (`/doctor/availabil
 
 A one-date session can be created on several dates at once. Rules: a one-date session can't be in the past; two active sessions of one doctor may not overlap in hours on any date they share; a session with upcoming bookings can't be deleted (switch it off instead); a doctor's leave day still blocks every session on that date; patients can book up to 30 days ahead. Capacity is enforced for new bookings, reschedules and late payments.
 
+## Elastic scheduling
+
+A doctor can stretch or shrink an existing session (10:00–12:00 to 09:00–12:00, or to 10:00–11:00) from **Weekly Shifts → edit**. A live preview lists the slots that are added or removed. Booked appointments are never moved or cancelled: if the new hours no longer cover a booking the doctor must confirm, and that booking stays booked; a change that would leave a booking between two slots is refused. Details are in `CHANGES.md`; the rules live in `src/lib/elastic-schedule.ts`.
+
 ## Operating it
 
 - **Engagement job.** Call `GET /api/cron/engagement` once a day with `Authorization: Bearer <CRON_SECRET>` (an external scheduler such as cron-job.org; Vercel's free cron is once a day and is also fine here). It queues follow-ups and nudges, then sends whatever is due. Every message has a dedupe key, so running it twice is harmless.

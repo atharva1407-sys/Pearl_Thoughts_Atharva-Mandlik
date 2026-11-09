@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "./auth";
 import { dbRepo } from "@/db/repo";
 import { sessionSchema } from "@/lib/validators";
+import { isSessionChangeBlocked } from "@/lib/elastic-schedule";
 
 /** Reads the OPD session form: timing, scheduling type, per-slot capacity and when the session runs. */
 function readSessionForm(formData: FormData) {
@@ -137,27 +138,47 @@ export async function updateSessionAction(formData: FormData) {
 
   try {
     // Scoped to the signed-in doctor: another doctor's session id is treated as not found.
-    const session = await dbRepo.updateAvailabilitySession(user.profileId, sessionId, {
-      name: parsed.data.name,
-      recurrence: parsed.data.recurrence,
-      dayOfWeek: parsed.data.dayOfWeek ?? null,
-      dayOfMonth: parsed.data.dayOfMonth ?? null,
-      specificDate: parsed.data.specificDate ?? null,
-      validFrom: parsed.data.validFrom ?? null,
-      validUntil: parsed.data.validUntil ?? null,
-      startTime: parsed.data.startTime,
-      endTime: parsed.data.endTime,
-      slotDurationMinutes: parsed.data.slotDurationMinutes,
-      isActive: parsed.data.isActive,
-      schedulingType: parsed.data.schedulingType,
-      patientsPerWave: parsed.data.patientsPerWave,
-    });
+    const { session, impact } = await dbRepo.updateAvailabilitySessionWithImpact(
+      user.profileId,
+      sessionId,
+      {
+        name: parsed.data.name,
+        recurrence: parsed.data.recurrence,
+        dayOfWeek: parsed.data.dayOfWeek ?? null,
+        dayOfMonth: parsed.data.dayOfMonth ?? null,
+        specificDate: parsed.data.specificDate ?? null,
+        validFrom: parsed.data.validFrom ?? null,
+        validUntil: parsed.data.validUntil ?? null,
+        startTime: parsed.data.startTime,
+        endTime: parsed.data.endTime,
+        slotDurationMinutes: parsed.data.slotDurationMinutes,
+        isActive: parsed.data.isActive,
+        schedulingType: parsed.data.schedulingType,
+        patientsPerWave: parsed.data.patientsPerWave,
+      },
+      { acknowledgeOutsideBookings: formData.get("acknowledgeOutsideBookings") === "true" }
+    );
 
     revalidatePath("/doctor/dashboard");
     revalidatePath("/doctor/availability");
     revalidatePath(`/doctors/${user.profileId}`);
-    return { success: true, message: "OPD Session updated successfully!", session };
+    revalidatePath("/doctors");
+    return {
+      success: true,
+      message: `OPD Session updated successfully! ${impact.summary}`.trim(),
+      session,
+      impact,
+    };
   } catch (err: any) {
+    if (isSessionChangeBlocked(err)) {
+      // Not a crash: the doctor has to confirm (outside hours) or adjust (off the slot grid).
+      return {
+        success: false,
+        error: err.message,
+        needsConfirmation: err.code === "NEEDS_CONFIRMATION",
+        impact: err.impact,
+      };
+    }
     return { success: false, error: err.message || "Failed to update session." };
   }
 }
