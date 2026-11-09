@@ -276,9 +276,7 @@ export function SlotPicker({
                         : "bg-blue-100 text-blue-800 border border-blue-200"
                     }`}
                   >
-                    {group.schedulingType === "WAVE"
-                      ? `Wave (${group.patientsPerWave} patients/wave)`
-                      : "Stream (1:1)"}
+                    {group.schedulingType === "WAVE" ? "Wave" : "Stream"} ({group.patientsPerWave} per slot)
                   </span>
                 </div>
 
@@ -302,7 +300,7 @@ export function SlotPicker({
                         }`}
                       >
                         <div className="text-xs font-bold">{slot.startTime}</div>
-                        {group.schedulingType === "WAVE" ? (
+                        {slot.capacity > 1 ? (
                           <div
                             className={`text-[10px] font-sans mt-0.5 ${
                               isBooked
@@ -312,7 +310,7 @@ export function SlotPicker({
                                 : "text-emerald-600 font-semibold"
                             }`}
                           >
-                            {isBooked ? "Wave Full" : `${slot.seatsLeft} of ${slot.capacity} left`}
+                            {isBooked ? "Full" : `${slot.seatsLeft} of ${slot.capacity} left`}
                           </div>
                         ) : (
                           <div className={`text-[10px] font-sans mt-0.5 ${isBooked ? "text-slate-400" : isSelected ? "text-blue-100" : "text-slate-500"}`}>

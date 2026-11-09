@@ -10,6 +10,7 @@ import { PrintButton } from "./print-button";
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { istDateString } from "@/lib/time";
 export const dynamic = "force-dynamic";
 
 interface ReceiptPageProps {
@@ -85,7 +86,7 @@ export default async function PaymentReceiptPage({ params }: ReceiptPageProps) {
               Receipt No: <b className="text-slate-800">{payment.receiptNo}</b>
             </div>
             <div className="text-[11px] text-slate-400 font-mono">
-              Date: {payment.paidAt ? formatDate(payment.paidAt.toISOString().split("T")[0]) : formatDate(payment.createdAt.toISOString().split("T")[0])}
+              Date: {payment.paidAt ? formatDate(istDateString(payment.paidAt)) : formatDate(istDateString(payment.createdAt))}
             </div>
           </div>
         </div>

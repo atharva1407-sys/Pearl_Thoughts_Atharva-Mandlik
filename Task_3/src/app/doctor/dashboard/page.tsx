@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentUser } from "@/actions/auth";
 import { DoctorAppointmentActions } from "./doctor-appointment-actions";
-import { dbRepo } from "@/db/repo";
+import { dbRepo, toLocalDateString } from "@/db/repo";
+import { summarizeSchedule } from "@/lib/session-schedule";
 import { formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -94,10 +95,10 @@ export default async function DoctorDashboard() {
             </span>
             <Badge variant="blue">Shifts</Badge>
           </div>
-          <div className="stat-value">{activeShifts.length} Days</div>
-          <div className="stat-label">Weekly Schedule</div>
+          <div className="stat-value">{activeShifts.length} {activeShifts.length === 1 ? "Session" : "Sessions"}</div>
+          <div className="stat-label">OPD Schedule</div>
           <div className="stat-note truncate">
-            {activeShifts.map((s) => s.dayOfWeek).join(", ")}
+            {summarizeSchedule(activeShifts, toLocalDateString(new Date())) || "No active sessions"}
           </div>
         </Card>
 

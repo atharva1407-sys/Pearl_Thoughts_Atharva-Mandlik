@@ -6,6 +6,7 @@ import { getCurrentUser } from "./auth";
 import { dbRepo } from "@/db/repo";
 import { bookingSchema } from "@/lib/validators";
 
+import { buildInstantFromKolkataTime, istDateString, istMinutesOfDay } from "@/lib/time";
 export async function bookAppointmentAction(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) {
@@ -27,7 +28,7 @@ export async function bookAppointmentAction(formData: FormData) {
 
   // 1. Server-side validation: Date cannot be in the past
   const now = new Date();
-  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const todayStr = istDateString(now);
   if (parsed.data.appointmentDate < todayStr) {
     return { success: false, error: "Cannot schedule appointments for past dates." };
   }
@@ -82,7 +83,7 @@ export async function bookAppointmentAction(formData: FormData) {
 
   // Prevent booking a slot that has already passed earlier today
   if (parsed.data.appointmentDate === todayStr) {
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const currentMinutes = istMinutesOfDay(now);
     if (startMinutes <= currentMinutes) {
       return { success: false, error: "Cannot book a time slot that has already passed today." };
     }
@@ -176,9 +177,7 @@ export async function cancelAppointmentAction(appointmentId: string) {
 
   // Clinical Rule: Cancellations are permitted up to 1 hour prior to appointment start time
   if (user.role === "PATIENT") {
-    const [year, month, day] = appointment.appointmentDate.split("-").map(Number);
-    const [hours, minutes] = appointment.startTime.split(":").map(Number);
-    const appointmentDateTime = new Date(year, month - 1, day, hours, minutes);
+    const appointmentDateTime = buildInstantFromKolkataTime(appointment.appointmentDate, appointment.startTime);
     const now = new Date();
     const diffMs = appointmentDateTime.getTime() - now.getTime();
     const oneHourMs = 60 * 60 * 1000;
