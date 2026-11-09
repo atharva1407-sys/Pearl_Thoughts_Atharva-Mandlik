@@ -36,6 +36,13 @@
       "when": 1793360000000,
       "tag": "0004_careful_night_nurse",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793793333332,
+      "tag": "0005_scheduling_dates",
+      "breakpoints": true
     }
   ]
 }

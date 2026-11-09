@@ -46,12 +46,29 @@ export const availabilitySchema = z.object({
   isActive: z.boolean(),
 });
 
+// Form fields arrive as "" or null when left empty; treat both as "not provided".
+const blankToUndefined = (v: unknown) => (v === "" || v === null ? undefined : v);
+const optionalDate = z.preprocess(
+  blankToUndefined,
+  z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Dates must be written as YYYY-MM-DD").optional()
+);
+
 export const sessionSchema = z.object({
   name: z.string().min(2, "Session name must be at least 2 characters"),
-  dayOfWeek: z.enum(["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]),
+  // How the session repeats. The cross-field rules (which fields each kind needs) live in lib/session-schedule.
+  recurrence: z.preprocess(blankToUndefined, z.enum(["WEEKLY", "MONTHLY_DATE", "ONE_TIME"]).default("WEEKLY")),
+  dayOfWeek: z.preprocess(blankToUndefined, z.enum(["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]).optional()),
+  dayOfMonth: z.preprocess(
+    blankToUndefined,
+    z.coerce.number().int("Day of the month must be a whole number").min(1, "Day of the month must be between 1 and 31").max(31, "Day of the month must be between 1 and 31").optional()
+  ),
+  specificDate: optionalDate,
+  validFrom: optionalDate,
+  validUntil: optionalDate,
   startTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid start time (HH:MM)"),
   endTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid end time (HH:MM)"),
-  slotDurationMinutes: z.coerce.number().min(10).max(120).default(30),
+  // Up to 10 hours, so a doctor can make the whole session one arrival window (for example 10:00-14:00 with 20 patients).
+  slotDurationMinutes: z.coerce.number().min(10).max(600).default(30),
   isActive: z.boolean().default(true),
   schedulingType: z.enum(["STREAM", "WAVE"]).default("STREAM"),
   patientsPerWave: z.coerce.number().min(1).max(20).default(1),

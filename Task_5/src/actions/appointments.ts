@@ -23,6 +23,7 @@ import {
 } from "@/lib/notifications";
 import { runInBackground } from "@/lib/background";
 
+import { buildInstantFromKolkataTime } from "@/lib/time";
 /** The patient record that a signed-in user pays and books as (doctors may book as themselves). */
 async function resolvePayingPatientId(user: { role: string; profileId: string; userId: string }): Promise<string | undefined> {
   if (user.role === "PATIENT") return user.profileId;
@@ -685,9 +686,7 @@ export async function cancelAppointmentAction(appointmentId: string) {
 
   // Clinical Rule: Patient cancellations permitted up to 1 hour prior to appointment start time
   if (user.role === "PATIENT") {
-    const [year, month, day] = appointment.appointmentDate.split("-").map(Number);
-    const [hours, minutes] = appointment.startTime.split(":").map(Number);
-    const appointmentDateTime = new Date(year, month - 1, day, hours, minutes);
+    const appointmentDateTime = buildInstantFromKolkataTime(appointment.appointmentDate, appointment.startTime);
     const now = new Date();
     const diffMs = appointmentDateTime.getTime() - now.getTime();
     const oneHourMs = 60 * 60 * 1000;

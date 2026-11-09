@@ -1,0 +1,14 @@
+# Medrella Healthcare - Clinical Robots Policy
+User-agent: *
+Allow: /
+Allow: /login
+Allow: /signup
+Allow: /register
+Allow: /doctors
+Allow: /terms
+Allow: /privacy
+Disallow: /doctor/
+Disallow: /patient/
+Disallow: /queue/
+Disallow: /reports/
+Disallow: /settings/

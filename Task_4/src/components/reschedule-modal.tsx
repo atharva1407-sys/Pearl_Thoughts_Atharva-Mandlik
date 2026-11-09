@@ -249,7 +249,7 @@ export function RescheduleModal({
                           ? "bg-purple-100 text-purple-800 border border-purple-200"
                           : "bg-blue-100 text-blue-800 border border-blue-200"
                       }`}>
-                        {group.schedulingType === "WAVE" ? `Wave (${group.patientsPerWave}/slot)` : "Stream"}
+                        {group.schedulingType === "WAVE" ? "Wave" : "Stream"} · {group.patientsPerWave}/slot
                       </span>
                     </div>
 
@@ -271,7 +271,7 @@ export function RescheduleModal({
                             }`}
                           >
                             <div>{slot.startTime}</div>
-                            {group.schedulingType === "WAVE" && !slot.isBooked && (
+                            {slot.capacity > 1 && !slot.isBooked && (
                               <div className={`text-[9px] font-sans ${isSelected ? "text-blue-100" : "text-emerald-600 font-bold"}`}>
                                 {slot.seatsLeft} of {slot.capacity} left
                               </div>

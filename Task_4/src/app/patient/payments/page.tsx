@@ -9,6 +9,7 @@ import { CreditCard, FileText, ArrowLeft, ShieldCheck, CheckCircle2, Clock3, Ale
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
+import { istDateString } from "@/lib/time";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -111,7 +112,7 @@ export default async function PatientPaymentsPage() {
                       </TableCell>
                       <TableCell>
                         <span className="text-xs text-slate-700 block">
-                          {formatDate(p.createdAt.toISOString().split("T")[0])}
+                          {formatDate(istDateString(p.createdAt))}
                         </span>
                         <small className="text-[10px] text-slate-400 font-mono">
                           {p.createdAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
