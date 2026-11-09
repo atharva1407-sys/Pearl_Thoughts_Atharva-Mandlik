@@ -8,6 +8,15 @@ import { seedSpecialists } from "./seed-specialists";
 import { appointmentOccupiesSeat, occupiesSeatSql } from "../lib/seat-occupancy";
 import { buildInstantFromKolkataTime, istDateString, istMinutesOfDay } from "../lib/time";
 import {
+  analyzeSessionChange,
+  classifyBooking,
+  offGridMessage,
+  outsideMessage,
+  SessionChangeBlocked,
+  type ElasticBooking,
+  type SessionChangeImpact,
+} from "../lib/elastic-schedule";
+import {
   firstSharedDate,
   formatDateLabel,
   normalizeSchedule,
@@ -941,11 +950,82 @@ export class MedrellaRepository {
     return this.memAvailabilities.find((a) => a.id === id && a.doctorId === doctorId);
   }
 
+  /**
+   * Upcoming appointments (today onwards) that currently hold a seat in a session, with the patient's
+   * name so the doctor can see who an edit would touch.
+   */
+  private async upcomingSessionBookings(sessionId: string): Promise<ElasticBooking[]> {
+    const today = toLocalDateString(new Date());
+    if (db) {
+      const rows = await db
+        .select({
+          id: schema.appointments.id,
+          appointmentDate: schema.appointments.appointmentDate,
+          startTime: schema.appointments.startTime,
+          endTime: schema.appointments.endTime,
+          tokenNumber: schema.appointments.tokenNumber,
+          firstName: schema.patients.firstName,
+          lastName: schema.patients.lastName,
+        })
+        .from(schema.appointments)
+        .leftJoin(schema.patients, eq(schema.patients.id, schema.appointments.patientId))
+        .where(
+          and(
+            eq(schema.appointments.sessionId, sessionId),
+            occupiesSeatSql(),
+            gte(schema.appointments.appointmentDate, today)
+          )
+        )
+        .orderBy(schema.appointments.appointmentDate, schema.appointments.startTime);
+      return rows.map((r) => ({
+        id: r.id,
+        appointmentDate: r.appointmentDate,
+        startTime: r.startTime,
+        endTime: r.endTime,
+        tokenNumber: r.tokenNumber,
+        patientName: r.firstName ? `${r.firstName} ${r.lastName ?? ""}`.trim() : undefined,
+      }));
+    }
+    return this.memAppointments
+      .filter((a) => a.sessionId === sessionId && appointmentOccupiesSeat(a) && a.appointmentDate >= today)
+      .sort((a, b) => (a.appointmentDate + a.startTime).localeCompare(b.appointmentDate + b.startTime))
+      .map((a) => {
+        const p = this.memPatients.find((pt) => pt.id === a.patientId);
+        return {
+          id: a.id,
+          appointmentDate: a.appointmentDate,
+          startTime: a.startTime,
+          endTime: a.endTime,
+          tokenNumber: a.tokenNumber,
+          patientName: p ? `${p.firstName} ${p.lastName}`.trim() : undefined,
+        };
+      });
+  }
+
   public async updateAvailabilitySession(
     doctorId: string,
     id: string,
-    updates: Partial<Omit<AvailabilityEntity, "id" | "doctorId">>
+    updates: Partial<Omit<AvailabilityEntity, "id" | "doctorId">>,
+    options: { acknowledgeOutsideBookings?: boolean } = {}
   ): Promise<AvailabilityEntity> {
+    return (await this.updateAvailabilitySessionWithImpact(doctorId, id, updates, options)).session;
+  }
+
+  /**
+   * Edits a session (including stretching or shrinking its hours) and reports what the edit did to
+   * its slots and bookings. Booked appointments are never moved, cancelled or deleted here:
+   *  - bookings that no longer fit between the new slots refuse the change (OFF_GRID),
+   *  - bookings the new hours no longer cover stay booked, but the doctor must confirm first
+   *    (`acknowledgeOutsideBookings`).
+   * Only bookings this edit would newly affect count; ones already outside before it don't block
+   * unrelated edits such as a rename.
+   */
+  public async updateAvailabilitySessionWithImpact(
+    doctorId: string,
+    id: string,
+    updates: Partial<Omit<AvailabilityEntity, "id" | "doctorId">>,
+    options: { acknowledgeOutsideBookings?: boolean } = {}
+  ): Promise<{ session: AvailabilityEntity; impact: SessionChangeImpact }> {
     this.checkProductionDatabase();
     const current = await this.findOwnedSession(doctorId, id);
 
@@ -986,12 +1066,29 @@ export class MedrellaRepository {
     }
 
     const newIsActive = updates.isActive ?? current.isActive;
+    const newSlotDuration = updates.slotDurationMinutes || current.slotDurationMinutes;
     if (newIsActive) {
       const allSessions = await this.getAvailabilitiesByDoctorId(current.doctorId);
       this.assertNoSessionClash(
         { startTime: newStartTime, endTime: newEndTime, ...schedule },
         allSessions.filter((s) => s.id !== id)
       );
+    }
+
+    // Elastic scheduling: see what this edit does to the slots and to bookings already made.
+    const upcoming = await this.upcomingSessionBookings(id);
+    const impact = analyzeSessionChange(
+      { startTime: current.startTime, endTime: current.endTime, slotDurationMinutes: current.slotDurationMinutes },
+      { startTime: newStartTime, endTime: newEndTime, slotDurationMinutes: newSlotDuration, ...schedule },
+      upcoming.filter((b) => classifyBooking(b, current) === "KEPT")
+    );
+    if (newIsActive) {
+      if (impact.offGridBookings.length > 0) {
+        throw new SessionChangeBlocked("OFF_GRID", offGridMessage(impact), impact);
+      }
+      if (impact.outsideBookings.length > 0 && !options.acknowledgeOutsideBookings) {
+        throw new SessionChangeBlocked("NEEDS_CONFIRMATION", outsideMessage(impact), impact);
+      }
     }
 
     const newSchedulingType = updates.schedulingType || current.schedulingType || "STREAM";
@@ -1028,11 +1125,11 @@ export class MedrellaRepository {
           validUntil: schedule.validUntil,
         })
         .where(and(eq(schema.availabilities.id, id), eq(schema.availabilities.doctorId, doctorId)));
-      return updated;
+      return { session: updated, impact };
     }
 
     Object.assign(current, updated);
-    return updated;
+    return { session: updated, impact };
   }
 
   /**

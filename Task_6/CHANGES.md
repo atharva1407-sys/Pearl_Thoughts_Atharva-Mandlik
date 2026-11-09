@@ -1,3 +1,30 @@
+# Elastic Scheduling — stretch or shrink a session without touching bookings (built into Task 6)
+
+A doctor can change the hours of an existing OPD session. The slots follow the new hours, and appointments that are already booked are never moved, cancelled or lost.
+
+| Example | What happens |
+|---|---|
+| **Shrink** 10:00–12:00 to 10:00–11:00 | The 11:00 and 11:30 slots disappear for new patients. Nothing is booked there, so it applies at once. |
+| **Expand** 10:00–12:00 to 09:00–12:00 | The 09:00 and 09:30 slots are added and can be booked straight away. Existing bookings are untouched. |
+| Shrink past a booked slot | The doctor sees who is affected (date, time, patient) and must confirm. The booking **stays booked** and is not cancelled. New patients can only book inside the new hours. |
+| Change that puts a booking *between* new slots | Refused, with an explanation (for example 30-minute slots changed to 45, or a start time moved by 15 minutes). Otherwise a second patient could end up overlapping that booking. |
+
+## How it works
+
+| Area | Change |
+|---|---|
+| Rules | New pure module `src/lib/elastic-schedule.ts`: `slotStarts`, `classifyWindowChange`, `classifyBooking` (KEPT / OUTSIDE / OFF_GRID), `analyzeSessionChange`. The repository, the form and the tests all use it. |
+| Repository | `updateAvailabilitySessionWithImpact` (and the existing `updateAvailabilitySession`, which now calls it) loads the session's upcoming bookings, works out what the edit does to them and either applies it, asks for confirmation (`SessionChangeBlocked` / `NEEDS_CONFIRMATION`) or refuses it (`OFF_GRID`). Both the Postgres and in-memory implementations behave the same. |
+| What counts | Only upcoming (today onward) bookings that hold a seat: booked, completed and no-show, plus unexpired payment holds. Cancelled and expired ones never block an edit. Bookings that were already outside the hours before the edit do not block unrelated edits such as a rename. |
+| Server action | `updateSessionAction` accepts `acknowledgeOutsideBookings`, returns `needsConfirmation` plus the affected bookings, and puts a plain-language summary in the success message (for example "8 slots removed (13:00, 13:30, ...)"). |
+| Doctor form | Editing a session shows a live preview ("Extending this session: 09:00–17:00 to 08:00–17:00, 2 slots added"), an amber confirmation panel listing affected bookings, and any error inside the dialog (before, errors appeared behind it). |
+| Database | **No migration.** No schema change. |
+| Tests | `src/test-elastic.ts`: 55 checks (pure rules plus the repository: expansion, shrink with and without bookings, confirmation, refusal, cancelled bookings, Wave capacity after an edit, whole-session Stream windows, switching a session off, moving a one-date session), chained into `npm test`. Breaking the repository rules on purpose makes 12 of them fail. |
+
+Deploying this change needs no database step.
+
+---
+
 # Task 6 — Wave & Stream scheduling completed (dates, recurrence, Stream capacity)
 
 Closes the three gaps in the "Wave & Stream Scheduling Implementation" brief. Wave and Stream sessions already existed (weekly, per-session slot length, Wave capacity). Now:

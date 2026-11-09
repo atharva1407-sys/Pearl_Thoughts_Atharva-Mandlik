@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx src/test-suite.ts && tsx src/test-payment-hardening.ts && tsx src/test-notifications.ts && tsx src/test-brevo-welcome.ts && tsx src/test-agent.ts && tsx src/test-timezone.ts && tsx src/test-scheduling.ts",
+    "test": "tsx src/test-suite.ts && tsx src/test-payment-hardening.ts && tsx src/test-notifications.ts && tsx src/test-brevo-welcome.ts && tsx src/test-agent.ts && tsx src/test-timezone.ts && tsx src/test-scheduling.ts && tsx src/test-elastic.ts",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:migrate-0003": "tsx src/db/apply-0003.ts",
