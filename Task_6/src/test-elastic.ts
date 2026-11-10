@@ -147,7 +147,7 @@ async function main() {
     check(!(await checkRequestedSlot(doc.id, date, "11:30")).ok, "a patient can no longer book a removed slot");
   }
 
-  // ------------------------------------------------------------------ 4. shrink past a booking needs confirmation and keeps it
+  // ------------------------------------------------------------------ 4. shrink past a booking asks what to do, KEEP leaves it booked
   {
     const doc = await makeDoctor();
     const s = await dbRepo.createAvailabilitySession(weekly(doc.id, date));
@@ -155,18 +155,18 @@ async function main() {
     const late = await book(doc.id, date, "11:30", "12:00", s.id);
 
     const refusal = await blocked(() => dbRepo.updateAvailabilitySession(doc.id, s.id, { endTime: "11:00" }));
-    check(refusal?.code === "NEEDS_CONFIRMATION", "shrinking past a booking asks for confirmation first");
-    check(refusal?.impact.outsideBookings.length === 1 && refusal.impact.outsideBookings[0].id === late.id, "the prompt names the one booking that falls outside");
-    check(!!refusal?.impact.outsideBookings[0].patientName && /Pat Elastic/.test(refusal.impact.outsideBookings[0].patientName), "...with the patient's name");
-    check((await slotTimes(doc.id, date)).length === 4, "nothing changed while the doctor has not confirmed");
+    check(refusal?.code === "NEEDS_RESOLUTION", "shrinking past a booking asks what should happen to it first");
+    check(refusal?.impact.affectedBookings.length === 1 && refusal.impact.affectedBookings[0].id === late.id, "the prompt names the one booking that is affected");
+    check(!!refusal?.impact.affectedBookings[0].patientName && /Pat Elastic/.test(refusal.impact.affectedBookings[0].patientName), "...with the patient's name");
+    check((await slotTimes(doc.id, date)).length === 4, "nothing changed while the doctor has not chosen");
 
-    const applied = await dbRepo.updateAvailabilitySessionWithImpact(doc.id, s.id, { endTime: "11:00" }, { acknowledgeOutsideBookings: true });
-    check(applied.session.endTime === "11:00", "after confirming, the hours shrink");
+    const applied = await dbRepo.updateAvailabilitySessionWithImpact(doc.id, s.id, { endTime: "11:00" }, { resolution: "KEEP" });
+    check(applied.session.endTime === "11:00", "after choosing, the hours shrink");
     check(applied.impact.outsideBookings.length === 1, "the result still reports the booking outside the new hours");
     check(await unchanged(early.id, date, "10:00") && await unchanged(late.id, date, "11:30"), "BOTH appointments are still booked at their original times, none lost");
     check((await slotTimes(doc.id, date)).join() === "10:00,10:30", "new patients only see the shortened slots");
     check(!(await checkRequestedSlot(doc.id, date, "11:30")).ok, "the outside 11:30 slot cannot be booked by anyone else");
-    check(/stays? booked outside the new hours/.test(applied.impact.summary), "the summary tells the doctor the booking stays");
+    check(/1 booked appointment is affected/.test(applied.impact.summary), "the summary tells the doctor one booking is affected");
 
     // Unrelated edits are not held up by the booking that is already outside.
     const renamed = await dbRepo.updateAvailabilitySession(doc.id, s.id, { name: "Short morning OPD", patientsPerWave: 2 });
@@ -179,21 +179,25 @@ async function main() {
     check(g.slots.length === 4 && g.slots.find((x) => x.startTime === "11:30")?.bookedCount === 1, "extending again restores the 11:30 slot, still holding that patient");
   }
 
-  // ------------------------------------------------------------------ 5. a booking between the new slots refuses the change
+  // ------------------------------------------------------------------ 5. a booking between the new slots no longer blocks the change
   {
     const doc = await makeDoctor();
     const s = await dbRepo.createAvailabilitySession(weekly(doc.id, date));
     const a = await book(doc.id, date, "10:30", "11:00", s.id);
 
-    const longer = await blocked(() => dbRepo.updateAvailabilitySession(doc.id, s.id, { slotDurationMinutes: 45 }, { acknowledgeOutsideBookings: true }));
-    check(longer?.code === "OFF_GRID" && longer.impact.offGridBookings.length === 1, "longer slots that would swallow a booking are refused, even when confirming");
-    const shifted = await blocked(() => dbRepo.updateAvailabilitySession(doc.id, s.id, { startTime: "10:15" }, { acknowledgeOutsideBookings: true }));
-    check(shifted?.code === "OFF_GRID", "starting 15 minutes later (so slots no longer line up with the booking) is refused");
-    check(/reschedule or cancel/i.test(shifted?.message ?? ""), "the refusal explains what the doctor can do");
-    const session = (await dbRepo.getAvailabilitiesByDoctorId(doc.id))[0];
-    check(session.startTime === "10:00" && session.slotDurationMinutes === 30, "the session is unchanged after the refusal");
-    check(await unchanged(a.id, date, "10:30"), "the booking is untouched");
-    check(!!(await dbRepo.updateAvailabilitySession(doc.id, s.id, { startTime: "09:00" })), "moving the start by whole slots is fine");
+    const longer = await blocked(() => dbRepo.updateAvailabilitySession(doc.id, s.id, { slotDurationMinutes: 45 }));
+    check(longer?.code === "NEEDS_RESOLUTION" && longer.impact.offGridBookings.length === 1, "longer slots that would swallow a booking ask for a decision instead of refusing");
+    check(/move them.*cancel and refund.*keep/i.test(longer?.message ?? ""), "the message explains the three options");
+    const unchangedSession = (await dbRepo.getAvailabilitiesByDoctorId(doc.id))[0];
+    check(unchangedSession.slotDurationMinutes === 30, "nothing is saved until the doctor decides");
+
+    const applied = await dbRepo.updateAvailabilitySessionWithImpact(doc.id, s.id, { slotDurationMinutes: 45 }, { resolution: "KEEP" });
+    check(applied.session.slotDurationMinutes === 45 && applied.impact.offGridBookings.length === 1, "choosing KEEP applies the new slot length");
+    check(await unchanged(a.id, date, "10:30"), "the off-grid booking is untouched");
+
+    const shifted = await blocked(() => dbRepo.updateAvailabilitySession(doc.id, s.id, { startTime: "10:15", slotDurationMinutes: 30 }));
+    check(shifted === null, "a booking that was already off the grid does not hold up a later, unrelated edit");
+    check(!!(await dbRepo.updateAvailabilitySession(doc.id, s.id, { startTime: "09:00", slotDurationMinutes: 30 }, { resolution: "KEEP" })), "moving the start by whole slots is fine");
   }
 
   // ------------------------------------------------------------------ 6. only seat-holding bookings count
@@ -232,8 +236,8 @@ async function main() {
     const r = await blocked(() => dbRepo.updateAvailabilitySession(doc.id, s.id, { endTime: "13:00", slotDurationMinutes: 180 }));
     check(r === null && (await slotTimes(doc.id, date)).join() === "10:00", "a whole-session window can end earlier while its start (and bookings) stay put");
     check(await unchanged(a.id, date, "10:00"), "the booking at the session start is untouched");
-    const later = await blocked(() => dbRepo.updateAvailabilitySession(doc.id, s.id, { startTime: "09:00", slotDurationMinutes: 240 }, { acknowledgeOutsideBookings: true }));
-    check(later?.code === "OFF_GRID", "moving the start of a whole-session window past a booking at the old start is refused");
+    const later = await blocked(() => dbRepo.updateAvailabilitySession(doc.id, s.id, { startTime: "09:00", slotDurationMinutes: 240 }));
+    check(later?.code === "NEEDS_RESOLUTION" && later.impact.affectedBookings.length === 1, "stretching a whole-session window to start earlier asks what to do with the booking at the old start");
   }
 
   // ------------------------------------------------------------------ 9. switching a session off and moving its date
@@ -247,8 +251,248 @@ async function main() {
     const oneOff = await dbRepo.createAvailabilitySession(weekly(doc.id, date, { name: "Camp", recurrence: "ONE_TIME", specificDate: day(10), startTime: "15:00", endTime: "17:00", dayOfWeek: S.weekdayOfDate(day(10)) }));
     const c = await book(doc.id, day(10), "15:00", "15:30", oneOff.id);
     const move = await blocked(() => dbRepo.updateAvailabilitySession(doc.id, oneOff.id, { specificDate: day(12) }));
-    check(move?.code === "NEEDS_CONFIRMATION", "moving a one-date session off a booked day asks for confirmation");
+    check(move?.code === "NEEDS_RESOLUTION", "moving a one-date session off a booked day asks what to do with the booking");
     check(await unchanged(c.id, day(10), "15:00"), "the booking on the old date is untouched");
+  }
+
+  // ------------------------------------------------------------------ 10. the full-capacity scenario: 9-10, capacity 5, all 5 booked
+  const doctorIo = (doc: { id: string; userId: string }) => ({
+    freeSlots: async (d: string) =>
+      (await dbRepo.computeSessionGroups(doc.id, d)).groups.flatMap((g) =>
+        g.slots
+          .filter((x) => !x.isBooked && x.seatsLeft > 0)
+          .map((x) => ({ date: d, sessionId: g.sessionId, startTime: x.startTime, endTime: x.endTime, seatsLeft: x.seatsLeft }))
+      ),
+    move: async (b: { id: string }, t: { date: string; startTime: string; endTime: string; sessionId: string }) => {
+      const r = await dbRepo.rescheduleAppointment({
+        appointmentId: b.id,
+        newDate: t.date,
+        newStartTime: t.startTime,
+        newEndTime: t.endTime,
+        newSessionId: t.sessionId,
+        actorUserId: doc.userId,
+        actorRole: "DOCTOR",
+      });
+      return { ok: r.success, message: r.message };
+    },
+    cancel: async (b: { id: string }) => ({
+      ok: await dbRepo.updateAppointmentStatus(b.id, "CANCELLED", { cancelledBy: "DOCTOR", cancelReason: "Schedule change" }),
+    }),
+  });
+  const resolveOpts = { today, lastBookableDate: day(30) };
+  const fullHourSession = (doctorId: string, extra: Record<string, unknown> = {}) =>
+    weekly(doctorId, date, { name: "Hour OPD", startTime: "09:00", endTime: "10:00", slotDurationMinutes: 60, schedulingType: "WAVE", patientsPerWave: 5, ...extra });
+  const bookFive = async (doctorId: string, sessionId: string, at = "09:00", end = "10:00") => {
+    const out = [];
+    for (let i = 0; i < 5; i++) out.push(await book(doctorId, date, at, end, sessionId));
+    return out;
+  };
+  const statusOf = async (id: string) => (await dbRepo.getAppointmentById(id))?.status;
+  const placeOf = async (id: string) => {
+    const a = await dbRepo.getAppointmentById(id);
+    return a ? `${a.appointmentDate} ${a.startTime} ${a.status}` : "missing";
+  };
+
+  // 10a. EXPANSION: more time is added, all five stay put, new seats open up
+  {
+    const doc = await makeDoctor();
+    const s = await dbRepo.createAvailabilitySession(fullHourSession(doc.id));
+    const five = await bookFive(doc.id, s.id);
+    const full = (await dbRepo.computeSessionGroups(doc.id, date)).groups[0].slots[0];
+    check(full.bookedCount === 5 && full.seatsLeft === 0 && full.isBooked, "9-10 with capacity 5 is completely full after five bookings");
+
+    const later = await dbRepo.updateAvailabilitySessionWithImpact(doc.id, s.id, { endTime: "11:00" });
+    check(later.impact.change === "EXPANDED" && later.impact.affectedBookings.length === 0 && later.impact.keptBookings === 5, "extending the end to 11:00 affects none of the five bookings");
+    const g1 = (await dbRepo.computeSessionGroups(doc.id, date)).groups[0].slots;
+    check(g1.map((x) => `${x.startTime}:${x.seatsLeft}`).join() === "09:00:0,10:00:5", "the 09:00 slot is still full and a new 10:00 slot opens with five free seats");
+
+    const earlier = await dbRepo.updateAvailabilitySessionWithImpact(doc.id, s.id, { startTime: "08:00" });
+    check(earlier.impact.affectedBookings.length === 0, "extending the start to 08:00 affects none of the five bookings either");
+    const g2 = (await dbRepo.computeSessionGroups(doc.id, date)).groups[0].slots;
+    check(g2.map((x) => `${x.startTime}:${x.seatsLeft}`).join() === "08:00:5,09:00:0,10:00:5", "08:00 opens with five free seats, 09:00 stays full");
+    const placed = await Promise.all(five.map((a) => placeOf(a.id)));
+    check(placed.every((p) => p === `${date} 09:00 BOOKED`), "all five appointments are still booked at 09:00");
+  }
+
+  // 10b. EXPANSION of a session that is "one slot for the whole session": the slot is kept, the extra time becomes new seats
+  {
+    const wholeOld = { startTime: "09:00", endTime: "10:00", slotDurationMinutes: 60 };
+    check(E.effectiveSlotLength({ editing: wholeOld, startTime: "08:00", endTime: "10:00", slotLength: 60, wholeSession: true }) === 60, "extending a whole-session window keeps its current slot length");
+    check(E.effectiveSlotLength({ editing: wholeOld, startTime: "09:30", endTime: "10:00", slotLength: 60, wholeSession: true }) === 30, "shrinking a whole-session window makes the slot follow it");
+    check(E.effectiveSlotLength({ editing: { ...wholeOld, slotDurationMinutes: 30 }, startTime: "08:00", endTime: "10:00", slotLength: 30, wholeSession: true }) === 120, "ticking whole-session on a normal session still makes one big slot");
+    check(E.effectiveSlotLength({ editing: wholeOld, startTime: "08:00", endTime: "10:00", slotLength: 45, wholeSession: false }) === 45, "without the tick, the chosen slot length is used as typed");
+
+    const doc = await makeDoctor();
+    const s = await dbRepo.createAvailabilitySession(fullHourSession(doc.id));
+    const five = await bookFive(doc.id, s.id);
+    const slot = E.effectiveSlotLength({ editing: wholeOld, startTime: "08:00", endTime: "10:00", slotLength: 60, wholeSession: true });
+    const r = await dbRepo.updateAvailabilitySessionWithImpact(doc.id, s.id, { startTime: "08:00", slotDurationMinutes: slot });
+    check(r.impact.affectedBookings.length === 0 && (await slotTimes(doc.id, date)).join() === "08:00,09:00", "extending 9-10 to 8-10 is never refused and adds an 08:00 slot");
+    check((await Promise.all(five.map((a) => placeOf(a.id)))).every((p) => p === `${date} 09:00 BOOKED`), "...with all five bookings untouched");
+  }
+
+  // 10c. SHRINK, the removed time is empty: nothing to decide
+  {
+    const doc = await makeDoctor();
+    const s = await dbRepo.createAvailabilitySession(fullHourSession(doc.id, { startTime: "08:00", endTime: "11:00" }));
+    const five = await bookFive(doc.id, s.id, "09:00", "10:00");
+    const r = await dbRepo.updateAvailabilitySessionWithImpact(doc.id, s.id, { startTime: "09:00", endTime: "10:00" });
+    check(r.impact.change === "SHRUNK" && r.impact.affectedBookings.length === 0 && r.impact.slotsRemoved.join() === "08:00,10:00", "shrinking 8-11 to 9-10 drops two empty slots and affects nobody");
+    check((await Promise.all(five.map((a) => placeOf(a.id)))).every((p) => p === `${date} 09:00 BOOKED`), "the five bookings are untouched");
+  }
+
+  // 10d. SHRINK past the five bookings, then each choice
+  {
+    // MOVE: the five move to the nearest free slot (10:00, which has five free seats)
+    const doc = await makeDoctor();
+    const s = await dbRepo.createAvailabilitySession(fullHourSession(doc.id, { endTime: "11:00" }));
+    const five = await bookFive(doc.id, s.id);
+    const ask = await blocked(() => dbRepo.updateAvailabilitySession(doc.id, s.id, { startTime: "10:00" }));
+    check(ask?.code === "NEEDS_RESOLUTION" && ask.impact.affectedBookings.length === 5, "starting at 10:00 affects all five 09:00 bookings and asks what to do");
+    check((await slotTimes(doc.id, date)).join() === "09:00,10:00", "nothing is saved yet");
+
+    const applied = await dbRepo.updateAvailabilitySessionWithImpact(doc.id, s.id, { startTime: "10:00" }, { resolution: "MOVE" });
+    const out = await E.resolveAffectedBookings("MOVE", applied.impact.affectedBookings, doctorIo(doc), resolveOpts);
+    check(out.moved.length === 5 && out.kept.length === 0 && out.cancelled.length === 0, "MOVE places all five patients");
+    check((await Promise.all(five.map((a) => placeOf(a.id)))).every((p) => p === `${date} 10:00 BOOKED`), "all five now sit in the 10:00 slot and are still booked");
+    check(/5 appointments were moved/.test(out.summary), "the summary says five appointments were moved");
+    const only = (await dbRepo.computeSessionGroups(doc.id, date)).groups[0].slots;
+    check(only.length === 1 && only[0].startTime === "10:00" && only[0].seatsLeft === 0, "the shortened session is full again, so there is no overbooking");
+  }
+  {
+    // MOVE with too few free seats: three move, two stay booked (never lost)
+    const doc = await makeDoctor();
+    const s = await dbRepo.createAvailabilitySession(fullHourSession(doc.id, { endTime: "11:00" }));
+    const five = await bookFive(doc.id, s.id);
+    await book(doc.id, date, "10:00", "11:00", s.id);
+    await book(doc.id, date, "10:00", "11:00", s.id);
+    const applied = await dbRepo.updateAvailabilitySessionWithImpact(doc.id, s.id, { startTime: "10:00" }, { resolution: "MOVE" });
+    // Only that one day is open for moving (next week's session would otherwise take the other two).
+    const out = await E.resolveAffectedBookings("MOVE", applied.impact.affectedBookings, doctorIo(doc), { ...resolveOpts, lastBookableDate: date });
+    check(out.moved.length === 3 && out.kept.length === 2, "with only three free seats, three patients move and two cannot");
+    const places = await Promise.all(five.map((a) => placeOf(a.id)));
+    check(places.filter((p) => p === `${date} 10:00 BOOKED`).length === 3 && places.filter((p) => p === `${date} 09:00 BOOKED`).length === 2, "the two who could not move are still booked at 09:00");
+    check(places.every((p) => p.endsWith("BOOKED")), "none of the five was cancelled or lost");
+    check(/2 appointments could not be changed and stay booked as before/.test(out.summary), "the summary names the two that stay");
+    const slot = (await dbRepo.computeSessionGroups(doc.id, date)).groups[0].slots[0];
+    check(slot.bookedCount === 5 && slot.seatsLeft === 0, "the 10:00 slot never goes above its capacity of five");
+  }
+  {
+    // CANCEL: all five cancelled by the doctor and their seats freed
+    const doc = await makeDoctor();
+    const s = await dbRepo.createAvailabilitySession(fullHourSession(doc.id, { endTime: "11:00" }));
+    const five = await bookFive(doc.id, s.id);
+    const ok = await dbRepo.updateAvailabilitySessionWithImpact(doc.id, s.id, { startTime: "10:00" }, { resolution: "CANCEL" });
+    const out = await E.resolveAffectedBookings("CANCEL", ok.impact.affectedBookings, doctorIo(doc), resolveOpts);
+    check(out.cancelled.length === 5 && out.moved.length === 0, "CANCEL cancels all five");
+    check((await Promise.all(five.map((a) => statusOf(a.id)))).every((st) => st === "CANCELLED"), "all five appointments are now cancelled");
+    check(/5 appointments were cancelled \(paid ones refunded in full\)/.test(out.summary), "the summary says paid appointments are refunded in full");
+  }
+  {
+    // KEEP: nothing moves
+    const doc = await makeDoctor();
+    const s = await dbRepo.createAvailabilitySession(fullHourSession(doc.id, { endTime: "11:00" }));
+    const five = await bookFive(doc.id, s.id);
+    const applied = await dbRepo.updateAvailabilitySessionWithImpact(doc.id, s.id, { startTime: "10:00" }, { resolution: "KEEP" });
+    const out = await E.resolveAffectedBookings("KEEP", applied.impact.affectedBookings, doctorIo(doc), resolveOpts);
+    check(out.kept.length === 5 && out.moved.length === 0 && out.cancelled.length === 0, "KEEP changes nothing");
+    check((await Promise.all(five.map((a) => placeOf(a.id)))).every((p) => p === `${date} 09:00 BOOKED`), "all five stay booked at 09:00");
+  }
+  {
+    // Shrinking the END past the last slot: the five in 10:00 move back to the nearest slot, 09:00
+    const doc = await makeDoctor();
+    const s = await dbRepo.createAvailabilitySession(fullHourSession(doc.id, { endTime: "11:00" }));
+    const five = await bookFive(doc.id, s.id, "10:00", "11:00");
+    const applied = await dbRepo.updateAvailabilitySessionWithImpact(doc.id, s.id, { endTime: "10:00" }, { resolution: "MOVE" });
+    check(applied.impact.slotsRemoved.join() === "10:00" && applied.impact.affectedBookings.length === 5, "ending at 10:00 removes the 10:00 slot and affects its five bookings");
+    const out = await E.resolveAffectedBookings("MOVE", applied.impact.affectedBookings, doctorIo(doc), resolveOpts);
+    check(out.moved.length === 5 && (await Promise.all(five.map((a) => placeOf(a.id)))).every((p) => p === `${date} 09:00 BOOKED`), "all five move to the 09:00 slot");
+  }
+
+  // ------------------------------------------------------------------ 11. the moving rules in isolation
+  {
+    const b = { id: "b1", appointmentDate: day(7), startTime: "10:30", endTime: "11:00" };
+    const slot = (d: string, t: string, left = 1) => ({ date: d, sessionId: "s", startTime: t, endTime: t, seatsLeft: left });
+    const ranked = E.rankRelocationCandidates(b, [slot(day(8), "10:30"), slot(day(7), "09:00"), slot(day(7), "11:00"), slot(day(7), "10:00"), slot(day(7), "12:00", 0), slot(day(6), "10:30")]);
+    check(ranked.map((x) => `${x.date === day(7) ? "same" : "next"} ${x.startTime}`).join() === "same 10:00,same 11:00,same 09:00,next 10:30", "candidates: own day first, closest time first, full or earlier-dated slots excluded");
+
+    // own day full -> next day
+    const calls: string[] = [];
+    const deps = {
+      freeSlots: async (d: string) => (d === day(8) ? [slot(day(8), "10:00")] : []),
+      move: async (_b: unknown, t: { date: string; startTime: string }) => {
+        calls.push(`${t.date} ${t.startTime}`);
+        return { ok: true };
+      },
+      cancel: async () => ({ ok: true }),
+    };
+    const o = await E.resolveAffectedBookings("MOVE", [b], deps, resolveOpts);
+    check(o.moved.length === 1 && calls.join() === `${day(8)} 10:00`, "when the patient's own day is full they are moved to the next day with room");
+
+    // a failed attempt falls through to the next candidate
+    let tries = 0;
+    const flaky = {
+      ...deps,
+      freeSlots: async (d: string) => (d === day(7) ? [slot(day(7), "10:00"), slot(day(7), "11:00")] : []),
+      move: async (_b: unknown, t: { startTime: string }) => {
+        tries++;
+        return t.startTime === "10:00" ? { ok: false, message: "slot just filled" } : { ok: true };
+      },
+    };
+    const o2 = await E.resolveAffectedBookings("MOVE", [b], flaky, resolveOpts);
+    check(o2.moved.length === 1 && o2.moved[0].to.startTime === "11:00" && tries === 2, "if the best slot fills up at the last moment, the next best is used");
+
+    // nothing anywhere -> stays booked; a failing cancel -> stays booked
+    const none = await E.resolveAffectedBookings("MOVE", [b], { ...deps, freeSlots: async () => [] }, resolveOpts);
+    check(none.moved.length === 0 && none.kept.length === 1, "with no free slot anywhere the booking simply stays booked");
+    const failCancel = await E.resolveAffectedBookings("CANCEL", [b], { ...deps, cancel: async () => ({ ok: false, message: "payment gateway down" }) }, resolveOpts);
+    check(failCancel.cancelled.length === 0 && failCancel.kept[0]?.reason === "payment gateway down", "a cancellation that fails leaves the booking in place and says why");
+    const thrown = await E.resolveAffectedBookings("MOVE", [b], { ...deps, freeSlots: async () => [slot(day(7), "11:00")], move: async () => { throw new Error("boom"); } }, resolveOpts);
+    check(thrown.kept.length === 1, "an error while moving never loses the booking");
+    check(E.isBookingResolution("MOVE") && E.isBookingResolution("CANCEL") && E.isBookingResolution("KEEP") && !E.isBookingResolution("DELETE"), "only MOVE, CANCEL and KEEP are accepted choices");
+  }
+
+  // ------------------------------------------------------------------ 12. EVERY slot booked, then shrink: what happens to the bookings
+  {
+    const doc = await makeDoctor();
+    const s = await dbRepo.createAvailabilitySession(fullHourSession(doc.id, { endTime: "11:00", recurrence: "ONE_TIME", specificDate: date }));
+    const nine = await bookFive(doc.id, s.id, "09:00", "10:00");
+    const ten = await bookFive(doc.id, s.id, "10:00", "11:00");
+    const slots = (await dbRepo.computeSessionGroups(doc.id, date)).groups[0].slots;
+    check(slots.length === 2 && slots.every((x) => x.seatsLeft === 0 && x.isBooked), "9-11 with two slots of 5 is completely full: 10 of 10 seats booked");
+
+    // Shrink: the whole 10:00 slot goes. The doctor is told in advance nobody can be moved.
+    const ask = await blocked(() => dbRepo.updateAvailabilitySession(doc.id, s.id, { endTime: "10:00" }));
+    check(ask?.code === "NEEDS_RESOLUTION" && ask.impact.affectedBookings.length === 5, "shrinking to 9-10 affects the five patients in the 10:00 slot");
+    check(ask?.impact.relocationPreview?.movable === 0 && ask.impact.relocationPreview.stuck === 5, "the prompt already says none of them can be moved because every other slot is full");
+
+    // MOVE with every slot full: nothing can be placed, nobody is lost.
+    const applied = await dbRepo.updateAvailabilitySessionWithImpact(doc.id, s.id, { endTime: "10:00" }, { resolution: "MOVE" });
+    const out = await E.resolveAffectedBookings("MOVE", applied.impact.affectedBookings, doctorIo(doc), resolveOpts);
+    check(out.moved.length === 0 && out.kept.length === 5, "MOVE finds no free seat, so all five stay booked");
+    check((await Promise.all(ten.map((a) => placeOf(a.id)))).every((p) => p === `${date} 10:00 BOOKED`), "the five are still booked at 10:00");
+    check((await Promise.all(nine.map((a) => placeOf(a.id)))).every((p) => p === `${date} 09:00 BOOKED`), "the five at 09:00 are untouched");
+    check(/5 appointments could not be changed and stay booked as before/.test(out.summary), "the summary tells the doctor all five stay booked");
+    check((await slotTimes(doc.id, date)).join() === "09:00", "new patients only see the shortened session");
+
+  }
+  {
+    // Partial room: 2 free seats elsewhere, 5 affected -> preview says 2 movable, 3 stuck
+    const doc = await makeDoctor();
+    const s = await dbRepo.createAvailabilitySession(fullHourSession(doc.id, { endTime: "11:00", recurrence: "ONE_TIME", specificDate: date }));
+    await bookFive(doc.id, s.id, "10:00", "11:00");
+    await book(doc.id, date, "09:00", "10:00", s.id);
+    await book(doc.id, date, "09:00", "10:00", s.id);
+    await book(doc.id, date, "09:00", "10:00", s.id);
+    const ask = await blocked(() => dbRepo.updateAvailabilitySession(doc.id, s.id, { endTime: "10:00" }));
+    check(ask?.impact.relocationPreview?.movable === 2 && ask.impact.relocationPreview.stuck === 3, "with two free seats left in 09:00, the preview says 2 can be moved and 3 cannot");
+
+    const pure = E.planRelocations(
+      [1, 2, 3].map((n) => ({ id: `p${n}`, appointmentDate: date, startTime: "10:00", endTime: "11:00" })),
+      (d) => (d === date ? [{ date, sessionId: "s", startTime: "09:00", endTime: "10:00", seatsLeft: 2 }] : []),
+      resolveOpts
+    );
+    check(pure.movable === 2 && pure.stuck === 1, "planRelocations counts seats as they are used up");
   }
 
   console.log(`\nElastic scheduling tests: ${passed} checks passed, ${failed} failed`);
