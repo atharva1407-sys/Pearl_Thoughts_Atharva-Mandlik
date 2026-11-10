@@ -63,7 +63,7 @@ A one-date session can be created on several dates at once. Rules: a one-date se
 
 ## Elastic scheduling
 
-A doctor can stretch or shrink an existing session (10:00–12:00 to 09:00–12:00, or to 10:00–11:00) from **Weekly Shifts → edit**. A live preview lists the slots that are added or removed. Booked appointments are never moved or cancelled: if the new hours no longer cover a booking the doctor must confirm, and that booking stays booked; a change that would leave a booking between two slots is refused. Details are in `CHANGES.md`; the rules live in `src/lib/elastic-schedule.ts`.
+A doctor can stretch or shrink an existing session (Weekly Shifts → edit) by changing its start or end time, **even when appointments are booked**. A live preview lists the slots that are added or removed. Expanding never disturbs a booking. When a change affects booked patients (shrinking past them, or a slot length that leaves them between slots) nothing is saved until the doctor chooses: **move them to the nearest free slot** (default; patients are emailed and anyone who cannot be placed stays booked), **cancel and refund**, or **keep them as booked**. For the demo, `GET /api/dev/seed-elastic-demo` (local in-memory mode only) creates a 9:00–11:00 session with every slot booked (2 slots × 5 seats). Details are in `CHANGES.md`; the rules live in `src/lib/elastic-schedule.ts`.
 
 ## Operating it
 

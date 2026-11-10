@@ -1,25 +1,41 @@
-# Elastic Scheduling — stretch or shrink a session without touching bookings (built into Task 6)
+# Elastic Scheduling — stretch or shrink a session, even when it is fully booked (built into Task 6)
 
-A doctor can change the hours of an existing OPD session. The slots follow the new hours, and appointments that are already booked are never moved, cancelled or lost.
+A doctor can change the start or end time of an existing OPD session at any time, **including when appointments are already booked**. The slots follow the new hours. Editing is never switched off because bookings exist: if a change affects booked patients, the doctor says what happens to them, and nothing is saved until they do.
 
-| Example | What happens |
+Worked examples: **9:00–10:00 with 5 patients per slot, all 5 seats booked**, and **9:00–11:00 with every slot full (2 slots × 5 seats = 10 bookings)**.
+
+| Doctor does | What happens to the 5 booked patients |
 |---|---|
-| **Shrink** 10:00–12:00 to 10:00–11:00 | The 11:00 and 11:30 slots disappear for new patients. Nothing is booked there, so it applies at once. |
-| **Expand** 10:00–12:00 to 09:00–12:00 | The 09:00 and 09:30 slots are added and can be booked straight away. Existing bookings are untouched. |
-| Shrink past a booked slot | The doctor sees who is affected (date, time, patient) and must confirm. The booking **stays booked** and is not cancelled. New patients can only book inside the new hours. |
-| Change that puts a booking *between* new slots | Refused, with an explanation (for example 30-minute slots changed to 45, or a start time moved by 15 minutes). Otherwise a second patient could end up overlapping that booking. |
+| **Expand** the end to 11:00 | Untouched. A new 10:00 slot opens with 5 free seats. |
+| **Expand** the start to 8:00 | Untouched. A new 08:00 slot opens with 5 free seats. |
+| **Shrink** where the removed time is empty (8:00–11:00 down to 9:00–10:00) | Untouched. Nothing to decide, it applies at once. |
+| **Shrink** past their slot (start moved to 10:00 on a 9:00–11:00 session) | The doctor sees the 5 names and picks one of three options (below). |
+| **Every slot booked, then shrink** (9:00–11:00 down to 9:00–10:00) | The 5 patients in the removed 10:00 slot are affected. The dialog says up front that every other slot is full, so **Move cannot place anyone** and they stay booked as before. Cancel and refund, or Keep, are the alternatives. After the doctor expands again, there is room and Move works. |
+| Change slot length or start so a booking falls *between* slots (for example 30-minute slots become 45) | Same three options. The change is no longer refused. |
+
+The three options for affected bookings:
+
+| Option | Result |
+|---|---|
+| **Move to the nearest free slot** (recommended) | Each patient is moved to the closest free slot: their own day first (nearest time), then the following days (up to 14, inside the 30-day booking window). Seats are counted, so a slot never goes above its capacity. Each patient gets a reschedule email and fresh reminders. Anyone who cannot be placed **stays booked exactly as before**, and the doctor is told. |
+| **Cancel and refund** | Each appointment is cancelled by the doctor through the normal cancellation path: full refund for paid ones, cancellation email, reminders and pre-authorisations cancelled. |
+| **Keep as booked** | Appointments keep their original time outside the new hours. New patients can only book the new slots. |
+
+A session that is "one slot for the whole session" and is only **extended** keeps its current slot length, so the people already booked stay in their slot and the extra time becomes new slots (otherwise extending 9–10 to 8–10 would stretch the single slot to 8:00 and strand the 9:00 bookings).
 
 ## How it works
 
 | Area | Change |
 |---|---|
-| Rules | New pure module `src/lib/elastic-schedule.ts`: `slotStarts`, `classifyWindowChange`, `classifyBooking` (KEPT / OUTSIDE / OFF_GRID), `analyzeSessionChange`. The repository, the form and the tests all use it. |
-| Repository | `updateAvailabilitySessionWithImpact` (and the existing `updateAvailabilitySession`, which now calls it) loads the session's upcoming bookings, works out what the edit does to them and either applies it, asks for confirmation (`SessionChangeBlocked` / `NEEDS_CONFIRMATION`) or refuses it (`OFF_GRID`). Both the Postgres and in-memory implementations behave the same. |
-| What counts | Only upcoming (today onward) bookings that hold a seat: booked, completed and no-show, plus unexpired payment holds. Cancelled and expired ones never block an edit. Bookings that were already outside the hours before the edit do not block unrelated edits such as a rename. |
-| Server action | `updateSessionAction` accepts `acknowledgeOutsideBookings`, returns `needsConfirmation` plus the affected bookings, and puts a plain-language summary in the success message (for example "8 slots removed (13:00, 13:30, ...)"). |
-| Doctor form | Editing a session shows a live preview ("Extending this session: 09:00–17:00 to 08:00–17:00, 2 slots added"), an amber confirmation panel listing affected bookings, and any error inside the dialog (before, errors appeared behind it). |
+| Rules | Pure module `src/lib/elastic-schedule.ts`: `slotStarts`, `classifyBooking` (KEPT / OUTSIDE / OFF_GRID), `analyzeSessionChange` (lists the *affected* bookings), `effectiveSlotLength`, `rankRelocationCandidates` and `resolveAffectedBookings` (MOVE / CANCEL / KEEP, never loses a booking). |
+| Repository | `updateAvailabilitySessionWithImpact(..., { resolution })` throws `SessionChangeBlocked` (`NEEDS_RESOLUTION`) and saves nothing when bookings are affected and no choice was given. The refusal for off-grid bookings is gone. Postgres and in-memory behave the same. |
+| What counts | Only upcoming (today onward) bookings that hold a seat. Cancelled and expired ones never matter. Bookings that were already outside the hours before the edit do not hold up unrelated edits such as a rename. |
+| Server action | `updateSessionAction` takes `bookingResolution`, saves the hours, then applies MOVE or CANCEL, using the existing doctor cancellation action for CANCEL and the repository reschedule for MOVE. The patient (not the doctor) receives the emails. The success message reports what happened. |
+| Doctor form | Live preview of added and removed slots; an amber panel listing the affected patients with the three options (Move is preselected); errors shown inside the dialog. |
+| Pre-check | Before the doctor chooses, the repository does a dry run (`previewRelocation` / `planRelocations`) against the schedule as it *would* be, and the dialog says how many affected patients could be moved and how many would find every slot full. |
+| Demo data | `GET /api/dev/seed-elastic-demo` creates a doctor and a 9:00–11:00 session (two slots, 5 seats each) with ten patients who have booked every seat. It only runs in local in-memory mode (no database configured) and refuses in production or with a real database. |
 | Database | **No migration.** No schema change. |
-| Tests | `src/test-elastic.ts`: 55 checks (pure rules plus the repository: expansion, shrink with and without bookings, confirmation, refusal, cancelled bookings, Wave capacity after an edit, whole-session Stream windows, switching a session off, moving a one-date session), chained into `npm test`. Breaking the repository rules on purpose makes 12 of them fail. |
+| Tests | `src/test-elastic.ts`: 105 checks, including the full-capacity scenarios (expand, empty shrink, shrink with MOVE / CANCEL / KEEP, too few free seats so some stay booked, ending earlier, every slot booked then shrink, and the dry-run pre-check), chained into `npm test`. |
 
 Deploying this change needs no database step.
 
