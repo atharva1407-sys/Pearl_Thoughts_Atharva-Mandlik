@@ -2,19 +2,16 @@ import { z } from "zod";
 import type { MedrellaRepository, PatientEntity } from "@/db/repo";
 import { MAX_BOOKING_DAYS_AHEAD, checkRequestedSlot } from "../booking-rules";
 import { istDateString } from "../engagement";
-import { getInsuranceProvider } from "../insurance";
 import { formatPaise, rupeesToPaise } from "../payments";
 import type { LlmTool } from "./llm";
 
 /** What the chat UI renders under an assistant message. Cards never perform actions on their own. */
 export interface AgentCard {
-  kind: "BOOKING" | "MANAGE" | "PREAUTH";
+  kind: "BOOKING" | "MANAGE";
   title: string;
   lines: string[];
   /** In-app link the patient opens to continue. */
   href?: string;
-  /** Button that calls a server action after the patient confirms. */
-  action?: { type: "REQUEST_PREAUTH"; appointmentId: string; policyId: string; label: string };
 }
 
 export interface ToolContext {
@@ -50,7 +47,6 @@ function dateProblem(date: string, now: Date): string | null {
 }
 
 const doctorLabel = (d: { firstName: string; lastName: string }) => `Dr. ${d.firstName} ${d.lastName}`;
-const maskPolicy = (n: string) => `••••${n.slice(-4)}`;
 
 async function openSlots(repo: MedrellaRepository, doctorId: string, date: string) {
   const data = await repo.computeSessionGroups(doctorId, date);
@@ -221,89 +217,6 @@ export const AGENT_TOOLS: ToolDefinition[] = [
                 : "Open your dashboard and choose Reschedule to pick a new slot.",
             ],
             href: "/patient/dashboard",
-          },
-        ],
-      };
-    },
-  },
-  {
-    name: "insurance_overview",
-    description: "Summarise the patient's insurance policies, cashless pre-authorisations and claims.",
-    parameters: { type: "object", properties: {} },
-    schema: z.object({}),
-    async run(ctx) {
-      const provider = getInsuranceProvider();
-      if (!provider) return { data: { enabled: false, note: "Insurance services are not enabled yet." } };
-      const [policies, preauths, claims] = await Promise.all([
-        ctx.repo.getInsurancePoliciesByPatientId(ctx.patient.id),
-        ctx.repo.getPreauthsByPatientId(ctx.patient.id),
-        ctx.repo.getClaimsByPatientId(ctx.patient.id),
-      ]);
-      return {
-        data: {
-          enabled: true,
-          simulatedInsurer: provider.isSimulated,
-          policies: policies.map((p) => ({
-            policyId: p.id,
-            insurer: p.insurerName,
-            policy: maskPolicy(p.policyNumber),
-            status: p.status,
-            sumInsured: formatPaise(p.sumInsuredPaise),
-            copayPercent: p.copayPercent,
-          })),
-          preauthorisations: preauths.slice(0, 5).map((r) => ({
-            appointmentId: r.appointmentId,
-            status: r.status,
-            estimated: formatPaise(r.estimatedAmountPaise),
-            approved: r.approvedAmountPaise != null ? formatPaise(r.approvedAmountPaise) : null,
-            note: r.statusNote ?? null,
-          })),
-          claims: claims.slice(0, 5).map((c) => ({
-            appointmentId: c.appointmentId,
-            status: c.status,
-            amount: formatPaise(c.amountPaise),
-            settled: c.settledAmountPaise != null ? formatPaise(c.settledAmountPaise) : null,
-            note: c.statusNote ?? null,
-          })),
-        },
-      };
-    },
-  },
-  {
-    name: "propose_preauth",
-    description:
-      "Offer to request cashless pre-authorisation from the insurer for an upcoming booked appointment. It does NOT submit anything: the patient presses a confirm button first.",
-    parameters: {
-      type: "object",
-      properties: { appointmentId: { type: "string" }, policyId: { type: "string" } },
-      required: ["appointmentId", "policyId"],
-    },
-    schema: z.object({ appointmentId: z.string().min(1).max(80), policyId: z.string().min(1).max(80) }),
-    async run(ctx, args: { appointmentId: string; policyId: string }) {
-      if (!getInsuranceProvider()) return { data: { error: "Insurance services are not enabled yet." } };
-      const appointment = await ctx.repo.getAppointmentById(args.appointmentId);
-      if (!appointment || appointment.patientId !== ctx.patient.id) return { data: { error: "Appointment not found." } };
-      if (appointment.status !== "BOOKED") return { data: { error: "Pre-authorisation is only possible for a confirmed, upcoming appointment." } };
-      const policy = await ctx.repo.getInsurancePolicyById(args.policyId);
-      if (!policy || policy.patientId !== ctx.patient.id) return { data: { error: "Policy not found." } };
-      if (policy.status !== "ACTIVE") return { data: { error: "This policy is not active." } };
-      const doctor = await ctx.repo.getDoctorById(appointment.doctorId);
-      return {
-        data: { prepared: true },
-        cards: [
-          {
-            kind: "PREAUTH",
-            title: "Request cashless pre-authorisation",
-            lines: [
-              `${doctor ? doctorLabel(doctor) : "Appointment"} · ${appointment.appointmentDate} at ${appointment.startTime}`,
-              `${policy.insurerName} · ${maskPolicy(policy.policyNumber)}`,
-            ],
-            action: {
-              type: "REQUEST_PREAUTH",
-              appointmentId: appointment.id,
-              policyId: policy.id,
-              label: "Send request to insurer",
-            },
           },
         ],
       };

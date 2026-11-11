@@ -41,7 +41,7 @@ interface ClinicalShellProps {
   children: React.ReactNode;
 }
 
-/** Bell menu: the signed-in user's recent emails and updates (bookings, receipts, insurance, follow-ups). */
+/** Bell menu: the signed-in user's recent emails and updates (bookings, receipts, follow-ups). */
 function NotificationBell({ signedIn }: { signedIn: boolean }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<InboxItem[] | null>(null);
@@ -149,7 +149,6 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
     if (pathname.startsWith("/admin/notifications")) return "Notification Delivery Engine";
     if (pathname.startsWith("/reports")) return "Visit Reports & Analytics";
     if (pathname.startsWith("/patient/payments")) return "Payments & Receipts";
-    if (pathname.startsWith("/patient/insurance")) return "Insurance & Cashless";
     if (pathname.startsWith("/patient/dashboard")) return "Patient Portal";
     if (pathname.startsWith("/doctor/dashboard")) return "Doctor Agenda";
     if (pathname.startsWith("/doctor/availability")) return "Weekly Shifts";
@@ -245,15 +244,6 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
               >
                 <CreditCard size={17} />
                 <span>Payments & Receipts</span>
-              </Link>
-
-              <Link
-                href="/patient/insurance"
-                onClick={() => setSidebarOpen(false)}
-                className={`nav-item ${pathname.startsWith("/patient/insurance") ? "active" : ""}`}
-              >
-                <ShieldCheck size={17} />
-                <span>Insurance</span>
               </Link>
 
               <Link

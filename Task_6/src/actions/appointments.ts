@@ -12,7 +12,6 @@ import type { MockProvider } from "@/lib/payments";
 import { checkPaymentBinding, checkOrderSettled } from "@/lib/payments/binding";
 import { prepareRefund, executeRefund, issueRefund } from "@/lib/payments/refunds";
 import type { PreparedRefund } from "@/lib/payments/refunds";
-import { cancelPreauthForAppointment } from "@/lib/insurance/service";
 import { buildInstantFromKolkataTime } from "@/lib/time";
 import { finalizeConfirmedBooking } from "@/lib/payments/finalize";
 import { computeRefund } from "@/lib/refund-policy";
@@ -741,8 +740,6 @@ export async function cancelAppointmentAction(appointmentId: string) {
 
   // Cancel any pending reminders
   await cancelAppointmentReminders(dbRepo, appointmentId);
-  // An open or approved insurance pre-authorisation is no longer valid.
-  await cancelPreauthForAppointment(dbRepo, appointmentId);
 
   // Now ask the gateway. The refund is only "processed" if the gateway says so.
   let refundMessage = "";

@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
-import { AlertCircle, Bot, CalendarCheck, Loader2, Mic, SendHorizonal, ShieldCheck, Sparkles, Square, User, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { AlertCircle, Bot, CalendarCheck, Loader2, Mic, SendHorizonal, Sparkles, Square, User, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { requestPreauthAction } from "@/actions/insurance";
 import type { AgentCard } from "@/lib/agent/tools";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,13 +29,11 @@ const SUGGESTIONS = [
 export function AssistantChat({
   firstName,
   configured,
-  insuranceEnabled,
   className,
   onClose,
 }: {
   firstName: string;
   configured: boolean;
-  insuranceEnabled: boolean;
   className?: string;
   onClose?: () => void;
 }) {
@@ -123,8 +120,6 @@ export function AssistantChat({
     stopTimerRef.current = setTimeout(() => recorder.state !== "inactive" && recorder.stop(), MAX_RECORDING_MS);
   }
 
-  const suggestions = insuranceEnabled ? [...SUGGESTIONS, "What is the status of my insurance claims?"] : SUGGESTIONS;
-
   async function send(text: string) {
     const message = text.trim();
     if (!message || busy) return;
@@ -200,11 +195,10 @@ export function AssistantChat({
         {messages.length === 0 && (
           <div className="space-y-3">
             <p className="text-sm text-slate-600">
-              Hi {firstName}! I can help you find a doctor, check open slots and review your appointments
-              {insuranceEnabled ? " and insurance" : ""}. I can&apos;t give medical advice. For emergencies call 112.
+              Hi {firstName}! I can help you find a doctor, check open slots and review your appointments. I can&apos;t give medical advice. For emergencies call 112.
             </p>
             <div className="flex flex-wrap gap-2">
-              {suggestions.map((s) => (
+              {SUGGESTIONS.map((s) => (
                 <Button key={s} variant="outline" size="sm" disabled={!configured || busy} onClick={() => send(s)}>
                   <Sparkles size={13} />
                   {s}
@@ -307,14 +301,10 @@ function MessageBubble({ message }: { message: Message }) {
 }
 
 function ActionCard({ card }: { card: AgentCard }) {
-  const [isPending, startTransition] = useTransition();
-  const [outcome, setOutcome] = useState<{ ok: boolean; text: string } | null>(null);
-  const Icon = card.kind === "PREAUTH" ? ShieldCheck : CalendarCheck;
-
   return (
     <Card className="space-y-2 p-3.5">
       <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
-        <Icon size={15} className="text-[#1769e8]" />
+        <CalendarCheck size={15} className="text-[#1769e8]" />
         {card.title}
       </div>
       <ul className="space-y-0.5 text-xs text-slate-600">
@@ -327,34 +317,6 @@ function ActionCard({ card }: { card: AgentCard }) {
         <Button asChild variant="default" size="sm">
           <Link href={card.href}>{card.kind === "BOOKING" ? "Review & book" : "Open dashboard"}</Link>
         </Button>
-      )}
-
-      {card.action && !outcome?.ok && (
-        <Button
-          variant="default"
-          size="sm"
-          disabled={isPending}
-          onClick={() =>
-            startTransition(async () => {
-              const res = await requestPreauthAction({
-                appointmentId: card.action!.appointmentId,
-                policyId: card.action!.policyId,
-              });
-              setOutcome(
-                res.success
-                  ? { ok: true, text: res.message ?? "Request sent." }
-                  : { ok: false, text: res.error }
-              );
-            })
-          }
-        >
-          {isPending && <Loader2 size={13} className="animate-spin" />}
-          {card.action.label}
-        </Button>
-      )}
-
-      {outcome && (
-        <p className={`text-xs font-semibold ${outcome.ok ? "text-emerald-700" : "text-red-600"}`}>{outcome.text}</p>
       )}
     </Card>
   );

@@ -122,16 +122,7 @@ Open **Assistant** in the sidebar (`/patient/assistant`) as a patient. Try these
 
 Rules to confirm: the assistant never books or pays by itself, and sending more than 20 messages in 10 minutes shows a "too quickly" message.
 
-### E. Insurance (`/patient/insurance`)
-The insurer is **simulated**. The page lists the special policy numbers.
-
-1. Add policy `POL-12345`: becomes **Active**, ₹5,00,000 cover, 10% co-pay.
-2. Book a paid appointment first, then press **Request cashless**, then **Check status**: **Approved**, insurer covers 90% of the fee.
-3. Other policy numbers to try: ending in `0` is inactive, `QRY-55555` asks for more information first, `LOW-77777` is rejected for being above cover.
-4. **Claims** need a completed visit. Book a slot about 20 minutes from now, wait until it starts, then as the doctor press **Complete** on the agenda. Back as the patient press **File claim**, then **Check status** twice: In review, then Settled.
-5. Cancelling an appointment cancels its pre-authorisation.
-
-### F. Reminders and follow-ups
+### E. Reminders and follow-ups
 With the server running, call the jobs by hand:
 
 ```powershell

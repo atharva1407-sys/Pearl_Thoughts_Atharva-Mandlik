@@ -249,78 +249,6 @@ export const agentEvents = pgTable(
   (table) => [index("agent_events_user_idx").on(table.userId, table.createdAt)]
 );
 
-export const insurancePolicies = pgTable(
-  "insurance_policies",
-  {
-    id: text("id").primaryKey(),
-    patientId: text("patient_id").notNull().references(() => patients.id, { onDelete: "cascade" }),
-    insurerName: text("insurer_name").notNull(),
-    policyNumber: text("policy_number").notNull(),
-    sumInsuredPaise: integer("sum_insured_paise").notNull().default(0),
-    copayPercent: integer("copay_percent").notNull().default(0),
-    status: text("status")
-      .notNull()
-      .$type<"PENDING_VERIFICATION" | "ACTIVE" | "INACTIVE">()
-      .default("PENDING_VERIFICATION"),
-    verifiedAt: timestamp("verified_at"),
-    providerReference: text("provider_reference"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
-  (table) => [
-    uniqueIndex("insurance_policies_patient_policy_idx").on(table.patientId, table.policyNumber),
-    index("insurance_policies_patient_idx").on(table.patientId),
-  ]
-);
-
-export const preauthRequests = pgTable(
-  "preauth_requests",
-  {
-    id: text("id").primaryKey(),
-    policyId: text("policy_id").notNull().references(() => insurancePolicies.id, { onDelete: "cascade" }),
-    appointmentId: text("appointment_id").notNull().references(() => appointments.id, { onDelete: "cascade" }),
-    patientId: text("patient_id").notNull().references(() => patients.id, { onDelete: "cascade" }),
-    estimatedAmountPaise: integer("estimated_amount_paise").notNull(),
-    approvedAmountPaise: integer("approved_amount_paise"),
-    status: text("status")
-      .notNull()
-      .$type<"REQUESTED" | "SUBMITTED" | "QUERY" | "APPROVED" | "REJECTED" | "CANCELLED">()
-      .default("REQUESTED"),
-    providerReference: text("provider_reference"),
-    statusNote: text("status_note"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  },
-  (table) => [
-    uniqueIndex("preauth_requests_appointment_idx").on(table.appointmentId),
-    index("preauth_requests_patient_idx").on(table.patientId),
-  ]
-);
-
-export const claims = pgTable(
-  "claims",
-  {
-    id: text("id").primaryKey(),
-    policyId: text("policy_id").notNull().references(() => insurancePolicies.id, { onDelete: "cascade" }),
-    appointmentId: text("appointment_id").notNull().references(() => appointments.id, { onDelete: "cascade" }),
-    patientId: text("patient_id").notNull().references(() => patients.id, { onDelete: "cascade" }),
-    preauthId: text("preauth_id").references(() => preauthRequests.id, { onDelete: "set null" }),
-    amountPaise: integer("amount_paise").notNull(),
-    settledAmountPaise: integer("settled_amount_paise"),
-    status: text("status")
-      .notNull()
-      .$type<"SUBMITTED" | "IN_REVIEW" | "SETTLED" | "REJECTED">()
-      .default("SUBMITTED"),
-    providerReference: text("provider_reference"),
-    statusNote: text("status_note"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  },
-  (table) => [
-    uniqueIndex("claims_appointment_idx").on(table.appointmentId),
-    index("claims_patient_idx").on(table.patientId),
-  ]
-);
-
 export type User = typeof users.$inferSelect;
 export type Patient = typeof patients.$inferSelect;
 export type Doctor = typeof doctors.$inferSelect;
@@ -334,6 +262,3 @@ export type Refund = typeof refunds.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type NotificationPreference = typeof notificationPreferences.$inferSelect;
 export type AgentEvent = typeof agentEvents.$inferSelect;
-export type InsurancePolicy = typeof insurancePolicies.$inferSelect;
-export type PreauthRequest = typeof preauthRequests.$inferSelect;
-export type Claim = typeof claims.$inferSelect;

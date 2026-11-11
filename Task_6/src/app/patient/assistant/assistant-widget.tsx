@@ -5,7 +5,7 @@ import { Bot, X } from "lucide-react";
 import { AssistantChat } from "./assistant-chat";
 
 /** Floating chat launcher (bottom-right) that opens the assistant as a popup over the current page. */
-export function AssistantWidget(props: { firstName: string; configured: boolean; insuranceEnabled: boolean }) {
+export function AssistantWidget(props: { firstName: string; configured: boolean }) {
   const [open, setOpen] = useState(false);
 
   return (

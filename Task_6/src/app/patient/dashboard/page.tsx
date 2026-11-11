@@ -7,7 +7,6 @@ import { formatDate } from "@/lib/utils";
 import { sweepExpiredHolds } from "@/lib/payments/expire";
 import { runInBackground } from "@/lib/background";
 import { formatPaise } from "@/lib/payments";
-import { getInsuranceProvider } from "@/lib/insurance";
 import { AssistantWidget } from "../assistant/assistant-widget";
 
 export const dynamic = "force-dynamic";
@@ -285,7 +284,6 @@ export default async function PatientDashboard() {
         <AssistantWidget
           firstName={user.name.split(" ")[0] || "there"}
           configured={Boolean(process.env.SARVAM_API_KEY?.trim())}
-          insuranceEnabled={Boolean(getInsuranceProvider())}
         />
       )}
     </div>

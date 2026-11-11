@@ -18,7 +18,7 @@ The three options for affected bookings:
 | Option | Result |
 |---|---|
 | **Move to the nearest free slot** (recommended) | Each patient is moved to the closest free slot: their own day first (nearest time), then the following days (up to 14, inside the 30-day booking window). Seats are counted, so a slot never goes above its capacity. Each patient gets a reschedule email and fresh reminders. Anyone who cannot be placed **stays booked exactly as before**, and the doctor is told. |
-| **Cancel and refund** | Each appointment is cancelled by the doctor through the normal cancellation path: full refund for paid ones, cancellation email, reminders and pre-authorisations cancelled. |
+| **Cancel and refund** | Each appointment is cancelled by the doctor through the normal cancellation path: full refund for paid ones, cancellation email and reminders cancelled. |
 | **Keep as booked** | Appointments keep their original time outside the new hours. New patients can only book the new slots. |
 
 A session that is "one slot for the whole session" and is only **extended** keeps its current slot length, so the people already booked stay in their slot and the extra time becomes new slots (otherwise extending 9–10 to 8–10 would stretch the single slot to 8:00 and strand the 9:00 bookings).
@@ -84,30 +84,22 @@ Deploying this change: run `npm run db:migrate-0006` against the database **befo
 | Agent | `src/lib/agent/`: Sarvam client (`llm.ts`), safety checks (`safety.ts`), prompt (`prompt.ts`), tools (`tools.ts`), agent loop (`agent.ts`); API route `POST /api/agent/chat` |
 | Chat UI | `/patient/assistant` (shadcn components), "Assistant" entry in the patient navigation |
 | Booking hand-off | `/doctors/[id]?date=YYYY-MM-DD&slot=HH:mm` opens the booking page with that date and slot pre-selected |
-| Insurance | `src/lib/insurance/` (provider interface, simulated insurer, service), actions in `src/actions/insurance.ts`, page `/patient/insurance`, emails `PREAUTH_UPDATE` and `CLAIM_UPDATE` |
 | Engagement | `src/lib/engagement/`, cron `GET /api/cron/engagement`, emails `FOLLOW_UP_VISIT` (operational), `CARE_REMINDER` and `REENGAGEMENT` (promotional, opt-in) |
-| Database | Migration `0005_agent_insurance.sql` (additive only): `agent_events`, `insurance_policies`, `preauth_requests`, `claims`. Apply with `npm run db:migrate-0005`. |
-| Cancellation | Cancelling an appointment now also cancels its open or approved insurance pre-authorisation |
-| Tests | `src/test-agent.ts` (95 checks), chained into `npm test` |
+| Database | Migration `0005_agent_events.sql` (additive only): `agent_events`. Apply with `npm run db:migrate-0005`. |
+| Tests | `src/test-agent.ts` (72 checks), chained into `npm test` |
 
 ## Event and message map (new)
 
 | Trigger | Template | Category | Dedupe key |
 |---|---|---|---|
-| Pre-authorisation status changes | `PREAUTH_UPDATE` | Operational | `preauth-<id>-<status>` |
-| Claim status changes | `CLAIM_UPDATE` | Operational | `claim-<id>-<status>` |
 | Visit completed 1–3 days ago | `FOLLOW_UP_VISIT` | Operational | `followup-<appointmentId>` |
 | Last visit ≥ 90 days ago, nothing upcoming, opted in | `CARE_REMINDER` | Promotional | `care_reminder-<patientId>-<YYYY-MM>` |
 | Last visit ≥ 180 days ago, nothing upcoming, opted in | `REENGAGEMENT` | Promotional | `reengagement-<patientId>-<YYYY-MM>` |
 
-## Simulated insurer rules
-
-Policy number ends in `0`: inactive. Starts with `LOW`: sum insured ₹500 (larger pre-auths rejected). Contains `QRY`: first status check asks for more information, the next approves. Contains `REJ`: claims are rejected. Anything else: active, ₹5,00,000 cover, 10% co-pay; pre-auth is approved on the first check; claims go IN_REVIEW then SETTLED.
-
 ## Deploying
 
 1. Back up or branch the database, then run `npm run db:migrate-0005` against it **before** deploying (new code reads the new tables).
-2. Add `SARVAM_API_KEY` (and, for a demo, `INSURANCE_PROVIDER=mock`) in Vercel, then redeploy.
+2. Add `SARVAM_API_KEY` in Vercel, then redeploy.
 3. Schedule `GET /api/cron/engagement` daily with the `CRON_SECRET` bearer header.
 
 ---

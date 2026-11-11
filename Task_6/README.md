@@ -4,10 +4,9 @@ A Next.js 16 (App Router, React 19, TypeScript, Tailwind 4, shadcn/ui) outpatien
 
 | Capability | What it does | Where |
 |---|---|---|
-| **Conversational assistant** | Patients chat (English, Hindi, Marathi…) to find a doctor, see open slots, review appointments and insurance, and prepare a booking. Powered by Sarvam AI with tool calling. | `/patient/assistant`, `src/lib/agent/` |
+| **Conversational assistant** | Patients chat (English, Hindi, Marathi…) to find a doctor, see open slots, and review appointments, and prepare a booking. Powered by Sarvam AI with tool calling. | `/patient/assistant`, `src/lib/agent/` |
 | **Proactive engagement** | Follow-up message after a completed visit, check-up reminders and "we miss you" nudges (opt-in), all through the existing email outbox. | `src/lib/engagement/`, `/api/cron/engagement` |
 | **Flexible scheduling** | Wave and Stream sessions that repeat weekly, on a date of the month, or run on one date only, with optional from/until dates and a configurable number of patients per slot. | `/doctor/availability`, `src/lib/session-schedule.ts` |
-| **Insurance workflow** | Policies, cashless pre-authorisation and claims with status tracking and email updates. **Uses a simulated insurer** (see limits). | `/patient/insurance`, `src/lib/insurance/` |
 
 ## How the assistant works
 
@@ -17,10 +16,9 @@ A Next.js 16 (App Router, React 19, TypeScript, Tailwind 4, shadcn/ui) outpatien
 
 | Tool | Effect |
 |---|---|
-| `search_doctors`, `get_open_slots`, `list_my_appointments`, `insurance_overview` | Read-only lookups for the signed-in patient |
+| `search_doctors`, `get_open_slots`, `list_my_appointments` | Read-only lookups for the signed-in patient |
 | `propose_booking` | Validates the slot and returns a **card** linking to the booking page with the slot pre-selected. The patient reviews and pays there. |
 | `propose_manage_appointment` | Card pointing to the dashboard, where the refund amount is shown before cancelling |
-| `propose_preauth` | Card with a **confirm button**; nothing is sent to the insurer until the patient presses it |
 
 4. Safety rules enforced in code, not only in the prompt: no booking or payment by the agent, every tool is scoped to the signed-in patient, arguments are validated with Zod, at most 6 model rounds and 3 tool calls per round, history from the browser is stripped to plain user/assistant text, tool results carry no free-text bios, and the audit log (`agent_events`) records tool names and arguments but **never message text**.
 
@@ -30,7 +28,6 @@ A Next.js 16 (App Router, React 19, TypeScript, Tailwind 4, shadcn/ui) outpatien
 |---|---|
 | `SARVAM_API_KEY` | Sarvam AI key. Without it the assistant shows "not set up" and everything else still works. |
 | `SARVAM_MODEL` | Optional. Defaults to `sarvam-105b-conversations`. |
-| `INSURANCE_PROVIDER` | `mock` to enable the simulated insurer in production, `off` to disable. Outside production the simulator is on by default. |
 | `ENGAGEMENT_CARE_REMINDER_DAYS` / `ENGAGEMENT_REENGAGE_DAYS` | Days since the last visit before a check-up reminder (default 90) or re-engagement message (default 180). |
 
 All variables from Task 5 (database, Razorpay, Brevo, `CRON_SECRET`, `ADMIN_EMAILS`…) still apply; see `.env.example`.
@@ -40,7 +37,7 @@ All variables from Task 5 (database, Razorpay, Brevo, `CRON_SECRET`, `ADMIN_EMAI
 ```bash
 npm install
 cp .env.example .env.local     # fill in DATABASE_URL and SARVAM_API_KEY
-npm run db:migrate-0005        # existing database: adds agent + insurance tables (additive only)
+npm run db:migrate-0005        # existing database: adds the agent audit table (additive only)
 npm run db:migrate-0006        # existing database: adds scheduling dates and recurrence (additive only)
 npm run dev
 npm test                       # all suites, no network needed
@@ -74,7 +71,6 @@ A doctor can stretch or shrink an existing session (Weekly Shifts → edit) by c
 
 ## Honest limits
 
-- **The insurer is simulated.** No real insurer, TPA or health-claims exchange is contacted. `InsuranceProvider` is an interface, so a real integration can replace `MockInsuranceProvider` without changing the UI or the agent. Approved pre-auth amounts are shown but **do not yet reduce the payment** at checkout.
 - **The assistant is not a clinician.** It does not diagnose or advise on medicines.
 - **Rate limiting is per server instance** and resets on cold starts.
 - Sarvam's behaviour is not deterministic; the tests use a scripted fake model. A live check against Sarvam confirmed tool use, refusal of prompt-extraction and medicine advice, and native Hindi and Marathi replies, but real-model quality should be spot-checked after model changes.
