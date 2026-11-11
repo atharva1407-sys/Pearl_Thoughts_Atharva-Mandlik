@@ -13,7 +13,7 @@ async function main() {
     process.exit(1);
   }
 
-  const migrationPath = path.join(__dirname, "migrations", "0005_agent_insurance.sql");
+  const migrationPath = path.join(__dirname, "migrations", "0005_agent_events.sql");
   if (!fs.existsSync(migrationPath)) {
     console.error(`❌ Migration file not found at: ${migrationPath}`);
     process.exit(1);

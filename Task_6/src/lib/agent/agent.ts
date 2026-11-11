@@ -188,7 +188,7 @@ function languageDirective(message: string): string {
 function dedupeCards(cards: AgentCard[]): AgentCard[] {
   const seen = new Set<string>();
   return cards.filter((c) => {
-    const key = `${c.kind}|${c.href ?? ""}|${c.action?.appointmentId ?? ""}|${c.title}`;
+    const key = `${c.kind}|${c.href ?? ""}|${c.title}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;

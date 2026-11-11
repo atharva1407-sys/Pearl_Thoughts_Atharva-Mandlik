@@ -1,5 +1,5 @@
 /**
- * Task 6 tests: healthcare agent, insurance workflow, proactive engagement.
+ * Task 6 tests: healthcare agent and proactive engagement.
  * Runs on the in-memory repository. The language model is replaced by a scripted fake, and the
  * Sarvam HTTP API by a fake fetch, so no network or API key is used.
  */
@@ -27,15 +27,6 @@ import {
   type LlmMessage,
   type LlmReply,
 } from "./lib/agent";
-import { MockInsuranceProvider, type InsuranceProvider } from "./lib/insurance";
-import {
-  addPolicy,
-  cancelPreauthForAppointment,
-  refreshClaim,
-  refreshPreauth,
-  requestPreauth,
-  submitClaim,
-} from "./lib/insurance/service";
 import { istDateString, runEngagementSweep } from "./lib/engagement";
 import { formatNotification } from "./lib/notifications";
 
@@ -351,122 +342,6 @@ async function main() {
   assert(getLlmClient() !== null, "an API key enables the model client");
   if (keyBefore === undefined) delete process.env.SARVAM_API_KEY;
   else process.env.SARVAM_API_KEY = keyBefore;
-
-  // ===================================================================================
-  console.log("\n--- Insurance: policies ---");
-  const provider = new MockInsuranceProvider();
-  const ins = await makePatient("meera");
-  const intruder = await makePatient("karan");
-
-  const good = await addPolicy(dbRepo, ins.patient.id, { insurerName: "Star Health", policyNumber: "pol-12345" }, provider);
-  assert(good.ok && good.value.status === "ACTIVE" && good.value.sumInsuredPaise > 0, "a normal policy becomes ACTIVE with a sum insured");
-  const dup = await addPolicy(dbRepo, ins.patient.id, { insurerName: "Star Health", policyNumber: "POL-12345" }, provider);
-  assert(!dup.ok, "the same policy cannot be added twice (case-insensitive)");
-  const lapsed = await addPolicy(dbRepo, ins.patient.id, { insurerName: "Old Insurer", policyNumber: "LAPSED-100" }, provider);
-  assert(lapsed.ok && lapsed.value.status === "INACTIVE", "a lapsed policy is INACTIVE");
-  const off = await addPolicy(dbRepo, ins.patient.id, { insurerName: "X", policyNumber: "ANY-12345" }, null);
-  assert(!off.ok && /not enabled/i.test(off.error), "with insurance switched off, adding a policy says so");
-
-  // ===================================================================================
-  console.log("\n--- Insurance: cashless pre-authorisation ---");
-  const goodPolicy = (good as { ok: true; value: { id: string } }).value;
-  const appt = await makeAppointment(ins.patient.id, paidDoctor.id, addDays(today, 6));
-  const pre = await requestPreauth(dbRepo, ins.patient.id, { appointmentId: appt.id, policyId: goodPolicy.id }, provider);
-  assert(pre.ok && pre.value.status === "SUBMITTED" && Boolean(pre.value.providerReference), "pre-auth is SUBMITTED with an insurer reference");
-  assert(pre.ok && pre.value.estimatedAmountPaise === paidDoctor.consultationFee * 100, "the estimate is the consultation fee in paise");
-  const again = await requestPreauth(dbRepo, ins.patient.id, { appointmentId: appt.id, policyId: goodPolicy.id }, provider);
-  assert(again.ok && pre.ok && again.value.id === pre.value.id, "requesting twice returns the same pre-auth (no duplicate)");
-  const refreshed = await refreshPreauth(dbRepo, ins.patient.id, appt.id, provider);
-  assert(
-    refreshed.ok && refreshed.value.status === "APPROVED" && refreshed.value.approvedAmountPaise === paidDoctor.consultationFee * 90,
-    "pre-auth is APPROVED for the amount minus the co-pay"
-  );
-  const notifs = await dbRepo.getNotificationsByUserId(ins.userId);
-  const preMail = notifs.find((n) => n.template === "PREAUTH_UPDATE");
-  assert(Boolean(preMail), "the patient is notified when the pre-auth status changes");
-  await refreshPreauth(dbRepo, ins.patient.id, appt.id, provider);
-  assert((await dbRepo.getNotificationsByUserId(ins.userId)).filter((n) => n.template === "PREAUTH_UPDATE").length === 1, "refreshing an approved pre-auth sends no duplicate email");
-  if (preMail) {
-    const mail = formatNotification(preMail as any);
-    assert(/approved/i.test(mail.subject) && !/diagnos|symptom/i.test(mail.bodyText), "the pre-auth email states the status and no medical details");
-  }
-
-  const hostile = await requestPreauth(dbRepo, intruder.patient.id, { appointmentId: appt.id, policyId: goodPolicy.id }, provider);
-  assert(!hostile.ok, "another patient cannot request pre-auth for this appointment");
-  const hostileRefresh = await refreshPreauth(dbRepo, intruder.patient.id, appt.id, provider);
-  assert(!hostileRefresh.ok, "another patient cannot read this pre-auth");
-  const inactiveTry = await requestPreauth(
-    dbRepo,
-    ins.patient.id,
-    { appointmentId: (await makeAppointment(ins.patient.id, paidDoctor.id, addDays(today, 7))).id, policyId: (lapsed as any).value.id },
-    provider
-  );
-  assert(!inactiveTry.ok && /not active/i.test(inactiveTry.error), "an inactive policy cannot be used for pre-auth");
-
-  const qryPolicy = await addPolicy(dbRepo, ins.patient.id, { insurerName: "Care", policyNumber: "QRY-55555" }, provider);
-  const qryAppt = await makeAppointment(ins.patient.id, paidDoctor.id, addDays(today, 8));
-  const qryPre = await requestPreauth(dbRepo, ins.patient.id, { appointmentId: qryAppt.id, policyId: (qryPolicy as any).value.id }, provider);
-  const q1 = await refreshPreauth(dbRepo, ins.patient.id, qryAppt.id, provider);
-  assert(qryPre.ok && q1.ok && q1.value.status === "QUERY", "the insurer can ask for more information (QUERY)");
-  const q2 = await refreshPreauth(dbRepo, ins.patient.id, qryAppt.id, provider);
-  assert(q2.ok && q2.value.status === "APPROVED", "a QUERY pre-auth is approved on the next check");
-
-  const lowPolicy = await addPolicy(dbRepo, ins.patient.id, { insurerName: "Tiny", policyNumber: "LOW-77777" }, provider);
-  const lowAppt = await makeAppointment(ins.patient.id, paidDoctor.id, addDays(today, 9));
-  await requestPreauth(dbRepo, ins.patient.id, { appointmentId: lowAppt.id, policyId: (lowPolicy as any).value.id }, provider);
-  const low = await refreshPreauth(dbRepo, ins.patient.id, lowAppt.id, provider);
-  assert(low.ok && low.value.status === "REJECTED", "a pre-auth above the sum insured is REJECTED");
-  const retry = await requestPreauth(dbRepo, ins.patient.id, { appointmentId: lowAppt.id, policyId: goodPolicy.id }, provider);
-  assert(retry.ok && retry.value.status === "SUBMITTED" && retry.value.policyId === goodPolicy.id, "after a rejection the patient can retry with another policy");
-
-  await cancelPreauthForAppointment(dbRepo, appt.id);
-  assert((await dbRepo.getPreauthByAppointmentId(appt.id))?.status === "CANCELLED", "cancelling the appointment cancels an approved pre-auth");
-
-  const brokenProvider: InsuranceProvider = Object.assign(new MockInsuranceProvider(), {
-    submitPreauth: async () => {
-      throw new Error("insurer down");
-    },
-  });
-  const downAppt = await makeAppointment(ins.patient.id, paidDoctor.id, addDays(today, 10));
-  const down = await requestPreauth(dbRepo, ins.patient.id, { appointmentId: downAppt.id, policyId: goodPolicy.id }, brokenProvider);
-  assert(!down.ok, "an unreachable insurer gives a clear error");
-  assert((await dbRepo.getPreauthByAppointmentId(downAppt.id))?.status === "REQUESTED", "and the request stays saved as REQUESTED");
-
-  const bookedClaim = await submitClaim(dbRepo, ins.patient.id, { appointmentId: downAppt.id, policyId: goodPolicy.id }, provider);
-  assert(!bookedClaim.ok && /completed/i.test(bookedClaim.error), "a claim cannot be filed before the visit is completed");
-
-  // ===================================================================================
-  console.log("\n--- Insurance: claims ---");
-  const doneAppt = await makeAppointment(ins.patient.id, paidDoctor.id, addDays(today, -3));
-  await dbRepo.updateAppointmentStatus(doneAppt.id, "COMPLETED");
-  const claim = await submitClaim(dbRepo, ins.patient.id, { appointmentId: doneAppt.id, policyId: goodPolicy.id }, provider);
-  assert(claim.ok && claim.value.status === "SUBMITTED" && claim.value.amountPaise === paidDoctor.consultationFee * 100, "a claim is submitted for the consultation fee");
-  const claimAgain = await submitClaim(dbRepo, ins.patient.id, { appointmentId: doneAppt.id, policyId: goodPolicy.id }, provider);
-  assert(claim.ok && claimAgain.ok && claimAgain.value.id === claim.value.id, "filing twice returns the same claim");
-  const c1 = await refreshClaim(dbRepo, ins.patient.id, doneAppt.id, provider);
-  assert(c1.ok && c1.value.status === "IN_REVIEW", "the first status check shows IN_REVIEW");
-  const c2 = await refreshClaim(dbRepo, ins.patient.id, doneAppt.id, provider);
-  assert(c2.ok && c2.value.status === "SETTLED" && c2.value.settledAmountPaise === paidDoctor.consultationFee * 90, "the claim settles for the amount minus the co-pay");
-  assert((await dbRepo.getNotificationsByUserId(ins.userId)).some((n) => n.template === "CLAIM_UPDATE"), "the patient is notified about claim updates");
-  const stolen = await submitClaim(dbRepo, intruder.patient.id, { appointmentId: doneAppt.id, policyId: goodPolicy.id }, provider);
-  assert(!stolen.ok, "another patient cannot claim on this visit");
-
-  const rejPolicy = await addPolicy(dbRepo, ins.patient.id, { insurerName: "Strict", policyNumber: "REJ-99999" }, provider);
-  const rejAppt = await makeAppointment(ins.patient.id, paidDoctor.id, addDays(today, -4));
-  await dbRepo.updateAppointmentStatus(rejAppt.id, "COMPLETED");
-  await submitClaim(dbRepo, ins.patient.id, { appointmentId: rejAppt.id, policyId: (rejPolicy as any).value.id }, provider);
-  const rej = await refreshClaim(dbRepo, ins.patient.id, rejAppt.id, provider);
-  assert(rej.ok && rej.value.status === "REJECTED" && Boolean(rej.value.statusNote), "a claim can be rejected with a reason");
-
-  // insurance through the agent
-  const insLlm = new ScriptedLlm([call("insurance_overview", {}), say("Here is your insurance summary.")]);
-  await runAgent({ repo: dbRepo, llm: insLlm, userId: ins.userId, patient: ins.patient, history: [], message: "my insurance" });
-  const overview = insLlm.calls[1].find((m) => m.role === "tool")?.content ?? "";
-  assert(overview.includes("••••2345") && !overview.includes("POL-12345"), "insurance_overview masks policy numbers");
-  const preLlm = new ScriptedLlm([call("propose_preauth", { appointmentId: qryAppt.id, policyId: goodPolicy.id }), say("Confirm below.")]);
-  const preCards = await runAgent({ repo: dbRepo, llm: preLlm, userId: ins.userId, patient: ins.patient, history: [], message: "cashless please" });
-  assert(preCards.cards[0]?.action?.type === "REQUEST_PREAUTH", "propose_preauth returns a confirm-button card, not a submission");
-  assert((await dbRepo.getPreauthByAppointmentId(qryAppt.id))?.providerReference !== undefined, "the agent did not change the pre-auth itself");
 
   // ===================================================================================
   console.log("\n--- Engagement: follow-ups, care reminders, re-engagement ---");

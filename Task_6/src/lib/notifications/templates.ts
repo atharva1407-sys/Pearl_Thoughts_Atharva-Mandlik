@@ -207,27 +207,6 @@ Get started: ${nextLink}${footerText}`;
       return { subject, bodyText, bodyHtml };
     }
 
-    case "PREAUTH_UPDATE":
-    case "CLAIM_UPDATE": {
-      const isClaim = item.template === "CLAIM_UPDATE";
-      const what = isClaim ? "Insurance Claim" : "Cashless Pre-Authorisation";
-      const status = String(p.statusLabel || "UPDATED").replace(/_/g, " ").toLowerCase();
-      const ref = p.reference || "N/A";
-      const noteText = p.note ? `
-Note: ${p.note}` : "";
-      const noteHtml = p.note ? `<p><b>Note:</b> ${p.note}</p>` : "";
-      const subject = `${what} Update: ${status} (Ref ${ref})`;
-      const bodyText = `Hello ${patient},
-
-Your ${what.toLowerCase()} for the consultation with Dr. ${doctor} on ${date} is now ${status}.
-Amount: ${fee || "N/A"}
-Reference: ${ref}${noteText}
-
-View details: ${appUrl}/patient/insurance${footerText}`;
-      const bodyHtml = `<h3>${what} Update</h3><p>Hello <b>${patient}</b>,</p><p>Your ${what.toLowerCase()} for the consultation with <b>Dr. ${doctor}</b> on <b>${date}</b> is now <b>${status}</b>.</p><p><b>Amount:</b> ${fee || "N/A"}<br/><b>Reference:</b> <code>${ref}</code></p>${noteHtml}<p><a href="${appUrl}/patient/insurance" style="background:#0875df;color:#fff;padding:8px 16px;border-radius:6px;text-decoration:none;display:inline-block;font-size:12px;font-weight:bold;">View Insurance</a></p>${footerHtml}`;
-      return { subject, bodyText, bodyHtml };
-    }
-
     case "FOLLOW_UP_VISIT": {
       const subject = `How are you feeling after your visit with Dr. ${doctor}?`;
       const bodyText = `Hello ${patient},

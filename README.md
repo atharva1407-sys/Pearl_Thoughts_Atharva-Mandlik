@@ -20,7 +20,6 @@ Full Stack Development assessment repository for **Pearl Thoughts**, organized a
 * 🚀 **Production Deployment**: [https://medrella-healthcare.vercel.app](https://medrella-healthcare.vercel.app)
 * 📦 **Standalone Deployment Repository**: [https://github.com/atharva1407-sys/Medrella_Healthcare](https://github.com/atharva1407-sys/Medrella_Healthcare)
 * 💬 **Patient AI Assistant**: [https://medrella-healthcare.vercel.app/patient/assistant](https://medrella-healthcare.vercel.app/patient/assistant)
-* 🛡️ **Insurance & Cashless Pre-Auth**: [https://medrella-healthcare.vercel.app/patient/insurance](https://medrella-healthcare.vercel.app/patient/insurance)
 * 📬 **Admin Dead-Letter Outbox**: [https://medrella-healthcare.vercel.app/admin/notifications](https://medrella-healthcare.vercel.app/admin/notifications)
 * 📊 **Live OPD Waiting Queue**: [https://medrella-healthcare.vercel.app/queue](https://medrella-healthcare.vercel.app/queue)
 
@@ -37,7 +36,7 @@ Every task folder is **100% self-contained and independent**, containing its own
 | [`Task_3`](Task_3) | **Feedback & Scheduling** | Wave/Stream OPD & Rescheduling | Review feedback implementation: Multi-session daily schedules (Morning/Evening OPDs), unified Stream & Wave scheduling (weekly, date-of-the-month, one-date-only), configurable patients per slot (1–20), atomic 1-click slot rescheduling, doctor leave management with active-booking guard, founding doctors catalog (8 specialists with live next-open-slot preview), and smooth page transitions. |
 | [`Task_4`](Task_4) | **Payments & Refunds** | Razorpay Test Mode & Seat Holds | Paid outpatient bookings with Razorpay Sandbox integration, 10-minute seat holds (`HOLD`), official Razorpay Checkout popup, server-side HMAC-SHA256 signature verification, tamper-proof fees from database, idempotent webhook processing, late-payment reconciliation, tiered cancellation refunds (100%, 50%, 0%), printable GST receipts, and notification outbox foundation. |
 | [`Task_5`](Task_5) | **Reliable Notifications** | Transactional Outbox & Privacy | Production-grade transactional email notifications via Brevo & Resend with fail-closed safety, deterministic deduplication, Indian Standard Time (`Asia/Kolkata`, IST = UTC+05:30) calculations, pre-send status recheck, clinical data privacy (PHI/diagnosis redaction), patient preferences (`/settings`), 1-click cryptographically signed HMAC-SHA256 unsubscribe (`/unsubscribe`), and admin dead-letter outbox dashboard (`/admin/notifications`). |
-| [`Task_6`](Task_6) | **Healthcare Agent** | Conversational AI & Insurance | Multilingual conversational assistant powered by Sarvam AI (`sarvam-105b-conversations`), multilingual emergency triage in English, Hindi, and Marathi with 112 guidance, tool calling (`search_doctors`, `get_open_slots`, `list_my_appointments`, `insurance_overview`, `propose_booking`, `propose_manage_appointment`, `propose_preauth`), simulated cashless insurance workflow (`/patient/insurance`), proactive engagement cron jobs (post-visit follow-up, 90-day care checkups, 180-day re-engagement nudges), and arrival window scheduling. |
+| [`Task_6`](Task_6) | **Healthcare Agent** | Conversational AI & Engagement | Multilingual conversational assistant powered by Sarvam AI (`sarvam-105b-conversations`), multilingual emergency triage in English, Hindi, and Marathi with 112 guidance, tool calling (`search_doctors`, `get_open_slots`, `list_my_appointments`, `propose_booking`, `propose_manage_appointment`), proactive engagement cron jobs (post-visit follow-up, 90-day care checkups, 180-day re-engagement nudges), and arrival window scheduling. |
 
 ---
 
@@ -109,16 +108,12 @@ Every task folder is **100% self-contained and independent**, containing its own
   * 1-click unsubscribe route (`/unsubscribe?token=...`) using cryptographically signed HMAC-SHA256 tokens with 30-day expiration, verified in constant time.
 * **Admin Dead-Letter Outbox Dashboard (`/admin/notifications`)**: Protected by `ADMIN_EMAILS` check; displays live metrics (Sent, Pending, Failed, Cancelled), dead-letter inspection, and 1-click manual requeue actions.
 
-### 🤖 Task 6 — Conversational Healthcare Agent, Insurance & Engagement
+### 🤖 Task 6 — Conversational Healthcare Agent & Engagement
 * **Sarvam AI Conversational Assistant (`/patient/assistant`)**:
   * Powered by Sarvam AI (`sarvam-105b-conversations`) with function/tool calling.
   * **Multilingual Emergency Triage**: Pre-model safety checks detect emergencies in **English, Hindi, and Marathi** (e.g., chest pain, severe bleeding, breathing distress, self-harm) and immediately respond with fixed medical guidance to call **112**, never sending the prompt to the LLM.
-  * **Safe Tool Execution**: The agent cannot touch the database directly; it executes scoped, Zod-validated read-only and proposal tools (`search_doctors`, `get_open_slots`, `list_my_appointments`, `insurance_overview`, `propose_booking`, `propose_manage_appointment`, `propose_preauth`).
+  * **Safe Tool Execution**: The agent cannot touch the database directly; it executes scoped, Zod-validated read-only and proposal tools (`search_doctors`, `get_open_slots`, `list_my_appointments`, `propose_booking`, `propose_manage_appointment`).
   * **Patient-in-the-Loop Hand-off**: The agent never confirms bookings or processes payments directly; it returns rich interactive UI cards linking to the booking checkout page with pre-selected slots for patient review and authorization.
-* **Cashless Insurance Workflow (`/patient/insurance`)**:
-  * Simulated insurer supporting policy management, cashless pre-authorisation requests, and claims tracking.
-  * Triggers transactional notification updates (`PREAUTH_UPDATE`, `CLAIM_UPDATE`).
-  * Cancelling an appointment automatically cancels any associated open or approved pre-authorisation.
 * **Proactive Patient Engagement Jobs (`/api/cron/engagement`)**:
   * Post-visit follow-up messages sent after consultation completion.
   * Preventive care reminders (configurable via `ENGAGEMENT_CARE_REMINDER_DAYS`, default 90 days).
@@ -172,7 +167,7 @@ All task folders include self-contained automated test suites with **zero networ
 | **Task 3** | `npm test` | **198** | Multi-session overlap guards, wave capacity limits, token persistence, atomic reschedule, doctor leave locks, landing specialists catalog, next-open-slot engine, and 114 scheduling recurrence checks. |
 | **Task 4** | `npm test` | **270** | Clinical rules + 72 payment hardening checks: gateway mode detection, fee tamper protection, Razorpay webhook signature verification, replay protection, hold expiration, late payment capture vs refund, and tiered refund percentages. |
 | **Task 5** | `npm test` | **299** | Clinical rules + Payment hardening + 81 reliable notification tests + 31 Brevo/welcome tests: outbox event map, dedupe uniqueness, IST midnight calculations, overlapping sweep protection (`FOR UPDATE SKIP LOCKED`), pre-send status recheck, PHI redaction, and HMAC tokens. |
-| **Task 6** | `npm test` | **413** | Full clinical suite + Payments + Notifications + 95 Healthcare Agent tests (Sarvam AI tool calling, safety checks, English/Hindi/Marathi emergency detection, insurance workflow, proactive engagement crons) + 114 advanced scheduling checks across multiple timezones. |
+| **Task 6** | `npm test` | **390** | Full clinical suite + Payments + Notifications + 72 Healthcare Agent tests (Sarvam AI tool calling, safety checks, English/Hindi/Marathi emergency detection, proactive engagement crons) + 114 advanced scheduling checks across multiple timezones. |
 
 ---
 
@@ -187,7 +182,7 @@ Medrella’s database migrations are **strictly additive** (no drops or destruct
 | `0002_short_the_twelve.sql` | `npm run db:push` | Doctor clinical leave management (`doctor_leave`). |
 | `0003_narrow_doctor_octopus.sql` | `npm run db:migrate-0003` | Payments (`payments`), refunds (`refunds`), hold expirations, and notification outbox (`notifications`). |
 | `0004_careful_night_nurse.sql` | `npm run db:migrate-0004` | Notification preferences (`notification_preferences`), category flags, and provider message IDs. |
-| `0005_agent_insurance.sql` | `npm run db:migrate-0005` | Agent audit logs (`agent_events`), insurance policies (`insurance_policies`), pre-authorisations (`preauth_requests`), and claims (`claims`). |
+| `0005_agent_events.sql` | `npm run db:migrate-0005` | Agent audit logs (`agent_events`). |
 | `0006_scheduling_dates.sql` | `npm run db:migrate-0006` | Advanced scheduling columns (`recurrence`, `day_of_month`, `specific_date`, `valid_from`, `valid_until`). |
 
 ---

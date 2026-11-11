@@ -13,10 +13,7 @@ async function main() {
 
   const pool = new Pool({ connectionString });
   try {
-    console.log("🧹 Clearing test claims, preauth, policies, events, payments, refunds, notifications, appointments, and login attempts from database...");
-    await pool.query(`DELETE FROM claims;`);
-    await pool.query(`DELETE FROM preauth_requests;`);
-    await pool.query(`DELETE FROM insurance_policies;`);
+    console.log("🧹 Clearing test agent events, payments, refunds, notifications, appointments, and login attempts from database...");
     await pool.query(`DELETE FROM agent_events;`);
     await pool.query(`DELETE FROM refunds;`);
     await pool.query(`DELETE FROM payments;`);
@@ -25,7 +22,7 @@ async function main() {
     await pool.query(`DELETE FROM notification_preferences;`);
     await pool.query(`DELETE FROM appointments;`);
     await pool.query(`DELETE FROM login_attempts;`);
-    console.log("✅ All test transactions, claims, preauth, policies, events, payments, holds, appointments, and login attempts cleared cleanly!");
+    console.log("✅ All test transactions, agent events, payments, holds, appointments, and login attempts cleared cleanly!");
   } finally {
     await pool.end();
   }
