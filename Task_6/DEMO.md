@@ -12,7 +12,6 @@
    | Who | Email | Password variable |
    |---|---|---|
    | Patient (main demo) | `priya.demo@medrella.demo` | `DEMO_PATIENT_PASSWORD` |
-   | Patient (inactive, for the reminder email) | `rahul.demo@medrella.demo` | `DEMO_PATIENT_PASSWORD` |
    | Doctor | `rohan.mehta@medrella.com` (any doctor in `src/db/specialists-catalog.ts`) | `SEED_DOCTOR_PASSWORD` |
 4. Priya starts with one completed visit 2 days ago and an active insurance policy. Priya can also open the admin outbox because her email is in `ADMIN_EMAILS`.
 5. **To reset the demo to a clean state, stop the server and run `npm run dev` again** (data lives in memory).
@@ -40,9 +39,9 @@ Log in as Priya, then open **Assistant** in the sidebar. Say:
   ```bash
   curl -H "Authorization: Bearer <CRON_SECRET>" http://localhost:3000/api/cron/engagement
   ```
-  The JSON shows `followUpsQueued: 1` and `careRemindersQueued: 1`.
+  The JSON shows `followUpsQueued: 1`.
 - Back in the app click the **bell** icon: Priya's follow-up email, pre-authorisation update, booking confirmation and receipt are listed. The server terminal also prints each email (`[NOTIFICATION OUTBOX - CONSOLE]`).
-- Log in as Rahul to show the opt-in "check-up reminder" in his bell. Promotional messages are sent only to people who opted in (Settings page).
+- Promotional messages (such as the check-up reminder) are sent only to people who opted in (Settings page).
 - `/admin/notifications` (Priya) shows outbox health: sent, pending, failed, dead-letter retry.
 
 ### 4. Cancel and refund (optional)
