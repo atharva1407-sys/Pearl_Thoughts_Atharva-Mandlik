@@ -30,6 +30,7 @@ import {
   LogIn,
   UserPlus,
   CreditCard,
+  Pill,
 } from "lucide-react";
 import type { SessionPayload } from "@/lib/auth-crypto";
 import { logoutAction, deleteAccountAction } from "@/actions/auth";
@@ -149,6 +150,7 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
     if (pathname.startsWith("/admin/notifications")) return "Notification Delivery Engine";
     if (pathname.startsWith("/reports")) return "Visit Reports & Analytics";
     if (pathname.startsWith("/patient/payments")) return "Payments & Receipts";
+    if (pathname.startsWith("/patient/prescriptions")) return "Prescriptions";
     if (pathname.startsWith("/patient/dashboard")) return "Patient Portal";
     if (pathname.startsWith("/doctor/dashboard")) return "Doctor Agenda";
     if (pathname.startsWith("/doctor/availability")) return "Weekly Shifts";
@@ -244,6 +246,15 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
               >
                 <CreditCard size={17} />
                 <span>Payments & Receipts</span>
+              </Link>
+
+              <Link
+                href="/patient/prescriptions"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname.startsWith("/patient/prescriptions") ? "active" : ""}`}
+              >
+                <Pill size={17} />
+                <span>Prescriptions</span>
               </Link>
 
               <Link
@@ -375,6 +386,15 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
               >
                 <CreditCard size={17} />
                 <span>Payments & Receipts</span>
+              </Link>
+
+              <Link
+                href="/patient/prescriptions"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname.startsWith("/patient/prescriptions") ? "active" : ""}`}
+              >
+                <Pill size={17} />
+                <span>Prescriptions</span>
               </Link>
 
               <Link

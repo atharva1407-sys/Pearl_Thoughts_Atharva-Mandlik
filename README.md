@@ -24,7 +24,7 @@ Full-stack outpatient clinical management platform built for **Pearl Thoughts (T
 |---|---|---|
 | 🚀 **Live Production App** | [medrella-healthcare.vercel.app](https://medrella-healthcare.vercel.app) | Live deployment on Vercel |
 | 📦 **Deployment Repository** | [github.com/atharva1407-sys/Medrella_Healthcare](https://github.com/atharva1407-sys/Medrella_Healthcare) | Standalone deployment repository |
-| 🤖 **Patient AI Assistant** | [/patient/assistant](https://medrella-healthcare.vercel.app/patient/assistant) | Multilingual triage & booking guidance |
+| 🤖 **AI Assistant (patients & doctors)** | Floating chat on the patient and doctor dashboards | Text + voice, multilingual, confirmed booking / cancel / reschedule, payments, prescriptions |
 | 📬 **Admin DLQ Outbox** | [/admin/notifications](https://medrella-healthcare.vercel.app/admin/notifications) | Dead-letter queue & email dispatch monitor |
 | 📊 **Live OPD Waiting Queue** | [/queue](https://medrella-healthcare.vercel.app/queue) | Real-time triage with obstetric override |
 
@@ -46,7 +46,7 @@ Full-stack outpatient clinical management platform built for **Pearl Thoughts (T
 
 > [!NOTE]
 > ### 🤖 Sarvam AI Healthcare Assistant & Reliable Outbox
-> **Safe Patient-in-the-Loop AI** · Powered by Sarvam AI (`sarvam-105b-conversations`) with English, Hindi, and Marathi emergency triage (112 routing) and read-only slot proposal cards. Backed by Brevo & Resend transactional email outbox with Asia/Kolkata (`Asia/Kolkata`, IST = UTC+05:30) precision and clinical PHI redaction.
+> **Safe Patient-in-the-Loop AI** · Powered by Sarvam AI (`sarvam-105b-conversations`) for patients and doctors, with text and hands-free voice, English/Hindi/Marathi/Hinglish emergency triage (112 routing), and real booking, cancel, reschedule and payment actions that always need an explicit Confirm. Backed by Brevo & Resend transactional email outbox with Asia/Kolkata (`Asia/Kolkata`, IST = UTC+05:30) precision and clinical PHI redaction.
 
 ---
 
@@ -61,7 +61,7 @@ Every task folder is self-contained and independently runnable with its own auto
 | [`Task_3`](Task_3) | **Feedback & Scheduling** | Review feedback implementation: Multi-session shifts (weekly, monthly 1–31, one-date), Stream & Wave parity (1–20 patients/slot), atomic 1-click slot rescheduling, and doctor clinical leave guards. | **198** Pass |
 | [`Task_4`](Task_4) | **Payments & Refunds** | Razorpay Test Mode integration, 10-min seat holds (`PENDING_PAYMENT`), HMAC-SHA256 signature verification, idempotent webhook processing, late-payment reconciliation, and tiered refunds. | **270** Pass |
 | [`Task_5`](Task_5) | **Reliable Notifications** | Fail-safe transactional email outbox (Brevo/Resend), Asia/Kolkata (`Asia/Kolkata`, IST = UTC+05:30) precision, pre-send status recheck, clinical PHI redaction, patient settings (`/settings`), and admin DLQ dashboard (`/admin/notifications`). | **299** Pass |
-| [`Task_6`](Task_6) | **Healthcare Agent** | Sarvam AI conversational assistant (`/patient/assistant`), English/Hindi/Marathi emergency triage (112 advice), tool calling proposal cards, proactive engagement cron jobs, and elastic session scheduling. | **390** Pass |
+| [`Task_6`](Task_6) | **Healthcare Agent** | Sarvam AI assistant for patients and doctors (text + voice, multilingual), confirmed booking / cancel / reschedule with in-chat payment, prescriptions, emergency triage (112 advice), proactive engagement cron jobs, and elastic session scheduling. | **485** Pass |
 
 ---
 
@@ -74,7 +74,7 @@ Every task folder is self-contained and independently runnable with its own auto
 | **Authentication** | PBKDF2 (600,000 iterations), Stateless signed HTTP-only JWT cookies, Password-confirmed deletion |
 | **Payments & Gateways** | Razorpay (Test Mode Sandbox), Provider Abstraction (`RazorpayProvider`, `MockProvider`) |
 | **Email & Outbox** | Transactional Outbox Pattern, Brevo API, Resend API, ConsoleChannel fallback, Asia/Kolkata (`Asia/Kolkata`, IST = UTC+05:30) scheduler |
-| **AI Assistant** | Sarvam AI (`sarvam-105b-conversations`), Multilingual Triage (EN, HI, MR), Scoped Zod Tool Calling |
+| **AI Assistant** | Sarvam AI (`sarvam-105b-conversations`), Multilingual (EN, HI, MR, Hinglish), Role-scoped Zod Tool Calling, Signed Confirmations, Voice (STT + browser TTS) |
 
 ---
 

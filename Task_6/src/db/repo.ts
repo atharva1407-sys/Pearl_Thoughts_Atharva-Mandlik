@@ -199,6 +199,24 @@ export interface NotificationPreferencesEntity {
   updatedAt: Date;
 }
 
+export interface PrescriptionMedicine {
+  name: string;
+  dosage: string;
+  frequency: string;
+  duration: string;
+}
+
+export interface PrescriptionEntity {
+  id: string;
+  appointmentId: string;
+  doctorId: string;
+  patientId: string;
+  medicines: PrescriptionMedicine[];
+  notes?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export type AgentEventKind = "MESSAGE" | "TOOL_CALL" | "ACTION" | "ERROR";
 
 export interface AgentEventEntity {
@@ -434,6 +452,7 @@ export class MedrellaRepository {
   private memNotifications: NotificationEntity[] = [];
   private memNotificationPreferences: NotificationPreferencesEntity[] = [];
   private memAgentEvents: AgentEventEntity[] = [];
+  private memPrescriptions: PrescriptionEntity[] = [];
   private inFlightNotificationClaims: Set<string> = new Set<string>();
 
   constructor() {
@@ -456,6 +475,7 @@ export class MedrellaRepository {
     this.memNotifications = [];
     this.memNotificationPreferences = [];
     this.memAgentEvents = [];
+    this.memPrescriptions = [];
     this.inFlightNotificationClaims = new Set<string>();
 
     const defaultPasswordHash = hashPassword(getSeedDoctorPassword({ allowDevFallback: true }));
@@ -1989,6 +2009,7 @@ export class MedrellaRepository {
       this.memNotifications = this.memNotifications.filter((n) => !n.appointmentId || !apptIds.has(n.appointmentId));
       this.memRefunds = this.memRefunds.filter((r) => !apptIds.has(r.appointmentId));
       this.memPayments = this.memPayments.filter((p) => !apptIds.has(p.appointmentId));
+      this.memPrescriptions = this.memPrescriptions.filter((rx) => !apptIds.has(rx.appointmentId));
       this.memAppointments = this.memAppointments.filter((a) => a.doctorId !== d.id);
       this.memAvailabilities = this.memAvailabilities.filter((av) => av.doctorId !== d.id);
       this.memDoctorLeaves = this.memDoctorLeaves.filter((l) => l.doctorId !== d.id);
@@ -2003,6 +2024,7 @@ export class MedrellaRepository {
       );
       this.memRefunds = this.memRefunds.filter((r) => !apptIds.has(r.appointmentId));
       this.memPayments = this.memPayments.filter((pay) => !apptIds.has(pay.appointmentId));
+      this.memPrescriptions = this.memPrescriptions.filter((rx) => !apptIds.has(rx.appointmentId));
       this.memAppointments = this.memAppointments.filter((a) => a.patientId !== p.id);
       this.memPatients = this.memPatients.filter((pat) => pat.id !== p.id);
     }
@@ -2037,6 +2059,7 @@ export class MedrellaRepository {
     this.memRefunds = [];
     this.memNotifications = [];
     this.memAgentEvents = [];
+    this.memPrescriptions = [];
   }
 
 
@@ -2068,6 +2091,105 @@ export class MedrellaRepository {
       .filter((e) => e.userId === userId)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .slice(0, limit);
+  }
+
+  // --- Prescriptions (one per completed visit) ---
+
+  /** Creates the prescription for a visit, or replaces it when the doctor edits it. */
+  public async upsertPrescription(input: {
+    appointmentId: string;
+    doctorId: string;
+    patientId: string;
+    medicines: PrescriptionMedicine[];
+    notes?: string | null;
+  }): Promise<PrescriptionEntity> {
+    this.checkProductionDatabase();
+    const now = new Date();
+    if (db) {
+      const [row] = await db
+        .insert(schema.prescriptions)
+        .values({
+          id: `rx_${crypto.randomUUID()}`,
+          appointmentId: input.appointmentId,
+          doctorId: input.doctorId,
+          patientId: input.patientId,
+          medicines: input.medicines,
+          notes: input.notes ?? null,
+        })
+        .onConflictDoUpdate({
+          target: schema.prescriptions.appointmentId,
+          set: { medicines: input.medicines, notes: input.notes ?? null, updatedAt: now },
+        })
+        .returning();
+      return row as PrescriptionEntity;
+    }
+    const existing = this.memPrescriptions.find((p) => p.appointmentId === input.appointmentId);
+    if (existing) {
+      existing.medicines = input.medicines;
+      existing.notes = input.notes ?? null;
+      existing.updatedAt = now;
+      return existing;
+    }
+    const created: PrescriptionEntity = {
+      id: `rx_${crypto.randomUUID()}`,
+      appointmentId: input.appointmentId,
+      doctorId: input.doctorId,
+      patientId: input.patientId,
+      medicines: input.medicines,
+      notes: input.notes ?? null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.memPrescriptions.push(created);
+    return created;
+  }
+
+  public async getPrescriptionByAppointmentId(appointmentId: string): Promise<PrescriptionEntity | undefined> {
+    this.checkProductionDatabase();
+    if (db) {
+      const rows = await db
+        .select()
+        .from(schema.prescriptions)
+        .where(eq(schema.prescriptions.appointmentId, appointmentId))
+        .limit(1);
+      return rows[0] as PrescriptionEntity | undefined;
+    }
+    return this.memPrescriptions.find((p) => p.appointmentId === appointmentId);
+  }
+
+  /** Every prescription written for this patient, newest first, with the doctor and visit it belongs to. */
+  public async getPrescriptionsByPatientId(
+    patientId: string
+  ): Promise<(PrescriptionEntity & { doctor: DoctorEntity; appointment: AppointmentEntity })[]> {
+    this.checkProductionDatabase();
+    if (db) {
+      const rows = await db
+        .select({ rx: schema.prescriptions, doctor: schema.doctors, appointment: schema.appointments })
+        .from(schema.prescriptions)
+        .innerJoin(schema.doctors, eq(schema.prescriptions.doctorId, schema.doctors.id))
+        .innerJoin(schema.appointments, eq(schema.prescriptions.appointmentId, schema.appointments.id))
+        .where(eq(schema.prescriptions.patientId, patientId))
+        .orderBy(desc(schema.prescriptions.createdAt));
+      return rows.map((r) => ({
+        ...(r.rx as PrescriptionEntity),
+        doctor: {
+          ...r.doctor,
+          consultationFee: Number(r.doctor.consultationFee ?? 500),
+          experienceYears: Number(r.doctor.experienceYears ?? 0),
+          licenseNumber: r.doctor.licenseNumber ?? "REG-PENDING",
+        } as DoctorEntity,
+        appointment: r.appointment as AppointmentEntity,
+      }));
+    }
+    return this.memPrescriptions
+      .filter((p) => p.patientId === patientId)
+      .map((p) => {
+        const doctor = this.memDoctors.find((d) => d.id === p.doctorId);
+        const appointment = this.memAppointments.find((a) => a.id === p.appointmentId);
+        return doctor && appointment ? { ...p, doctor, appointment } : null;
+      })
+      .filter((x): x is PrescriptionEntity & { doctor: DoctorEntity; appointment: AppointmentEntity } => x !== null)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
   // --- Patient engagement queries ---

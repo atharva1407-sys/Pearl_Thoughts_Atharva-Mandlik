@@ -1,30 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getCurrentUser } from "@/actions/auth";
 import { dbRepo } from "@/db/repo";
 import { LlmError, checkRateLimit, cleanUserMessage, getLlmClient, runAgent } from "@/lib/agent";
+import { isSameOrigin, jsonResponse as json } from "@/lib/agent/route-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const json = (body: Record<string, unknown>, status = 200, headers?: Record<string, string>) =>
-  NextResponse.json(body, { status, headers: { "Cache-Control": "no-store", ...headers } });
-
 export async function POST(request: NextRequest) {
-  // Same-origin only: the session cookie must not be usable from another site.
-  const origin = request.headers.get("origin");
-  if (origin) {
-    let originHost: string | null = null;
-    try {
-      originHost = new URL(origin).host;
-    } catch {
-      originHost = null;
-    }
-    if (originHost !== request.headers.get("host")) return json({ error: "Forbidden." }, 403);
-  }
+  if (!isSameOrigin(request)) return json({ error: "Forbidden." }, 403);
 
   const user = await getCurrentUser();
-  if (!user || user.role !== "PATIENT") {
-    return json({ error: "Please sign in as a patient to chat with the assistant." }, 401);
+  if (!user || (user.role !== "PATIENT" && user.role !== "DOCTOR")) {
+    return json({ error: "Please sign in to chat with the assistant." }, 401);
   }
 
   const body = (await request.json().catch(() => null)) as { message?: unknown; history?: unknown } | null;
@@ -43,8 +31,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const patient = await dbRepo.getPatientById(user.profileId);
-  if (!patient) return json({ error: "Patient profile not found." }, 404);
+  // The profile comes from the signed session, never from the request body: this is what keeps each
+  // role inside its own data.
+  const patient = user.role === "PATIENT" ? await dbRepo.getPatientById(user.profileId) : undefined;
+  const doctor = user.role === "DOCTOR" ? await dbRepo.getDoctorById(user.profileId) : undefined;
+  if (!patient && !doctor) return json({ error: "Profile not found." }, 404);
 
   try {
     const result = await runAgent({
@@ -52,6 +43,7 @@ export async function POST(request: NextRequest) {
       llm,
       userId: user.userId,
       patient,
+      doctor,
       history: body?.history,
       message,
     });

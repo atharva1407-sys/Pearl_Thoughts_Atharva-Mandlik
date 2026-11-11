@@ -40,8 +40,8 @@ export async function POST(request: NextRequest) {
   }
 
   const user = await getCurrentUser();
-  if (!user || user.role !== "PATIENT") {
-    return json({ error: "Please sign in as a patient to use voice input." }, 401);
+  if (!user || (user.role !== "PATIENT" && user.role !== "DOCTOR")) {
+    return json({ error: "Please sign in to use voice input." }, 401);
   }
 
   const apiKey = process.env.SARVAM_API_KEY?.trim();

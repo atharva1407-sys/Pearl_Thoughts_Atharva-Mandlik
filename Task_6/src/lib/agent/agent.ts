@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import type { MedrellaRepository, PatientEntity } from "@/db/repo";
+import type { DoctorEntity, MedrellaRepository, PatientEntity } from "@/db/repo";
 import { LlmError, type LlmClient, type LlmMessage } from "./llm";
 import { buildSystemPrompt } from "./prompt";
 import {
@@ -10,7 +10,7 @@ import {
   detectReplyLanguage,
   isEmergencyMessage,
 } from "./safety";
-import { LLM_TOOLS, findTool, type AgentCard } from "./tools";
+import { findTool, llmToolsFor, type AgentCard, type AgentRole, type ToolContext } from "./tools";
 
 export interface ChatTurn {
   role: "user" | "assistant";
@@ -22,6 +22,7 @@ export interface AgentResult {
   cards: AgentCard[];
   toolsUsed: string[];
   emergency?: boolean;
+  role: AgentRole;
 }
 
 const MAX_ROUNDS = 6;
@@ -59,36 +60,49 @@ export function sanitizeHistory(history: unknown): ChatTurn[] {
   return turns.slice(-MAX_HISTORY_MESSAGES);
 }
 
+/**
+ * One conversation turn. Pass `patient` for the patient assistant or `doctor` for the doctor assistant:
+ * the role decides which tools exist at all, so neither side can reach the other's operations.
+ */
 export async function runAgent(input: {
   repo: MedrellaRepository;
   llm: LlmClient;
   userId: string;
-  patient: PatientEntity;
+  patient?: PatientEntity;
+  doctor?: DoctorEntity;
   history: unknown;
   message: string;
   now?: Date;
 }): Promise<AgentResult> {
   const now = input.now ?? new Date();
+  const role: AgentRole = input.doctor ? "DOCTOR" : "PATIENT";
+  const name = input.doctor ? `Dr. ${input.doctor.lastName}` : input.patient?.firstName;
+  if (!name) throw new Error("runAgent needs a patient or a doctor.");
+
   const message = cleanUserMessage(input.message);
-  if (!message) return { reply: "Please type a message.", cards: [], toolsUsed: [] };
+  if (!message) return { reply: "Please type a message.", cards: [], toolsUsed: [], role };
 
   // Metadata only: the text itself may contain health details, so it is not stored.
   await audit(input.repo, input.userId, "MESSAGE", null, `user message, ${message.length} chars`);
 
   if (isEmergencyMessage(message)) {
     await audit(input.repo, input.userId, "ACTION", "emergency_guidance", "emergency wording detected");
-    return { reply: EMERGENCY_REPLY, cards: [], toolsUsed: [], emergency: true };
+    return { reply: EMERGENCY_REPLY, cards: [], toolsUsed: [], emergency: true, role };
   }
 
   const messages: LlmMessage[] = [
-    { role: "system", content: buildSystemPrompt({ patientFirstName: input.patient.firstName, now }) },
+    { role: "system", content: buildSystemPrompt({ role, name, now }) },
     ...sanitizeHistory(input.history).map((t) => ({ role: t.role, content: t.content }) as LlmMessage),
     { role: "user", content: languageDirective(message) },
   ];
 
   const cards: AgentCard[] = [];
   const toolsUsed: string[] = [];
-  const ctx = { repo: input.repo, userId: input.userId, patient: input.patient, now };
+  const base = { repo: input.repo, userId: input.userId, now };
+  const ctx: ToolContext = input.doctor
+    ? { ...base, role: "DOCTOR", doctor: input.doctor }
+    : { ...base, role: "PATIENT", patient: input.patient! };
+  const tools = llmToolsFor(role);
 
   let forceTool = false;
   let groundingRetried = false;
@@ -97,7 +111,7 @@ export async function runAgent(input: {
     for (let round = 0; round < MAX_ROUNDS; round++) {
       const reply = await input.llm.chat({
         messages,
-        tools: LLM_TOOLS,
+        tools,
         toolChoice: forceTool ? "required" : "auto",
       });
       forceTool = false;
@@ -116,9 +130,9 @@ export async function runAgent(input: {
           continue;
         }
         if (text && toolsUsed.length === 0 && groundingRetried && STATES_FACTS.test(text)) {
-          return { reply: FALLBACK_REPLY, cards: [], toolsUsed };
+          return { reply: FALLBACK_REPLY, cards: [], toolsUsed, role };
         }
-        return { reply: text || FALLBACK_REPLY, cards: dedupeCards(cards), toolsUsed };
+        return { reply: text || FALLBACK_REPLY, cards: dedupeCards(cards), toolsUsed, role };
       }
 
       const calls = reply.toolCalls.slice(0, MAX_TOOL_CALLS_PER_ROUND);
@@ -126,7 +140,7 @@ export async function runAgent(input: {
 
       for (const call of calls) {
         const name = call.function?.name ?? "";
-        const tool = findTool(name);
+        const tool = findTool(name, role);
         let result: unknown;
 
         if (!tool) {
@@ -172,17 +186,21 @@ export async function runAgent(input: {
     reply: prepared.length ? "I have prepared this for you. Please review the details below." : FALLBACK_REPLY,
     cards: prepared,
     toolsUsed,
+    role,
   };
 }
 
-/** Models drift to English after tool calls, so name the reply language explicitly for Hindi and Marathi. */
+/** Models drift to English after tool calls, so name the reply language explicitly for Hindi, Marathi and Hinglish. */
 function languageDirective(message: string): string {
   const language = detectReplyLanguage(message);
-  return language
-    ? `${message}
+  if (!language) {
+    // Plain English (Latin letters, nothing Indic): say so, or the model drifts into Hindi after tool calls.
+    return /[A-Za-z]/.test(message) ? `${message}\n\n[Instruction: write your entire reply in English.]` : message;
+  }
+  const how = language === "Hinglish" ? "Hinglish (Hindi written in English letters, the way the user wrote)" : `${language} using Devanagari script`;
+  return `${message}
 
-[Instruction: write your entire reply in ${language} using Devanagari script. Keep doctor names and times unchanged.]`
-    : message;
+[Instruction: write your entire reply in ${how}. Keep doctor names and times unchanged.]`;
 }
 
 function dedupeCards(cards: AgentCard[]): AgentCard[] {

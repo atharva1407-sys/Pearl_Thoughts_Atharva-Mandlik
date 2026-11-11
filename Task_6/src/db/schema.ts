@@ -249,6 +249,26 @@ export const agentEvents = pgTable(
   (table) => [index("agent_events_user_idx").on(table.userId, table.createdAt)]
 );
 
+/** One prescription per completed visit, written by the treating doctor and readable by that patient. */
+export const prescriptions = pgTable(
+  "prescriptions",
+  {
+    id: text("id").primaryKey(),
+    appointmentId: text("appointment_id").notNull().references(() => appointments.id, { onDelete: "cascade" }),
+    doctorId: text("doctor_id").notNull().references(() => doctors.id, { onDelete: "cascade" }),
+    patientId: text("patient_id").notNull().references(() => patients.id, { onDelete: "cascade" }),
+    medicines: jsonb("medicines").notNull().$type<{ name: string; dosage: string; frequency: string; duration: string }[]>(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("prescriptions_appointment_unique").on(table.appointmentId),
+    index("prescriptions_patient_idx").on(table.patientId, table.createdAt),
+  ]
+);
+
+export type Prescription = typeof prescriptions.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Patient = typeof patients.$inferSelect;
 export type Doctor = typeof doctors.$inferSelect;
