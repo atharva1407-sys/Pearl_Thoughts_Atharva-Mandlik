@@ -1,8 +1,12 @@
+<div align="center">
+
 # 🚀 Medrella Healthcare — Production Deployment Guide
 
-[![Live App](https://img.shields.io/badge/Live%20App-Vercel-black?logo=vercel)](https://medrella-healthcare.vercel.app)
-[![Database](https://img.shields.io/badge/Database-Neon%20Postgres-00e599?logo=postgresql)](https://neon.tech/)
-[![Payments](https://img.shields.io/badge/Payments-Razorpay%20(Test%20Mode)-0c2340?logo=razorpay)](https://razorpay.com/)
+[![Deployment](https://img.shields.io/badge/Live_App_on_Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://medrella-healthcare.vercel.app)
+[![PostgreSQL](https://img.shields.io/badge/Neon_PostgreSQL-00E599?style=for-the-badge&logo=postgresql&logoColor=0B0D0E)](https://neon.tech/)
+[![Razorpay](https://img.shields.io/badge/Razorpay_Sandbox-02042B?style=for-the-badge&logo=razorpay&logoColor=3395FF)](https://razorpay.com/)
+
+</div>
 
 Production deployment guide for **Medrella Healthcare** on **Vercel** backed by **Neon Serverless PostgreSQL**.
 

@@ -1,4 +1,12 @@
+<div align="center">
+
 # Task 1: ER Diagram, Relational Architecture & Next.js Baseline
+
+[![Next.js](https://img.shields.io/badge/Next.js_16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript_5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS_4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+
+</div>
 
 Full-stack outpatient clinical model design and Next.js Turbopack application baseline for **Task 1 (Pearl Thoughts Assessment)**.
 
