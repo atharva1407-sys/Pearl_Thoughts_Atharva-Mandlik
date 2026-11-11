@@ -50,6 +50,13 @@
       "when": 1793791751767,
       "tag": "0006_scheduling_dates",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794391373811,
+      "tag": "0007_prescriptions",
+      "breakpoints": true
     }
   ]
 }

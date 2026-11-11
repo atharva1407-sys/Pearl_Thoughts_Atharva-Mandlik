@@ -58,9 +58,27 @@ export function resetRateLimitsForTests(): void {
 
 const DEVANAGARI = /[ऀ-ॿ]/;
 const MARATHI_MARKERS = /(आहे|आहेत|मला|हवी|हवे|आम्ही|तुम्ही|कृपया|उद्या|काय|कोण|नाही|करा)/;
+const HINGLISH_WORDS = new Set([
+  "mujhe", "mera", "meri", "mere", "chahiye", "chahie", "hai", "hain", "kal", "aaj", "parso", "kab", "kya", "kaun", "nahi", "nahin",
+  "karo", "karna", "kijiye", "kardo", "batao", "bataiye", "dikhao", "dikhana", "dena", "lena", "wala", "wali", "liye", "subah",
+  "shaam", "dopahar", "abhi", "kitna", "kitne", "milega", "mil", "sakta", "sakti", "bukhar", "dard", "se", "ko", "ka", "ki", "ke",
+]);
+/** Words that are also common English words are weighted out by requiring several distinct Hinglish hits. */
+const HINGLISH_STRONG = new Set([
+  "mujhe", "mera", "meri", "mere", "chahiye", "chahie", "hai", "hain", "kal", "aaj", "kab", "kya", "kaun", "nahi", "nahin", "karo",
+  "karna", "kijiye", "kardo", "batao", "bataiye", "dikhao", "dikhana", "wala", "wali", "liye", "subah", "shaam", "dopahar", "abhi",
+  "kitna", "kitne", "milega", "sakta", "sakti",
+]);
+
+function looksLikeHinglish(text: string): boolean {
+  const words = text.toLowerCase().match(/[a-z]+/g) ?? [];
+  const hits = new Set(words.filter((w) => HINGLISH_WORDS.has(w)));
+  const strong = [...hits].filter((w) => HINGLISH_STRONG.has(w)).length;
+  return hits.size >= 3 && strong >= 2;
+}
 
 /** The language a message is written in, for the languages the assistant must answer in natively. */
-export function detectReplyLanguage(text: string): "Hindi" | "Marathi" | null {
-  if (!DEVANAGARI.test(text)) return null;
+export function detectReplyLanguage(text: string): "Hindi" | "Marathi" | "Hinglish" | null {
+  if (!DEVANAGARI.test(text)) return looksLikeHinglish(text) ? "Hinglish" : null;
   return MARATHI_MARKERS.test(text) ? "Marathi" : "Hindi";
 }

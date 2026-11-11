@@ -81,3 +81,22 @@ export const rescheduleSchema = z.object({
   newEndTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid end time (HH:MM)"),
   newSessionId: z.string().optional(),
 });
+
+const rxText = (label: string, max: number) =>
+  z.string().trim().min(1, `${label} is required`).max(max, `${label} is too long`);
+
+export const prescriptionSchema = z.object({
+  appointmentId: z.string().min(1, "Appointment is required"),
+  medicines: z
+    .array(
+      z.object({
+        name: rxText("Medicine name", 80),
+        dosage: rxText("Dosage", 60),
+        frequency: rxText("Frequency", 60),
+        duration: rxText("Duration", 60),
+      })
+    )
+    .min(1, "Add at least one medicine")
+    .max(12, "A prescription can list at most 12 medicines"),
+  notes: z.string().trim().max(600, "Notes are too long").optional(),
+});

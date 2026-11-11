@@ -205,8 +205,8 @@ async function main() {
   ]);
   const booked = await runAgent({ ...base, llm: bookLlm, history: [], message: "book it", now });
   const card = booked.cards[0];
-  assert(booked.cards.length === 1 && card.kind === "BOOKING", "propose_booking returns a booking card");
-  assert(card.href === `/doctors/${paidDoctor.id}?date=${slotDate}&slot=${slotTime}`, "booking card deep-links to the booking page with the slot");
+  assert(booked.cards.length === 1 && card.kind === "CONFIRM" && card.confirm?.action === "BOOK", "propose_booking returns a confirmation card");
+  assert(Boolean(card.confirm?.token) && new Date(card.confirm!.expiresAt).getTime() > Date.now(), "the confirmation card carries a live signed token");
   assert((await dbRepo.getAppointmentsByPatientId(patient.id)).length === apptsBefore, "the agent itself books nothing");
 
   const badSlot = await runAgent({
@@ -246,7 +246,7 @@ async function main() {
   // other patients' data is out of reach
   const other = await makePatient("ravi");
   const otherAppt = await makeAppointment(other.patient.id, paidDoctor.id, addDays(today, 5));
-  const peekLlm = new ScriptedLlm([call("propose_manage_appointment", { appointmentId: otherAppt.id, action: "cancel" }), say("not found")]);
+  const peekLlm = new ScriptedLlm([call("propose_cancel_appointment", { appointmentId: otherAppt.id }), say("not found")]);
   const peek = await runAgent({ ...base, llm: peekLlm, history: [], message: "cancel appointment " + otherAppt.id });
   assert(peek.cards.length === 0, "another patient's appointment cannot be managed through the agent");
   const mineLlm = new ScriptedLlm([call("list_my_appointments", {}), say("listed")]);
