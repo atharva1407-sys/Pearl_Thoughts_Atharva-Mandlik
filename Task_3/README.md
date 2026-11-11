@@ -1,4 +1,12 @@
+<div align="center">
+
 # Task 3: Feedback Implementation & Multi-Session Scheduling
+
+[![Next.js](https://img.shields.io/badge/Next.js_16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
+[![PostgreSQL](https://img.shields.io/badge/Neon_PostgreSQL-00E599?style=for-the-badge&logo=postgresql&logoColor=0B0D0E)](https://neon.tech/)
+[![Wave & Stream](https://img.shields.io/badge/Wave_&_Stream-OPD_Shifts-blue?style=for-the-badge)](https://medrella-healthcare.vercel.app/schedule)
+
+</div>
 
 Outpatient clinic platform enhancements addressing review feedback and introducing multi-session Stream & Wave scheduling for **Pearl Thoughts (Task 3)**.
 

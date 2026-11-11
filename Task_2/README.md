@@ -1,4 +1,12 @@
+<div align="center">
+
 # Task 2: Medrella Clinical Outpatient Management Platform
+
+[![Next.js](https://img.shields.io/badge/Next.js_16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
+[![PostgreSQL](https://img.shields.io/badge/Neon_PostgreSQL-00E599?style=for-the-badge&logo=postgresql&logoColor=0B0D0E)](https://neon.tech/)
+[![Drizzle ORM](https://img.shields.io/badge/Drizzle_ORM-C5F74F?style=for-the-badge&logo=drizzle&logoColor=000000)](https://orm.drizzle.team/)
+
+</div>
 
 Full-stack outpatient clinical management system built for **Pearl Thoughts (Task 2)**, incorporating the **Medrella Hospital Design System** for **Ruby Hall, Pune**.
 

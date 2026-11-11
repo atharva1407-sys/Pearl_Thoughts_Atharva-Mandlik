@@ -1,4 +1,12 @@
+<div align="center">
+
 # Task 5: Reliable Transactional Email Notifications & Outbox Engine
+
+[![Next.js](https://img.shields.io/badge/Next.js_16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
+[![PostgreSQL](https://img.shields.io/badge/Neon_PostgreSQL-00E599?style=for-the-badge&logo=postgresql&logoColor=0B0D0E)](https://neon.tech/)
+[![Outbox Pattern](https://img.shields.io/badge/Transactional_Outbox-Reliable_Email-0c2340?style=for-the-badge)](https://medrella-healthcare.vercel.app/admin/notifications)
+
+</div>
 
 Production-grade transactional email notification outbox with clinical privacy protection and dead-letter queue monitoring for **Pearl Thoughts (Task 5)**.
 
