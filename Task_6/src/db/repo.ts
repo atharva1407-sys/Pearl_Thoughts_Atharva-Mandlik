@@ -574,8 +574,6 @@ export class MedrellaRepository {
     const patients = [
       // Visited 2 days ago: gets a follow-up email and can file an insurance claim.
       { key: "priya", email: "priya.demo@medrella.demo", firstName: "Priya", lastName: "Deshmukh", visitDaysAgo: 2, policy: "MEDR100201" },
-      // Last visit 100 days ago and opted in: gets a check-up reminder from the engagement job.
-      { key: "rahul", email: "rahul.demo@medrella.demo", firstName: "Rahul", lastName: "Kulkarni", visitDaysAgo: 100, policy: null },
     ];
 
     for (const p of patients) {
