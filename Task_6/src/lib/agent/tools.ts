@@ -687,6 +687,45 @@ export const DOCTOR_TOOLS: ToolDefinition<DoctorToolContext>[] = [
     },
   },
   {
+    name: "get_my_open_slots",
+    description:
+      "The doctor's open (still bookable) slots on one date, with seats left in each. Use it to check availability on a specific day. Also says when the day is a leave day or not a working day.",
+    parameters: { type: "object", properties: { date: { type: "string", description: "YYYY-MM-DD" } }, required: ["date"] },
+    schema: z.object({ date: dateField }),
+    async run(ctx, args: { date: string }) {
+      const problem = dateProblem(args.date, ctx.now);
+      if (problem) return { data: { error: problem } };
+      const { onLeave, slots } = await listOpenSlotsOnDate(ctx.repo, ctx.doctor.id, args.date, ctx.now);
+      if (onLeave) {
+        return {
+          data: { date: args.date, onLeave: true, totalOpen: 0, slots: [] },
+          cards: [{ kind: "INFO", title: `Leave on ${dayLabel(args.date)}`, lines: ["This day is marked as leave, so no slots are open."], href: "/doctor/availability", linkLabel: "Manage leaves" }],
+        };
+      }
+      const shown = slots.slice(0, 20);
+      return {
+        data: {
+          date: args.date,
+          onLeave: false,
+          totalOpen: slots.length,
+          slots: shown.map((s) => ({ startTime: s.startTime, endTime: s.endTime, session: s.session, seatsLeft: s.seatsLeft })),
+          note: slots.length === 0 ? "No open slots that day (not a working day, or fully booked)." : undefined,
+        },
+        cards: [
+          {
+            kind: "INFO",
+            title: `Open slots on ${dayLabel(args.date)}`,
+            lines: slots.length
+              ? [`${slots.length} open slot${slots.length === 1 ? "" : "s"}`, ...shown.slice(0, 6).map((s) => `${s.startTime}-${s.endTime} · ${s.seatsLeft} seat${s.seatsLeft === 1 ? "" : "s"} left`)]
+              : ["No open slots that day."],
+            href: "/doctor/availability",
+            linkLabel: "Manage shifts",
+          },
+        ],
+      };
+    },
+  },
+  {
     name: "get_next_available_slot",
     description: "The doctor's next open appointment slots, starting from today or a given date. Returns up to 3.",
     parameters: { type: "object", properties: { fromDate: { type: "string", description: "YYYY-MM-DD, default today" } } },

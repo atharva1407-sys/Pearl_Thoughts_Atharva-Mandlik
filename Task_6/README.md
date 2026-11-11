@@ -61,6 +61,7 @@ Full-stack clinical management platform featuring a **Conversational Healthcare 
 | `get_appointment_stats` | Counts by status (booked, completed, cancelled, no-show, pending payment) for a range. |
 | `get_my_schedule` | Shifts (hours, slot length, repeat pattern), upcoming leaves, and whether a given day is a working day. |
 | `find_schedule_conflicts` | Overlapping visits, overbooked slots, visits on leave days or outside working hours. |
+| `get_my_open_slots` | Open slots (with seats left) on one chosen date, or that the day is a leave day. |
 | `get_next_available_slot` | The next open slots. |
 | `suggest_reschedule_slots` | Suitable slots to move one of the doctor's own appointments to. |
 
@@ -104,7 +105,7 @@ npm run db:migrate-0005    # adds agent audit table
 npm run db:migrate-0006    # adds flexible scheduling recurrence
 npm run db:migrate-0007    # adds the prescriptions table (assistant + doctor prescriptions)
 npm run dev               # Starts dev server on http://localhost:3000
-npm test                  # Runs 485 automated tests (zero network needed)
+npm test                  # Runs 489 automated tests (zero network needed)
 ```
 
 | Test Suite | Tests | Result | Verification Scope |
@@ -113,6 +114,6 @@ npm test                  # Runs 485 automated tests (zero network needed)
 | **`src/test-payment-hardening.ts`** | **72** | **Passed** | Razorpay webhooks, signature verification, seat holds, and tiered refund engine. |
 | **`src/test-notifications.ts`** | **81** | **Passed** | Outbox deduplication, IST midnight calculations, PHI redaction, and DLQ retries. |
 | **`src/test-agent.ts`** | **72** | **Passed** | Sarvam AI tool calling, safety checks, multilingual emergency triage, and crons. |
-| **`src/test-assistant.ts`** | **95** | **Passed** | Doctor tools, confirmed booking/cancel/reschedule, expired and forged confirmations, slot taken at confirm time, conflict detection, prescriptions, role separation, voice activity detection and barge-in. |
+| **`src/test-assistant.ts`** | **99** | **Passed** | Doctor tools, confirmed booking/cancel/reschedule, expired and forged confirmations, slot taken at confirm time, conflict detection, prescriptions, role separation, voice activity detection and barge-in. |
 | **Timezone & Recurrence** | **50** | **Passed** | Recurrence rules (dates 1–31, one-date-only) across multiple client timezones. |
-| **Total Test Suite** | **485 Passed** | **0 Failed** | **100% Deterministic Verification** |
+| **Total Test Suite** | **489 Passed** | **0 Failed** | **100% Deterministic Verification** |
