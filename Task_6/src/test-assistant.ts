@@ -385,6 +385,26 @@ async function main() {
   await runAgent({ ...docBase, llm: leaveOther, history: [], message: "my leaves", now });
   assert(!toolResult(leaveOther).upcomingLeaves.some((l: any) => l.date === leaveDate), "another doctor's leaves are not visible");
 
+  const openDay = (await firstOpenSlot(doctorA.id, now, 1)).date;
+  const openLlm = new ScriptedLlm([call("get_my_open_slots", { date: openDay }), say("open")]);
+  const openRes = await runAgent({ ...docBase, llm: openLlm, history: [], message: "free slots that day?", now });
+  const openData = toolResult(openLlm);
+  assert(openData.totalOpen > 0 && openData.slots.length > 0 && openData.slots.every((s: any) => s.seatsLeft > 0) && openRes.cards[0]?.kind === "INFO", "open slots on a chosen date are listed with seats left");
+  const bookedSlot = await firstOpenSlot(doctorA.id, now, 1);
+  for (let i = 0; i < bookedSlot.seatsLeft; i++) {
+    const filler = await makePatient(`doctorfill${i}`);
+    await makeAppointment(filler.patient.id, doctorA.id, bookedSlot.date, bookedSlot.startTime, bookedSlot.endTime);
+  }
+  const fullLlm = new ScriptedLlm([call("get_my_open_slots", { date: bookedSlot.date }), say("full")]);
+  await runAgent({ ...docBase, llm: fullLlm, history: [], message: "free that day?", now });
+  assert(!toolResult(fullLlm).slots.some((s: any) => s.startTime === bookedSlot.startTime), "a fully booked slot is not listed as open");
+  const pastOpen = new ScriptedLlm([call("get_my_open_slots", { date: addDays(today, -1) }), say("past")]);
+  await runAgent({ ...docBase, llm: pastOpen, history: [], message: "yesterday", now });
+  assert(/past/.test(JSON.stringify(toolResult(pastOpen))), "open slots in the past are refused");
+  const leaveOpen = new ScriptedLlm([call("get_my_open_slots", { date: leaveDate }), say("leave")]);
+  await runAgent({ repo: dbRepo, userId: doctorB.userId, doctor: doctorB, llm: leaveOpen, history: [], message: "leave day", now });
+  assert(toolResult(leaveOpen).onLeave === true && toolResult(leaveOpen).totalOpen === 0, "a leave day reports no open slots");
+
   const nextLlm = new ScriptedLlm([call("get_next_available_slot", {}), say("next")]);
   await runAgent({ ...docBase, llm: nextLlm, history: [], message: "next free slot", now });
   const next = toolResult(nextLlm);
