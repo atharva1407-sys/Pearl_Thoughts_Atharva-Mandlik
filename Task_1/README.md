@@ -1,38 +1,46 @@
-# Task 1: Next.js HelloWorld Application
+# Task 1: ER Diagram, Relational Architecture & Next.js Baseline
 
-This directory contains the Next.js **HelloWorld** page for **Task 1** (Pearl Thoughts Assessment).
+Full-stack outpatient clinical model design and Next.js Turbopack application baseline for **Task 1 (Pearl Thoughts Assessment)**.
 
-## Tech Stack
+---
 
-- **Framework**: [Next.js](https://nextjs.org) (App Router)
-- **Language**: [TypeScript](https://www.typescriptlang.org/)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
-- **Runtime**: Node.js v20+ / v24+
+## 💎 Architecture & Artifacts
 
-## Getting Started
+> [!NOTE]
+> ### 📊 Outpatient Domain Relational Model
+> Designed the complete entity architecture for outpatient clinic operations: `User` (identity & PBKDF2 credentials), `Patient` (demographics), `Doctor` (specialties & fees), `Availability` (OPD shifts & slots), and `Appointment` (bookings, statuses, & vitals).
 
-1. Navigate to the `Task_1` folder:
-   ```bash
-   cd Task_1
-   ```
+> [!TIP]
+> ### 🎥 Media & Documentation Artifacts
+> * **Architecture Video Walkthrough**: `ER_Diagram.mp4` explaining entity relationships, cardinalities, and indexing strategies.
+> * **High-Resolution ER Diagram**: `Task_1 - ER Diagram.png`.
 
-2. Install dependencies (if not already installed):
-   ```bash
-   npm install
-   ```
+---
 
-3. Run the development server:
-   ```bash
-   npm run dev
-   ```
+## 🧭 Core Relational Schema
 
-4. Open [http://localhost:3000](http://localhost:3000) in your browser:
-   - Root page: `http://localhost:3000/` displays the styled **Hello, World!** application.
-   - Dedicated route: `http://localhost:3000/helloworld` displays the dedicated HelloWorld page.
+| Entity | Primary Attributes | Relational Cardinality | Purpose |
+|---|---|---|---|
+| `users` | `id`, `email`, `role`, `passwordHash` | 1-to-1 with `patients` or `doctors` | Authentication & role-based access control |
+| `patients` | `id`, `userId`, `fullName`, `phone`, `gender` | 1-to-Many with `appointments` | Demographic patient records |
+| `doctors` | `id`, `userId`, `name`, `department`, `consultationFee` | 1-to-Many with `doctor_sessions` | Consulting physicians & fee master |
+| `doctor_sessions` | `id`, `doctorId`, `dayOfWeek`, `startTime`, `slotDuration` | 1-to-Many with `appointments` | Weekly outpatient shift availability |
+| `appointments` | `id`, `patientId`, `doctorId`, `date`, `time`, `status` | Belongs to Patient & Doctor | Scheduled consultations & queue records |
 
-## Available Scripts
+---
 
-- `npm run dev` - Starts the development server with Turbopack.
-- `npm run build` - Creates an optimized production build.
-- `npm run start` - Starts the production server.
-- `npm run lint` - Runs ESLint.
+## 🛠️ Tech Stack & Scripts
+
+| Layer | Technology |
+|---|---|
+| **Framework** | Next.js 16 (App Router + Turbopack) |
+| **Language** | TypeScript 5 (Strict Mode) |
+| **Styling** | Tailwind CSS 4 |
+
+```bash
+cd Task_1
+npm install
+npm run dev       # Starts dev server on http://localhost:3000
+npm run lint      # Runs ESLint code quality checks
+npm run build     # Compiles production build
+```
