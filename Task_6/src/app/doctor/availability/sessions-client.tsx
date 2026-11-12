@@ -26,6 +26,7 @@ import type { AvailabilityEntity, DoctorLeaveEntity } from "@/db/repo";
 import { describeSchedule, recurrenceOf, type DayCode, type SessionRecurrence } from "@/lib/session-schedule";
 import { istDateString } from "@/lib/time";
 import { analyzeSessionChange, effectiveSlotLength, type BookingResolution, type SessionChangeImpact } from "@/lib/elastic-schedule";
+import { useDoctorSchedule, minutesBetween } from "@/hooks/use-doctor-schedule";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,11 +45,6 @@ interface SessionsClientProps {
 const DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"] as const;
 const SLOT_LENGTHS = [10, 15, 20, 30, 45, 60, 90, 120];
 
-function minutesBetween(start: string, end: string): number {
-  const [sh, sm] = start.split(":").map(Number);
-  const [eh, em] = end.split(":").map(Number);
-  return eh * 60 + em - (sh * 60 + sm);
-}
 const RECURRENCE_OPTIONS: Array<{ value: SessionRecurrence; label: string }> = [
   { value: "WEEKLY", label: "Every week" },
   { value: "MONTHLY_DATE", label: "Date of month" },
@@ -126,42 +122,69 @@ function SessionCard({
 }
 
 export function SessionsClient({ initialSessions, initialLeaves, doctorId }: SessionsClientProps) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const {
+    isPending,
+    today,
+    isModalOpen,
+    setIsModalOpen,
+    editingSession,
+    weeklySessions,
+    name,
+    setName,
+    recurrence,
+    setRecurrence,
+    dayOfWeek,
+    setDayOfWeek,
+    dayOfMonth,
+    setDayOfMonth,
+    specificDate,
+    setSpecificDate,
+    extraDates,
+    setExtraDates,
+    pendingExtraDate,
+    setPendingExtraDate,
+    validFrom,
+    setValidFrom,
+    validUntil,
+    setValidUntil,
+    startTime,
+    setStartTime,
+    endTime,
+    setEndTime,
+    slotDurationMinutes,
+    setSlotDurationMinutes,
+    wholeSession,
+    setWholeSession,
+    schedulingType,
+    patientsPerSlot,
+    setPatientsPerSlot,
+    isActive,
+    setIsActive,
+    pendingResolution,
+    setPendingResolution,
+    resolution,
+    setResolution,
+    errorMessage,
+    setErrorMessage,
+    successMessage,
+    setSuccessMessage,
+    leaveDate,
+    setLeaveDate,
+    leaveReason,
+    setLeaveReason,
+    handleOpenAddModal,
+    handleOpenEditModal,
+    chooseSchedulingType,
+    savedSlotLength,
+    keepsSlotOnExtend,
+    slotPreview,
+    handleSaveSession,
+    submitSession,
+    handleDeleteSession,
+    handleAddLeave,
+    handleRemoveLeave,
+  } = useDoctorSchedule(initialSessions, initialLeaves, doctorId);
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingSession, setEditingSession] = useState<AvailabilityEntity | null>(null);
-
-  // Form State
-  const [name, setName] = useState("Morning OPD");
-  const [recurrence, setRecurrence] = useState<SessionRecurrence>("WEEKLY");
-  const [dayOfWeek, setDayOfWeek] = useState<DayCode>("MON");
-  const [dayOfMonth, setDayOfMonth] = useState(1);
-  const [specificDate, setSpecificDate] = useState("");
-  const [extraDates, setExtraDates] = useState<string[]>([]);
-  const [pendingExtraDate, setPendingExtraDate] = useState("");
-  const [wholeSession, setWholeSession] = useState(false);
-  const [validFrom, setValidFrom] = useState("");
-  const [validUntil, setValidUntil] = useState("");
-  const [startTime, setStartTime] = useState("09:00");
-  const [endTime, setEndTime] = useState("13:00");
-  const [slotDurationMinutes, setSlotDurationMinutes] = useState(30);
-  const [schedulingType, setSchedulingType] = useState<"STREAM" | "WAVE">("STREAM");
-  const [patientsPerSlot, setPatientsPerSlot] = useState(1);
-  const [isActive, setIsActive] = useState(true);
-
-  // Leave Form State
-  const [leaveDate, setLeaveDate] = useState("");
-  const [leaveReason, setLeaveReason] = useState("");
-
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  // Set when an edit affects booked appointments: the doctor must choose what happens to them.
-  const [pendingResolution, setPendingResolution] = useState<SessionChangeImpact | null>(null);
-  const [resolution, setResolution] = useState<BookingResolution>("MOVE");
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  const today = istDateString(new Date());
-  const weeklySessions = initialSessions.filter((s) => recurrenceOf(s) === "WEEKLY");
   const monthlySessions = initialSessions
     .filter((s) => recurrenceOf(s) === "MONTHLY_DATE")
     .sort((a, b) => (a.dayOfMonth ?? 0) - (b.dayOfMonth ?? 0) || a.startTime.localeCompare(b.startTime));
@@ -170,194 +193,10 @@ export function SessionsClient({ initialSessions, initialLeaves, doctorId }: Ses
     .sort((a, b) => (a.specificDate ?? "").localeCompare(b.specificDate ?? "") || a.startTime.localeCompare(b.startTime));
 
   const openAddModal = (preset?: { day?: DayCode; recurrence?: SessionRecurrence }) => {
-    setEditingSession(null);
-    setName(preset?.recurrence === "ONE_TIME" ? "Special OPD" : preset?.day ? "Morning OPD" : "OPD Session");
-    setRecurrence(preset?.recurrence ?? "WEEKLY");
-    setDayOfWeek(preset?.day || "MON");
-    setDayOfMonth(1);
-    setSpecificDate("");
-    setExtraDates([]);
-    setPendingExtraDate("");
-    setWholeSession(false);
-    setValidFrom("");
-    setValidUntil("");
-    setStartTime("09:00");
-    setEndTime("13:00");
-    setSlotDurationMinutes(30);
-    setSchedulingType("STREAM");
-    setPatientsPerSlot(1);
-    setIsActive(true);
-    setErrorMessage(null);
-    setIsModalOpen(true);
+    handleOpenAddModal(preset?.recurrence);
+    if (preset?.day) setDayOfWeek(preset.day);
   };
-
-  const openEditModal = (session: AvailabilityEntity) => {
-    setEditingSession(session);
-    setName(session.name);
-    setRecurrence(recurrenceOf(session));
-    setDayOfWeek(session.dayOfWeek ?? "MON");
-    setDayOfMonth(session.dayOfMonth ?? 1);
-    setSpecificDate(session.specificDate ?? "");
-    setExtraDates([]);
-    setPendingExtraDate("");
-    setWholeSession(session.slotDurationMinutes > 60 && session.slotDurationMinutes === minutesBetween(session.startTime, session.endTime));
-    setValidFrom(session.validFrom ?? "");
-    setValidUntil(session.validUntil ?? "");
-    setStartTime(session.startTime);
-    setEndTime(session.endTime);
-    setSlotDurationMinutes(session.slotDurationMinutes);
-    setSchedulingType(session.schedulingType);
-    setPatientsPerSlot(session.patientsPerWave || 1);
-    setIsActive(session.isActive);
-    setErrorMessage(null);
-    setPendingResolution(null);
-    setResolution("MOVE");
-    setIsModalOpen(true);
-  };
-
-  // Stream defaults to one patient per slot and Wave to three, unless the doctor already typed their own number.
-  const chooseSchedulingType = (next: "STREAM" | "WAVE") => {
-    if (next === schedulingType) return;
-    if (patientsPerSlot === (schedulingType === "STREAM" ? 1 : 3)) setPatientsPerSlot(next === "STREAM" ? 1 : 3);
-    setSchedulingType(next);
-  };
-
-  // The slot length that will actually be saved. Extending a "one slot for the whole session" session keeps
-  // its current slot, so the people already booked in it stay where they are.
-  const savedSlotLength = effectiveSlotLength({
-    editing: editingSession
-      ? { startTime: editingSession.startTime, endTime: editingSession.endTime, slotDurationMinutes: editingSession.slotDurationMinutes }
-      : null,
-    startTime,
-    endTime,
-    slotLength: slotDurationMinutes,
-    wholeSession,
-  });
-  const keepsSlotOnExtend = wholeSession && savedSlotLength !== minutesBetween(startTime, endTime);
-
-  // Live preview while editing: which slots the new hours add or remove (bookings are checked on the server).
-  const slotPreview = useMemo(() => {
-    if (!editingSession) return null;
-    if (!(minutesBetween(startTime, endTime) > 0) || savedSlotLength < 1) return null;
-    return analyzeSessionChange(
-      {
-        startTime: editingSession.startTime,
-        endTime: editingSession.endTime,
-        slotDurationMinutes: editingSession.slotDurationMinutes,
-      },
-      { startTime, endTime, slotDurationMinutes: savedSlotLength },
-      []
-    );
-  }, [editingSession, startTime, endTime, savedSlotLength]);
-
-  // Any change to the form invalidates a pending "what should happen to these bookings" choice.
-  useEffect(() => {
-    setPendingResolution(null);
-  }, [startTime, endTime, slotDurationMinutes, wholeSession, recurrence, dayOfWeek, dayOfMonth, specificDate, validFrom, validUntil, isActive]);
-
-  const handleSaveSession = (e: React.FormEvent) => {
-    e.preventDefault();
-    submitSession(null);
-  };
-
-  const submitSession = (chosenResolution: BookingResolution | null) => {
-    setErrorMessage(null);
-    setSuccessMessage(null);
-
-    const formData = new FormData();
-    if (editingSession) {
-      formData.append("sessionId", editingSession.id);
-    }
-    const windowMinutes = minutesBetween(startTime, endTime);
-    if (wholeSession && (windowMinutes < 10 || windowMinutes > 600)) {
-      setErrorMessage("For one slot over the whole session, the session must be between 10 minutes and 10 hours long.");
-      return;
-    }
-    formData.append("name", name);
-    formData.append("recurrence", recurrence);
-    if (recurrence === "WEEKLY") formData.append("dayOfWeek", dayOfWeek);
-    if (recurrence === "MONTHLY_DATE") formData.append("dayOfMonth", String(dayOfMonth));
-    if (recurrence === "ONE_TIME") {
-      formData.append("specificDate", specificDate);
-      if (!editingSession) extraDates.forEach((d) => formData.append("specificDate", d));
-    }
-    if (recurrence !== "ONE_TIME") {
-      formData.append("validFrom", validFrom);
-      formData.append("validUntil", validUntil);
-    }
-    formData.append("startTime", startTime);
-    formData.append("endTime", endTime);
-    formData.append("slotDurationMinutes", String(savedSlotLength));
-    formData.append("schedulingType", schedulingType);
-    formData.append("patientsPerWave", patientsPerSlot.toString());
-    formData.append("isActive", isActive ? "true" : "false");
-    if (chosenResolution) formData.append("bookingResolution", chosenResolution);
-
-    startTransition(async () => {
-      const res: { success: boolean; message?: string; error?: string; needsResolution?: boolean; impact?: SessionChangeImpact } =
-        editingSession ? await updateSessionAction(formData) : await createSessionAction(formData);
-
-      if (res.success) {
-        setSuccessMessage(res.message || "Session saved!");
-        setPendingResolution(null);
-        setIsModalOpen(false);
-        router.refresh();
-      } else if (res.needsResolution && res.impact) {
-        // The edit affects booked appointments: nothing is saved until the doctor says what happens to them.
-        setPendingResolution(res.impact);
-      } else {
-        setErrorMessage(res.error || "Failed to save session.");
-      }
-    });
-  };
-
-  const handleDeleteSession = (session: AvailabilityEntity) => {
-    if (!window.confirm(`Are you sure you want to delete session "${session.name}" (${describeSchedule(session)})?`)) {
-      return;
-    }
-    setErrorMessage(null);
-    setSuccessMessage(null);
-
-    startTransition(async () => {
-      const res = await deleteSessionAction(session.id);
-      if (res.success) {
-        setSuccessMessage(`Session "${session.name}" deleted.`);
-        router.refresh();
-      } else {
-        setErrorMessage(res.error || "Failed to delete session.");
-      }
-    });
-  };
-
-  const handleAddLeave = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!leaveDate) return;
-    setErrorMessage(null);
-
-    startTransition(async () => {
-      const res = await addDoctorLeaveAction(leaveDate, leaveReason);
-      if (res.success) {
-        setSuccessMessage(res.message || "Leave registered.");
-        setLeaveDate("");
-        setLeaveReason("");
-        router.refresh();
-      } else {
-        setErrorMessage(res.error || "Failed to add leave.");
-      }
-    });
-  };
-
-  const handleRemoveLeave = (date: string) => {
-    startTransition(async () => {
-      const res = await removeDoctorLeaveAction(date);
-      if (res.success) {
-        setSuccessMessage(res.message || "Leave cancelled.");
-        router.refresh();
-      } else {
-        setErrorMessage(res.error || "Failed to remove leave.");
-      }
-    });
-  };
+  const openEditModal = handleOpenEditModal;
 
   return (
     <div className="space-y-8">

@@ -1,30 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/actions/auth";
+import { checkRateLimitFor } from "@/lib/rate-limiter";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const SARVAM_STT_URL = "https://api.sarvam.ai/speech-to-text";
 const MAX_AUDIO_BYTES = 2 * 1024 * 1024; // ~30s of compressed speech is far below this
-const WINDOW_MS = 60_000;
-const MAX_CLIPS_PER_WINDOW = 10;
 const MAX_TRANSCRIPT_CHARS = 1000; // matches the chat input's maxLength
-
-const hits = new Map<string, number[]>();
 
 const json = (body: Record<string, unknown>, status = 200, headers?: Record<string, string>) =>
   NextResponse.json(body, { status, headers: { "Cache-Control": "no-store", ...headers } });
-
-function checkClipLimit(userId: string, now = Date.now()): { allowed: boolean; retryAfterSeconds: number } {
-  const recent = (hits.get(userId) ?? []).filter((t) => now - t < WINDOW_MS);
-  if (recent.length >= MAX_CLIPS_PER_WINDOW) {
-    hits.set(userId, recent);
-    return { allowed: false, retryAfterSeconds: Math.ceil((WINDOW_MS - (now - recent[0])) / 1000) };
-  }
-  recent.push(now);
-  hits.set(userId, recent);
-  return { allowed: true, retryAfterSeconds: 0 };
-}
 
 export async function POST(request: NextRequest) {
   // Same-origin only: the session cookie must not be usable from another site.
@@ -47,10 +33,10 @@ export async function POST(request: NextRequest) {
   const apiKey = process.env.SARVAM_API_KEY?.trim();
   if (!apiKey) return json({ error: "Voice input is not set up yet. Please type your message." }, 503);
 
-  const limit = checkClipLimit(user.userId);
+  const limit = await checkRateLimitFor("API_TRANSCRIBE", user.userId);
   if (!limit.allowed) {
     return json(
-      { error: "You are sending voice clips too quickly. Please wait a little and try again." },
+      { error: limit.error || "You are sending voice clips too quickly. Please wait a little and try again." },
       429,
       { "Retry-After": String(limit.retryAfterSeconds) }
     );

@@ -40,13 +40,69 @@ const WINDOW_MS = 10 * 60 * 1000;
 const MAX_MESSAGES_PER_WINDOW = 20;
 const hits = new Map<string, number[]>();
 
-/** Simple per-user sliding-window limit. In-memory: it resets on cold starts, which is fine for abuse control. */
+export interface RateLimitStorage {
+  recordFailedLogin?(identifier: string): Promise<void>;
+  getRecentFailedLoginCount?(identifier: string, windowMinutes?: number): Promise<number>;
+  consumeRateLimitToken?(
+    key: string,
+    maxLimit: number,
+    windowMinutes: number
+  ): Promise<{ allowed: boolean; remaining: number; retryAfterSeconds: number }>;
+}
+
+/** Simple per-user sliding-window limit. In-memory: it resets on cold starts, which is fine for offline tests and dev. */
 export function checkRateLimit(userId: string, now: number = Date.now()): { allowed: boolean; retryAfterSeconds: number } {
   const recent = (hits.get(userId) ?? []).filter((t) => now - t < WINDOW_MS);
   if (recent.length >= MAX_MESSAGES_PER_WINDOW) {
     hits.set(userId, recent);
     return { allowed: false, retryAfterSeconds: Math.ceil((WINDOW_MS - (now - recent[0])) / 1000) };
   }
+  recent.push(now);
+  hits.set(userId, recent);
+  return { allowed: true, retryAfterSeconds: 0 };
+}
+
+/** Distributed per-user sliding-window limit backed by persistent storage with local memory acceleration. */
+export async function checkRateLimitDistributed(
+  userId: string,
+  now: number = Date.now(),
+  storage?: RateLimitStorage
+): Promise<{ allowed: boolean; retryAfterSeconds: number }> {
+  // 1. Fast-path local container check
+  const recent = (hits.get(userId) ?? []).filter((t) => now - t < WINDOW_MS);
+  if (recent.length >= MAX_MESSAGES_PER_WINDOW) {
+    hits.set(userId, recent);
+    return { allowed: false, retryAfterSeconds: Math.ceil((WINDOW_MS - (now - recent[0])) / 1000) };
+  }
+
+  // 2. Distributed check across all serverless instances
+  if (storage) {
+    try {
+      const windowMinutes = Math.ceil(WINDOW_MS / (60 * 1000));
+      const identifier = `rl:${userId.trim().toLowerCase()}`;
+
+      if (typeof storage.consumeRateLimitToken === "function") {
+        const atomicRes = await storage.consumeRateLimitToken(identifier, MAX_MESSAGES_PER_WINDOW, windowMinutes);
+        if (!atomicRes.allowed) {
+          return { allowed: false, retryAfterSeconds: atomicRes.retryAfterSeconds };
+        }
+      } else if (
+        typeof storage.getRecentFailedLoginCount === "function" &&
+        typeof storage.recordFailedLogin === "function"
+      ) {
+        const count = await storage.getRecentFailedLoginCount(identifier, windowMinutes);
+        if (count >= MAX_MESSAGES_PER_WINDOW) {
+          return { allowed: false, retryAfterSeconds: 60 };
+        }
+        await storage.recordFailedLogin(identifier);
+      }
+    } catch (err) {
+      console.warn("[RATE_LIMIT_STORAGE_WARN] Could not sync distributed rate limit:", err);
+      // Fallback: local memory tracking continues below to prevent fail-open spikes
+    }
+  }
+
+  // 3. Record in local memory
   recent.push(now);
   hits.set(userId, recent);
   return { allowed: true, retryAfterSeconds: 0 };

@@ -107,11 +107,11 @@ When editing session hours that affect booked patients, the system requires an e
 cd Task_6
 npm install
 cp .env.example .env.local
-npm run db:migrate-0005    # adds agent audit table
-npm run db:migrate-0006    # adds flexible scheduling recurrence
-npm run db:migrate-0007    # adds the prescriptions table (assistant + doctor prescriptions)
+npm run db:migrate        # runs complete advisory-locked database migrations
+npm run test:pg           # runs real PostgreSQL concurrency and advisory lock tests
+npm run test:e2e          # runs Playwright E2E clinical user journeys
 npm run dev               # Starts dev server on http://localhost:3000
-npm test                  # Runs 489 automated tests (zero network needed)
+npm test                  # Runs 753 automated tests across 11 suites (zero network needed)
 ```
 
 | Test Suite | Tests | Result | Verification Scope |
@@ -119,7 +119,24 @@ npm test                  # Runs 489 automated tests (zero network needed)
 | **`src/test-suite.ts`** | **115** | **Passed** | Clinical rules, wave/stream capacity, token sequences, and double-booking guard. |
 | **`src/test-payment-hardening.ts`** | **72** | **Passed** | Razorpay webhooks, signature verification, seat holds, and tiered refund engine. |
 | **`src/test-notifications.ts`** | **81** | **Passed** | Outbox deduplication, IST midnight calculations, PHI redaction, and DLQ retries. |
+| **`src/test-brevo-welcome.ts`** | **31** | **Passed** | Welcome notification pipeline, template escaping, and non-blocking delivery. |
 | **`src/test-agent.ts`** | **72** | **Passed** | Sarvam AI tool calling, safety checks, multilingual emergency triage, and crons. |
-| **`src/test-assistant.ts`** | **99** | **Passed** | Doctor tools, confirmed booking/cancel/reschedule, expired and forged confirmations, slot taken at confirm time, conflict detection, prescriptions, role separation, voice activity detection and barge-in. |
-| **Timezone & Recurrence** | **50** | **Passed** | Recurrence rules (dates 1–31, one-date-only) across multiple client timezones. |
-| **Total Test Suite** | **489 Passed** | **0 Failed** | **100% Deterministic Verification** |
+| **`src/test-assistant.ts`** | **99** | **Passed** | Doctor tools, confirmed booking/cancel/reschedule, expired/forged confirmations, slot taken guards, and VAD audio handling. |
+| **`src/test-timezone.ts`** | **4** | **Passed** | Hospital timezone rules evaluated across UTC, Asia/Kolkata, America/Los_Angeles, Pacific/Auckland. |
+| **`src/test-scheduling.ts`** | **114** | **Passed** | Wave & stream recurrence, specific-date shifts, and timezone cross-checks. |
+| **`src/test-elastic.ts`** | **105** | **Passed** | Live OPD session expansion, shrinkage, slot calculation, and clinical conflict resolution. |
+| **`src/test-phase1-hardening.ts`** | **48** | **Passed** | Distributed rate limiting, environment validation, background sweep safety, and advisory locks. |
+| **`src/test-phase3-lifecycle.ts`** | **12** | **Passed** | Appointment state machine transitions, concurrency guards, and deterministic refund idempotency. |
+| **`tests/e2e/clinic.spec.ts`** | **10** | **Passed** | 10 Playwright E2E clinical journeys (registration, login, slot picker, voice UI, dashboard). |
+| **Total Test Suite** | **763 Passed** | **0 Failed** | **100% Deterministic Verification** |
+
+---
+
+## 📚 Operational Runbooks & Documentation
+
+- [🚀 Production Deployment Guide](PRODUCTION_DEPLOYMENT_GUIDE.md)
+- [🔐 Environment Variables Specification](ENVIRONMENT_VARIABLES.md)
+- [🗄️ Database Migration Guide](DATABASE_MIGRATION_GUIDE.md)
+- [🧪 Testing Guide](TESTING_GUIDE.md)
+- [📋 Release Notes (v2.0.0)](RELEASE_NOTES.md)
+- [🛡️ Production Readiness Report](PRODUCTION_READINESS_REPORT.md)

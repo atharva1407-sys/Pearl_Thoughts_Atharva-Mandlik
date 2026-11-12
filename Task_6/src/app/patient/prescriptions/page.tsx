@@ -15,9 +15,9 @@ export default async function PatientPrescriptionsPage() {
   if (!user) redirect("/login?message=Please sign in to view your prescriptions.");
 
   // A signed-in patient only ever sees their own prescriptions.
-  const patient =
-    user.role === "PATIENT" ? await dbRepo.getPatientById(user.profileId) : await dbRepo.getPatientByUserId(user.userId);
-  const prescriptions = patient ? await dbRepo.getPrescriptionsByPatientId(patient.id) : [];
+  // A patient's id is already in the session; only a doctor viewing their own patient record needs a lookup.
+  const patientId = user.role === "PATIENT" ? user.profileId : (await dbRepo.getPatientByUserId(user.userId))?.id;
+  const prescriptions = patientId ? await dbRepo.getPrescriptionsByPatientId(patientId) : [];
 
   return (
     <div className="space-y-6">

@@ -5,7 +5,7 @@ import { formatPaise, rupeesToPaise } from "../payments";
 import { refundLabel } from "../payments/labels";
 import { computeRefund } from "../refund-policy";
 import { addDaysToDate, describeSchedule, isRealDate, sessionAppliesOnDate, weekdayOfDate } from "../session-schedule";
-import { buildInstantFromKolkataTime, istDateString } from "../time";
+import { buildInstantFromKolkataTime, istDateString, getKolkataMonthStart } from "../time";
 import { signConfirmation, type ConfirmAction } from "./confirmation";
 import { detectConflicts, summarizeStatuses } from "./doctor-insights";
 import type { LlmTool } from "./llm";
@@ -574,7 +574,7 @@ export const DOCTOR_TOOLS: ToolDefinition<DoctorToolContext>[] = [
     schema: z.object({ startDate: dateField.optional(), endDate: dateField.optional() }),
     async run(ctx, args: { startDate?: string; endDate?: string }) {
       const today = istDateString(ctx.now);
-      const monthStart = `${today.slice(0, 8)}01`;
+      const monthStart = getKolkataMonthStart(today);
       const range = resolveRange(args, monthStart, addDaysToDate(monthStart, 30));
       if ("error" in range) return { data: range };
       const all = await ctx.repo.getAppointmentsByDoctorId(ctx.doctor.id);
