@@ -86,18 +86,11 @@ async function main() {
 
   let total = 0;
   for (const tz of ZONES) {
-    const isWin = process.platform === "win32";
-    const res = isWin
-      ? spawnSync(`npx tsx "${__filename}"`, {
-          env: { ...process.env, TZ: tz, TZ_CHILD: "1" },
-          shell: true,
-          encoding: "utf8",
-        })
-      : spawnSync("npx", ["tsx", __filename], {
-          env: { ...process.env, TZ: tz, TZ_CHILD: "1" },
-          shell: false,
-          encoding: "utf8",
-        });
+    const res = spawnSync(`npx --yes tsx "${__filename}"`, {
+      env: { ...process.env, TZ: tz, TZ_CHILD: "1" },
+      shell: true,
+      encoding: "utf8",
+    });
     const ok = res.status === 0;
     console.log(`  ${ok ? "✅ PASS" : "❌ FAIL"}: timezone rules hold with the server in ${tz}`);
     if (!ok) {
