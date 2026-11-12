@@ -2,17 +2,9 @@
 
 # 🏥 Medrella Healthcare — Clinical OPD & AI Platform
 
-[![Next.js](https://img.shields.io/badge/Next.js_16.4-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
-[![React](https://img.shields.io/badge/React_19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript_5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS_4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
-[![Drizzle ORM](https://img.shields.io/badge/Drizzle_ORM-C5F74F?style=for-the-badge&logo=drizzle&logoColor=000000)](https://orm.drizzle.team/)
-[![PostgreSQL](https://img.shields.io/badge/Neon_PostgreSQL-00E599?style=for-the-badge&logo=postgresql&logoColor=0B0D0E)](https://neon.tech/)
-[![Razorpay](https://img.shields.io/badge/Razorpay_Sandbox-02042B?style=for-the-badge&logo=razorpay&logoColor=3395FF)](https://razorpay.com/)
-[![Sarvam AI](https://img.shields.io/badge/Sarvam_AI_Agent-FF6F00?style=for-the-badge&logo=probot&logoColor=white)](https://www.sarvam.ai/)
-[![Deployment](https://img.shields.io/badge/Live_App_on_Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://medrella-healthcare.vercel.app)
-
-</div>
+<p align="center">
+  <img src="public/images/tech-stack.svg" alt="Medrella Healthcare Tech Stack & Architecture" width="100%" />
+</p>
 
 Full-stack outpatient clinical management platform built for **Pearl Thoughts (Tasks 1–6)**, designed for **Medrella Healthcare, Ruby Hall, Pune, Maharashtra**.
 
@@ -24,9 +16,11 @@ Full-stack outpatient clinical management platform built for **Pearl Thoughts (T
 |---|---|---|
 | 🚀 **Live Production App** | [medrella-healthcare.vercel.app](https://medrella-healthcare.vercel.app) | Live deployment on Vercel |
 | 📦 **Deployment Repository** | [github.com/atharva1407-sys/Medrella_Healthcare](https://github.com/atharva1407-sys/Medrella_Healthcare) | Standalone deployment repository |
-| 🤖 **Patient AI Assistant** | [/patient/assistant](https://medrella-healthcare.vercel.app/patient/assistant) | Multilingual triage & booking guidance |
+| 🤖 **AI Assistant (Patients & Doctors)** | Floating chat on patient & doctor dashboards | Multilingual voice & text, confirmed booking/cancel/reschedule, payments & prescriptions |
 | 📬 **Admin DLQ Outbox** | [/admin/notifications](https://medrella-healthcare.vercel.app/admin/notifications) | Dead-letter queue & email dispatch monitor |
 | 📊 **Live OPD Waiting Queue** | [/queue](https://medrella-healthcare.vercel.app/queue) | Real-time triage with obstetric override |
+
+</div>
 
 ---
 
@@ -46,11 +40,11 @@ Full-stack outpatient clinical management platform built for **Pearl Thoughts (T
 
 > [!NOTE]
 > ### 🤖 Sarvam AI Healthcare Assistant & Reliable Outbox
-> **Safe Patient-in-the-Loop AI** · Powered by Sarvam AI (`sarvam-105b-conversations`) with English, Hindi, and Marathi emergency triage (112 routing) and read-only slot proposal cards. Backed by Brevo & Resend transactional email outbox with Asia/Kolkata (`Asia/Kolkata`, IST = UTC+05:30) precision and clinical PHI redaction.
+> **Safe Patient-in-the-Loop AI** · Powered by Sarvam AI (`sarvam-105b-conversations`) for patients and doctors, with text and hands-free voice, English/Hindi/Marathi/Hinglish emergency triage (112 routing), and real booking, cancel, reschedule and payment actions that always need an explicit Confirm. Backed by Brevo & Resend transactional email outbox with Asia/Kolkata (`Asia/Kolkata`, IST = UTC+05:30) precision and clinical PHI redaction.
 
 ---
 
-## 📂 Task-by-Task Repository Map
+## 📁 Task-by-Task Repository Map
 
 Every task folder is self-contained and independently runnable with its own automated verification tests:
 
@@ -61,7 +55,7 @@ Every task folder is self-contained and independently runnable with its own auto
 | [`Task_3`](Task_3) | **Feedback & Scheduling** | Review feedback implementation: Multi-session shifts (weekly, monthly 1–31, one-date), Stream & Wave parity (1–20 patients/slot), atomic 1-click slot rescheduling, and doctor clinical leave guards. | **198** Pass |
 | [`Task_4`](Task_4) | **Payments & Refunds** | Razorpay Test Mode integration, 10-min seat holds (`PENDING_PAYMENT`), HMAC-SHA256 signature verification, idempotent webhook processing, late-payment reconciliation, and tiered refunds. | **270** Pass |
 | [`Task_5`](Task_5) | **Reliable Notifications** | Fail-safe transactional email outbox (Brevo/Resend), Asia/Kolkata (`Asia/Kolkata`, IST = UTC+05:30) precision, pre-send status recheck, clinical PHI redaction, patient settings (`/settings`), and admin DLQ dashboard (`/admin/notifications`). | **299** Pass |
-| [`Task_6`](Task_6) | **Healthcare Agent** | Sarvam AI conversational assistant (`/patient/assistant`), English/Hindi/Marathi emergency triage (112 advice), tool calling proposal cards, proactive engagement cron jobs, and elastic session scheduling. | **390** Pass |
+| [`Task_6`](Task_6) | **Healthcare Agent** | Sarvam AI assistant for patients and doctors (text + voice, multilingual), confirmed booking / cancel / reschedule with in-chat payment, prescriptions, emergency triage (112 advice), proactive engagement cron jobs, and elastic session scheduling. | **489** Pass |
 
 ---
 
@@ -70,11 +64,11 @@ Every task folder is self-contained and independently runnable with its own auto
 | Layer | Technologies |
 |---|---|
 | **Framework & UI** | Next.js 16.4 (App Router), React 19, TypeScript 5, Tailwind CSS 4, Radix UI Primitives, Lucide Icons |
-| **Database & ORM** | PostgreSQL (Neon Serverless), Drizzle ORM, Strictly Additive Migrations (`0000` to `0006`) |
+| **Database & ORM** | PostgreSQL (Neon Serverless), Drizzle ORM, Strictly Additive Migrations (`0000` to `0007`) |
 | **Authentication** | PBKDF2 (600,000 iterations), Stateless signed HTTP-only JWT cookies, Password-confirmed deletion |
 | **Payments & Gateways** | Razorpay (Test Mode Sandbox), Provider Abstraction (`RazorpayProvider`, `MockProvider`) |
 | **Email & Outbox** | Transactional Outbox Pattern, Brevo API, Resend API, ConsoleChannel fallback, Asia/Kolkata (`Asia/Kolkata`, IST = UTC+05:30) scheduler |
-| **AI Assistant** | Sarvam AI (`sarvam-105b-conversations`), Multilingual Triage (EN, HI, MR), Scoped Zod Tool Calling |
+| **AI Assistant** | Sarvam AI (`sarvam-105b-conversations`), Multilingual (EN, HI, MR, Hinglish), Role-scoped Zod Tool Calling, Signed Confirmations, Voice (STT + browser TTS) |
 
 ---
 
