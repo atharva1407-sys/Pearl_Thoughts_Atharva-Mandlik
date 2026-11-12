@@ -3,14 +3,10 @@
 # Task 6: Conversational Healthcare Agent & Elastic Scheduling
 
 <p align="center">
-  <img src="public/images/tech-stack.png" alt="Medrella Healthcare Tech Stack & Architecture" width="100%" />
-</p>
-
-<p align="center">
-  <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js_16-000000?style=flat&logo=nextdotjs&logoColor=white" alt="Next.js" /></a>
-  <a href="https://www.sarvam.ai"><img src="https://img.shields.io/badge/Sarvam_AI_Agent-FF6F00?style=flat&logo=probot&logoColor=white" alt="Sarvam AI" /></a>
-  <a href="https://razorpay.com"><img src="https://img.shields.io/badge/Razorpay_Sandbox-02042B?style=flat&logo=razorpay&logoColor=3395FF" alt="Razorpay" /></a>
-  <a href="https://neon.tech"><img src="https://img.shields.io/badge/Neon_PostgreSQL-00E599?style=flat&logo=postgresql&logoColor=0B0D0E" alt="Neon Postgres" /></a>
+  <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js_16-000000?style=flat-square&logo=nextdotjs&logoColor=white" alt="Next.js" /></a>
+  <a href="https://www.sarvam.ai"><img src="https://img.shields.io/badge/Sarvam_AI_Agent-FF6F00?style=flat-square&logo=probot&logoColor=white" alt="Sarvam AI" /></a>
+  <a href="https://razorpay.com"><img src="https://img.shields.io/badge/Razorpay_Sandbox-02042B?style=flat-square&logo=razorpay&logoColor=3395FF" alt="Razorpay" /></a>
+  <a href="https://neon.tech"><img src="https://img.shields.io/badge/Neon_PostgreSQL-00E599?style=flat-square&logo=postgresql&logoColor=0B0D0E" alt="Neon Postgres" /></a>
 </p>
 
 </div>
