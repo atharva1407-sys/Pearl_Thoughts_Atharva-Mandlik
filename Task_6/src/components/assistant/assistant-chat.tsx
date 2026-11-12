@@ -40,6 +40,16 @@ interface Message {
 
 type CardState = "working" | "done" | "failed" | "declined" | "expired";
 
+/** Shown when the API says nobody is signed in (session expired, signed out elsewhere, or a local dev server restart). */
+const SESSION_ENDED_TEXT = "Your session has ended, so I can't continue. Please sign in again.";
+const SESSION_ENDED_CARD: AgentCard = {
+  kind: "INFO",
+  title: "Session ended",
+  lines: ["You were signed out. This happens when the session expires, or when the local development server restarts."],
+  href: "/login",
+  linkLabel: "Sign in again",
+};
+
 const SUGGESTIONS: Record<AgentRole, string[]> = {
   PATIENT: [
     "Find a cardiologist",
@@ -136,7 +146,9 @@ export function AssistantChat({
         body: JSON.stringify({ message, history }),
       });
       const data = (await res.json().catch(() => ({}))) as { reply?: string; cards?: AgentCard[]; error?: string };
-      if (!res.ok || !data.reply) {
+      if (res.status === 401) {
+        addAssistantMessage(SESSION_ENDED_TEXT, { isError: true, cards: [SESSION_ENDED_CARD] });
+      } else if (!res.ok || !data.reply) {
         addAssistantMessage(data.error || "Something went wrong. Please try again.", { isError: true });
       } else {
         addAssistantMessage(data.reply, { cards: data.cards ?? [] }, spoken ? "force" : "auto");
@@ -178,6 +190,11 @@ export function AssistantChat({
         cards?: AgentCard[];
         error?: string;
       };
+      if (res.status === 401) {
+        setCardStates((s) => ({ ...s, [confirm.token]: "failed" }));
+        addAssistantMessage(`${SESSION_ENDED_TEXT} Nothing was changed.`, { isError: true, cards: [SESSION_ENDED_CARD] });
+        return;
+      }
       const text = data.message || data.error || "Something went wrong and nothing was changed.";
       setCardStates((s) => ({ ...s, [confirm.token]: data.ok ? "done" : data.code === "EXPIRED" ? "expired" : "failed" }));
       addAssistantMessage(text, { payment: data.payment ?? undefined, cards: data.cards ?? [], isError: !data.ok && !data.cards?.length }, "auto");
