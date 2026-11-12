@@ -2,9 +2,11 @@
 
 # Task 3: Feedback Implementation & Multi-Session Scheduling
 
-[![Next.js](https://img.shields.io/badge/Next.js_16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
-[![PostgreSQL](https://img.shields.io/badge/Neon_PostgreSQL-00E599?style=for-the-badge&logo=postgresql&logoColor=0B0D0E)](https://neon.tech/)
-[![Wave & Stream](https://img.shields.io/badge/Wave_&_Stream-OPD_Shifts-blue?style=for-the-badge)](https://medrella-healthcare.vercel.app/schedule)
+<p align="center">
+  <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js_16-000000?style=flat&logo=nextdotjs&logoColor=white" alt="Next.js" /></a>
+  <a href="https://neon.tech"><img src="https://img.shields.io/badge/Neon_PostgreSQL-00E599?style=flat&logo=postgresql&logoColor=0B0D0E" alt="Neon Postgres" /></a>
+  <a href="https://medrella-healthcare.vercel.app/schedule"><img src="https://img.shields.io/badge/Wave_&_Stream-OPD_Shifts-blue?style=flat" alt="Wave & Stream" /></a>
+</p>
 
 </div>
 

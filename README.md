@@ -3,7 +3,19 @@
 # 🏥 Medrella Healthcare — Clinical OPD & AI Platform
 
 <p align="center">
-  <img src="public/images/tech-stack.svg" alt="Medrella Healthcare Tech Stack & Architecture" width="100%" />
+  <img src="public/images/tech-stack.png" alt="Medrella Healthcare Tech Stack & Architecture" width="100%" />
+</p>
+
+<p align="center">
+  <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js_16.4-000000?style=flat&logo=nextdotjs&logoColor=white" alt="Next.js" /></a>
+  <a href="https://react.dev"><img src="https://img.shields.io/badge/React_19-20232A?style=flat&logo=react&logoColor=61DAFB" alt="React" /></a>
+  <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript_5-3178C6?style=flat&logo=typescript&logoColor=white" alt="TypeScript" /></a>
+  <a href="https://tailwindcss.com"><img src="https://img.shields.io/badge/Tailwind_4.0-06B6D4?style=flat&logo=tailwindcss&logoColor=white" alt="Tailwind CSS" /></a>
+  <a href="https://orm.drizzle.team"><img src="https://img.shields.io/badge/Drizzle_ORM-C5F74F?style=flat&logo=drizzle&logoColor=000000" alt="Drizzle ORM" /></a>
+  <a href="https://neon.tech"><img src="https://img.shields.io/badge/Neon_Postgres-00E599?style=flat&logo=postgresql&logoColor=0B0D0E" alt="Neon Postgres" /></a>
+  <a href="https://razorpay.com"><img src="https://img.shields.io/badge/Razorpay_Sandbox-02042B?style=flat&logo=razorpay&logoColor=3395FF" alt="Razorpay" /></a>
+  <a href="https://www.sarvam.ai"><img src="https://img.shields.io/badge/Sarvam_AI_Voice-FF6F00?style=flat&logo=probot&logoColor=white" alt="Sarvam AI" /></a>
+  <a href="https://medrella-healthcare.vercel.app"><img src="https://img.shields.io/badge/Live_on_Vercel-000000?style=flat&logo=vercel&logoColor=white" alt="Vercel" /></a>
 </p>
 
 Full-stack outpatient clinical management platform built for **Pearl Thoughts (Tasks 1–6)**, designed for **Medrella Healthcare, Ruby Hall, Pune, Maharashtra**.
