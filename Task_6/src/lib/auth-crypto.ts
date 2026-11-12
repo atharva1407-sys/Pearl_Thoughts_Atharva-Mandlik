@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { getServerEnv } from "@/lib/env";
 
 // Security Standard: OWASP recommends >= 600,000 iterations for PBKDF2-HMAC-SHA256
 const PBKDF2_RECOMMENDED_ITERATIONS = 600_000;
@@ -65,7 +66,8 @@ export function verifyPassword(password: string, storedHash: string): boolean {
  * In production (e.g. Vercel deployment), crashes immediately if unset to prevent forgery.
  */
 function getSessionSecret(): string {
-  const secret = process.env.SESSION_SECRET;
+  const env = getServerEnv();
+  const secret = env.SESSION_SECRET;
   if (!secret || secret.trim() === "") {
     if (process.env.NODE_ENV === "production") {
       throw new Error(

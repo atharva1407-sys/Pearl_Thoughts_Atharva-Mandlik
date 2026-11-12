@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "@/actions/auth";
 import { dbRepo } from "@/db/repo";
-import { LlmError, checkRateLimit, cleanUserMessage, getLlmClient, runAgent } from "@/lib/agent";
+import { LlmError, checkRateLimitDistributed, cleanUserMessage, getLlmClient, runAgent } from "@/lib/agent";
 import { isSameOrigin, jsonResponse as json } from "@/lib/agent/route-guard";
 
 export const runtime = "nodejs";
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
   const llm = getLlmClient();
   if (!llm) return json({ error: "The assistant is not set up yet. Please try again later." }, 503);
 
-  const limit = checkRateLimit(user.userId);
+  const limit = await checkRateLimitDistributed(user.userId, Date.now(), dbRepo);
   if (!limit.allowed) {
     return json(
       { error: "You are sending messages too quickly. Please wait a little and try again." },

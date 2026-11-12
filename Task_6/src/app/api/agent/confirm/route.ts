@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { getCurrentUser } from "@/actions/auth";
 import { dbRepo } from "@/db/repo";
-import { checkRateLimit, executeConfirmation } from "@/lib/agent";
+import { checkRateLimitDistributed, executeConfirmation } from "@/lib/agent";
 import { serverActionExecutor } from "@/lib/agent/executor";
 import { isSameOrigin, jsonResponse as json } from "@/lib/agent/route-guard";
 
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as { token?: unknown } | null;
   if (typeof body?.token !== "string") return json({ error: "Missing confirmation." }, 400);
 
-  const limit = checkRateLimit(`confirm:${user.userId}`);
+  const limit = await checkRateLimitDistributed(`confirm:${user.userId}`, Date.now(), dbRepo);
   if (!limit.allowed) {
     return json({ error: "Too many confirmations. Please wait a little and try again." }, 429, {
       "Retry-After": String(limit.retryAfterSeconds),

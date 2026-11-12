@@ -9,7 +9,7 @@ export interface NotificationPreferencesEntity {
   updatedAt: Date;
 }
 
-export interface NotificationPayload {
+export interface BaseNotificationPayload {
   patientName?: string;
   doctorName?: string;
   specialization?: string;
@@ -25,8 +25,34 @@ export interface NotificationPayload {
   unsubscribeUrl?: string;
   customMessage?: string;
   reminderOffsetMinutes?: number;
-  [key: string]: any;
+  [key: string]: string | number | boolean | null | undefined;
 }
+
+export type BookingNotificationPayload = BaseNotificationPayload & {
+  patientName: string;
+  doctorName: string;
+  appointmentDate: string;
+  startTime: string;
+  tokenNumber?: number;
+  receiptNo?: string;
+};
+
+export type RefundNotificationPayload = BaseNotificationPayload & {
+  patientName: string;
+  doctorName: string;
+  refundAmountFormatted: string;
+  receiptNo?: string;
+};
+
+export type ReminderNotificationPayload = BaseNotificationPayload & {
+  patientName: string;
+  doctorName: string;
+  appointmentDate: string;
+  startTime: string;
+  reminderOffsetMinutes: number;
+};
+
+export type NotificationPayload = BaseNotificationPayload | BookingNotificationPayload | RefundNotificationPayload | ReminderNotificationPayload;
 
 export interface NotificationItem {
   id: string;

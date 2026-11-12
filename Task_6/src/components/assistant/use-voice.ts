@@ -62,6 +62,7 @@ export function useVoice({ onTranscript }: UseVoiceOptions) {
   const recorderRef = useRef<{ recorder: MediaRecorder; chunks: Blob[] } | null>(null);
   const pttRef = useRef<MediaRecorder | null>(null);
   const pttTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeUtterancesRef = useRef<Set<SpeechSynthesisUtterance>>(new Set());
 
   const handsFreeRef = useRef(false);
   const busyRef = useRef(false);
@@ -167,7 +168,10 @@ export function useVoice({ onTranscript }: UseVoiceOptions) {
   const stopSpeaking = useCallback(
     (resume = true) => {
       speechGeneration.current++;
-      if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+      activeUtterancesRef.current.clear();
       speakingRef.current = false;
       setSpeaking(false);
       if (resume && handsFreeRef.current) resumeListeningSoon();
@@ -185,6 +189,8 @@ export function useVoice({ onTranscript }: UseVoiceOptions) {
 
       const synth = window.speechSynthesis;
       synth.cancel();
+      activeUtterancesRef.current.clear();
+
       const generation = ++speechGeneration.current;
       const lang = speechLangFor(clean);
       const voice = pickVoice(synth.getVoices(), lang);
@@ -200,20 +206,44 @@ export function useVoice({ onTranscript }: UseVoiceOptions) {
         vadRef.current.setMode("speaking", performance.now());
       }
 
+      const totalParts = parts.length;
+      let completedParts = 0;
+
       const finish = () => {
         if (speechGeneration.current !== generation) return;
+        activeUtterancesRef.current.clear();
         speakingRef.current = false;
         setSpeaking(false);
         if (handsFreeRef.current) resumeListeningSoon();
       };
-      parts.forEach((part, i) => {
+
+      parts.forEach((part) => {
         const utterance = new SpeechSynthesisUtterance(part);
         utterance.lang = lang;
         if (voice) utterance.voice = voice;
-        if (i === parts.length - 1) {
-          utterance.onend = finish;
-          utterance.onerror = finish;
-        }
+
+        // Retain reference to prevent garbage collection mid-speech (Chromium / Safari GC bug)
+        activeUtterancesRef.current.add(utterance);
+
+        utterance.onend = () => {
+          activeUtterancesRef.current.delete(utterance);
+          completedParts++;
+          if (completedParts >= totalParts) {
+            finish();
+          }
+        };
+
+        utterance.onerror = (e) => {
+          activeUtterancesRef.current.delete(utterance);
+          if (e.error !== "canceled" && e.error !== "interrupted") {
+            console.warn("[TTS_ERROR]", e.error);
+          }
+          completedParts++;
+          if (completedParts >= totalParts) {
+            finish();
+          }
+        };
+
         synth.speak(utterance);
       });
     },

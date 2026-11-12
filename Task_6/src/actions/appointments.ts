@@ -23,6 +23,8 @@ import {
   processDueNotifications,
 } from "@/lib/notifications";
 import { runInBackground } from "@/lib/background";
+import { checkRateLimitFor } from "@/lib/rate-limiter";
+import { AppointmentLifecycle, DomainError } from "@/domain/appointment-lifecycle";
 
 /** The patient record that a signed-in user pays and books as (doctors may book as themselves). */
 async function resolvePayingPatientId(user: { role: string; profileId: string; userId: string }): Promise<string | undefined> {
@@ -50,6 +52,11 @@ export async function createBookingHoldAction(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) {
     return { success: false, error: "You must be signed in to book an appointment." };
+  }
+
+  const rateLimit = await checkRateLimitFor("APPOINTMENT_BOOKING", user.userId);
+  if (!rateLimit.allowed) {
+    return { success: false, error: rateLimit.error };
   }
 
   const raw = {
@@ -312,6 +319,11 @@ export async function verifyPaymentAndConfirmBookingAction(data: {
   if (!user) {
     return { success: false, error: "Unauthorized. Please sign in." };
   }
+
+  const rateLimit = await checkRateLimitFor("PAYMENT_VERIFY", user.userId);
+  if (!rateLimit.allowed) {
+    return { success: false, error: rateLimit.error };
+  }
   if (
     !data ||
     [data.appointmentId, data.paymentId, data.providerOrderId, data.providerPaymentId, data.signature].some(
@@ -551,6 +563,11 @@ export async function rescheduleAppointmentAction(formData: FormData) {
     return { success: false, error: "Unauthorized. Please sign in." };
   }
 
+  const rateLimit = await checkRateLimitFor("APPOINTMENT_BOOKING", user.userId);
+  if (!rateLimit.allowed) {
+    return { success: false, error: rateLimit.error };
+  }
+
   const appointmentId = formData.get("appointmentId");
   const newDate = formData.get("newDate");
   const newStartTime = formData.get("newStartTime");
@@ -562,6 +579,15 @@ export async function rescheduleAppointmentAction(formData: FormData) {
   const appointment = await dbRepo.getAppointmentById(appointmentId);
   if (!appointment) {
     return { success: false, error: "Appointment record not found." };
+  }
+
+  try {
+    AppointmentLifecycle.assertValidTransition(appointment.status, "BOOKED");
+    if (appointment.status !== "BOOKED") {
+      throw new DomainError("INVALID_TRANSITION", `Cannot reschedule an appointment with status ${appointment.status}.`);
+    }
+  } catch (err: any) {
+    return { success: false, error: err.message };
   }
 
   const slot = await checkRequestedSlot(appointment.doctorId, newDate, newStartTime);
@@ -643,11 +669,22 @@ export async function cancelAppointmentAction(appointmentId: string) {
     return { success: false, error: "Unauthorized. Please sign in." };
   }
 
-  const appointment = await dbRepo.getAppointmentById(appointmentId);
-  if (!appointment) {
-    return { success: false, error: "Appointment not found." };
+  // Domain lifecycle assessment
+  let assessment;
+  try {
+    assessment = await AppointmentLifecycle.assessCancellation(
+      appointmentId,
+      user.role === "DOCTOR" ? "DOCTOR" : "PATIENT"
+    );
+  } catch (err: any) {
+    return { success: false, error: err.message || "Appointment not found." };
   }
 
+  if (!assessment.eligible) {
+    return { success: false, error: assessment.reason || "Appointment cannot be cancelled." };
+  }
+
+  const appointment = assessment.appointment;
   const isPatientOwner = user.role === "PATIENT" && appointment.patientId === user.profileId;
   const isDoctorOwner = user.role === "DOCTOR" && appointment.doctorId === user.profileId;
 
@@ -657,6 +694,9 @@ export async function cancelAppointmentAction(appointmentId: string) {
       error: "Forbidden: You do not have permission to cancel this appointment.",
     };
   }
+
+  // Validate state transition through domain state machine
+  AppointmentLifecycle.assertValidTransition(appointment.status, "CANCELLED");
 
   if (appointment.status === "COMPLETED") {
     return {
@@ -819,11 +859,10 @@ export async function completeAppointmentAction(appointmentId: string) {
     };
   }
 
-  if (appointment.status === "CANCELLED") {
-    return {
-      success: false,
-      error: "Cannot complete a cancelled appointment.",
-    };
+  try {
+    AppointmentLifecycle.assertValidTransition(appointment.status, "COMPLETED");
+  } catch (err: any) {
+    return { success: false, error: err.message };
   }
 
   if (appointment.status === "COMPLETED") {
@@ -872,11 +911,13 @@ export async function markNoShowAction(appointmentId: string) {
     };
   }
 
-  if (appointment.status !== "BOOKED") {
-    return {
-      success: false,
-      error: `Cannot mark as No-Show. Current status is ${appointment.status}.`,
-    };
+  try {
+    AppointmentLifecycle.assertValidTransition(appointment.status, "NO_SHOW");
+    if (appointment.status !== "BOOKED") {
+      throw new DomainError("INVALID_TRANSITION", `Cannot mark as No-Show. Current status is ${appointment.status}.`);
+    }
+  } catch (err: any) {
+    return { success: false, error: err.message };
   }
 
   if (!hasAppointmentStarted(appointment)) {

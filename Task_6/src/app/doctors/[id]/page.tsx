@@ -21,17 +21,20 @@ export default async function DoctorProfilePage({
 }) {
   const { id } = await params;
   const { date: initialDate, slot: initialSlot } = await searchParams;
-  const doctor = await dbRepo.getDoctorById(id);
+  // The doctor, the signed-in user and the doctor's sessions are independent: fetch them together.
+  const [doctor, currentUser, availabilities] = await Promise.all([
+    dbRepo.getDoctorById(id),
+    getCurrentUser(),
+    dbRepo.getAvailabilitiesByDoctorId(id),
+  ]);
   if (!doctor) {
     notFound();
   }
 
-  const currentUser = await getCurrentUser();
   if (!currentUser) {
     redirect(`/login?redirectTo=/doctors/${doctor.id}`);
   }
   const isLoggedIn = Boolean(currentUser);
-  const availabilities = await dbRepo.getAvailabilitiesByDoctorId(doctor.id);
   // Weekly days (each listed once, in week order), monthly dates and upcoming one-off dates.
   const scheduleSummary = summarizeSchedule(availabilities, toLocalDateString(new Date()));
 
