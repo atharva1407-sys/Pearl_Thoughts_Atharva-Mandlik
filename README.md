@@ -2,17 +2,9 @@
 
 # 🏥 Medrella Healthcare — Clinical OPD & AI Platform
 
-[![Next.js](https://img.shields.io/badge/Next.js_16.4-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
-[![React](https://img.shields.io/badge/React_19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript_5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS_4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
-[![Drizzle ORM](https://img.shields.io/badge/Drizzle_ORM-C5F74F?style=for-the-badge&logo=drizzle&logoColor=000000)](https://orm.drizzle.team/)
-[![PostgreSQL](https://img.shields.io/badge/Neon_PostgreSQL-00E599?style=for-the-badge&logo=postgresql&logoColor=0B0D0E)](https://neon.tech/)
-[![Razorpay](https://img.shields.io/badge/Razorpay_Sandbox-02042B?style=for-the-badge&logo=razorpay&logoColor=3395FF)](https://razorpay.com/)
-[![Sarvam AI](https://img.shields.io/badge/Sarvam_AI_Agent-FF6F00?style=for-the-badge&logo=probot&logoColor=white)](https://www.sarvam.ai/)
-[![Deployment](https://img.shields.io/badge/Live_App_on_Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://medrella-healthcare.vercel.app)
-
-</div>
+<p align="center">
+  <img src="public/images/tech-stack.svg" alt="Medrella Healthcare Tech Stack & Architecture" width="100%" />
+</p>
 
 Full-stack outpatient clinical management platform built for **Pearl Thoughts (Tasks 1–6)**, designed for **Medrella Healthcare, Ruby Hall, Pune, Maharashtra**.
 
@@ -24,9 +16,11 @@ Full-stack outpatient clinical management platform built for **Pearl Thoughts (T
 |---|---|---|
 | 🚀 **Live Production App** | [medrella-healthcare.vercel.app](https://medrella-healthcare.vercel.app) | Live deployment on Vercel |
 | 📦 **Deployment Repository** | [github.com/atharva1407-sys/Medrella_Healthcare](https://github.com/atharva1407-sys/Medrella_Healthcare) | Standalone deployment repository |
-| 🤖 **AI Assistant (patients & doctors)** | Floating chat on the patient and doctor dashboards | Text + voice, multilingual, confirmed booking / cancel / reschedule, payments, prescriptions |
+| 🤖 **AI Assistant (Patients & Doctors)** | Floating chat on patient & doctor dashboards | Multilingual voice & text, confirmed booking/cancel/reschedule, payments & prescriptions |
 | 📬 **Admin DLQ Outbox** | [/admin/notifications](https://medrella-healthcare.vercel.app/admin/notifications) | Dead-letter queue & email dispatch monitor |
 | 📊 **Live OPD Waiting Queue** | [/queue](https://medrella-healthcare.vercel.app/queue) | Real-time triage with obstetric override |
+
+</div>
 
 ---
 
@@ -50,7 +44,7 @@ Full-stack outpatient clinical management platform built for **Pearl Thoughts (T
 
 ---
 
-## 📂 Task-by-Task Repository Map
+## 📁 Task-by-Task Repository Map
 
 Every task folder is self-contained and independently runnable with its own automated verification tests:
 
@@ -70,7 +64,7 @@ Every task folder is self-contained and independently runnable with its own auto
 | Layer | Technologies |
 |---|---|
 | **Framework & UI** | Next.js 16.4 (App Router), React 19, TypeScript 5, Tailwind CSS 4, Radix UI Primitives, Lucide Icons |
-| **Database & ORM** | PostgreSQL (Neon Serverless), Drizzle ORM, Strictly Additive Migrations (`0000` to `0006`) |
+| **Database & ORM** | PostgreSQL (Neon Serverless), Drizzle ORM, Strictly Additive Migrations (`0000` to `0007`) |
 | **Authentication** | PBKDF2 (600,000 iterations), Stateless signed HTTP-only JWT cookies, Password-confirmed deletion |
 | **Payments & Gateways** | Razorpay (Test Mode Sandbox), Provider Abstraction (`RazorpayProvider`, `MockProvider`) |
 | **Email & Outbox** | Transactional Outbox Pattern, Brevo API, Resend API, ConsoleChannel fallback, Asia/Kolkata (`Asia/Kolkata`, IST = UTC+05:30) scheduler |
