@@ -27,6 +27,8 @@
 | `REMINDER_OFFSETS_MINUTES`| NO | NO | `1440,120` | Pre-visit reminder offsets in minutes (24h and 2h) |
 | `SARVAM_API_KEY` | NO | **YES** | *None* | Sarvam AI API key for voice assistant |
 | `SARVAM_MODEL` | NO | NO | `sarvam-105b-conversations` | Multilingual conversational LLM model |
+| `SARVAM_TTS_SPEAKER` | NO | NO | `priya` | Voice of the assistant (Sarvam text-to-speech, e.g. `ritu`, `shubh`) |
+| `SARVAM_TTS_PACE` | NO | NO | `1` | Speaking speed, 0.5 to 2 |
 | `SEED_DOCTOR_PASSWORD` | NO | **YES** | *None* | Password assigned when running `npm run db:seed` |
 | `ENABLE_SEED_DATA` | NO | NO | `false` | Offline dev auto-seeding flag (FORBIDDEN in prod) |
 

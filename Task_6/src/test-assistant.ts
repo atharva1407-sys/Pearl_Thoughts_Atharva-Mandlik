@@ -35,7 +35,8 @@ import {
 } from "./lib/agent";
 import { istDateString } from "./lib/time";
 import { DEFAULT_VAD_CONFIG, Vad } from "./lib/voice/vad";
-import { speakableText, speechLangFor, splitForSpeech } from "./lib/voice/speech-text";
+import { groupForTts, speakableText, speechLangFor, splitForSpeech } from "./lib/voice/speech-text";
+import { TTS_MAX_CHARS, TtsError, getTtsConfig, normalizeTtsLanguage, synthesizeSpeech } from "./lib/agent/tts";
 
 let total = 0;
 let passed = 0;
@@ -494,6 +495,56 @@ async function main() {
   assert(speechLangFor("आपकी अपॉइंटमेंट बुक हो गई") === "hi-IN" && speechLangFor("तुमची भेट आहे") === "mr-IN" && speechLangFor("Your appointment is booked") === "en-IN" && speechLangFor("Aapki appointment book ho gayi") === "en-IN", "the speech language follows the reply's language");
 
   // ===================================================================================
+  console.log("\n--- Natural voice (Sarvam text-to-speech) ---");
+  const shortReply = "Hello there. How are you today? I am fine.";
+  const oneClip = groupForTts(shortReply);
+  assert(oneClip.length === 1 && oneClip[0] === shortReply, "a short reply is read as one clip");
+  const longReply = Array.from({ length: 40 }, (_, i) => `This is sentence number ${i} of a long reply.`).join(" ");
+  const clips = groupForTts(longReply);
+  assert(clips.length === 3, "a long reply is capped at 3 clips (cost control)", `clips=${clips.length}`);
+  assert(clips[0].length <= 180 && clips.every((c) => c.length <= 420), "the first clip is short so sound starts quickly, later clips stay under the limit");
+  assert(longReply.startsWith(clips.join(" ")), "clips are whole sentences, in order, with nothing reordered");
+  assert(groupForTts("").length === 0 && groupForTts("   ").length === 0, "empty text makes no clips");
+
+  assert(getTtsConfig({}) === null && getTtsConfig({ SARVAM_API_KEY: "  " }) === null, "no Sarvam key means no natural voice (the browser voice is used)");
+  const ttsDefaults = getTtsConfig({ SARVAM_API_KEY: "sk_test_key" })!;
+  assert(ttsDefaults.model === "bulbul:v3" && ttsDefaults.speaker === "priya" && ttsDefaults.pace === 1, "default voice is bulbul:v3 speaker priya at normal pace");
+  const ttsCustom = getTtsConfig({ SARVAM_API_KEY: "k", SARVAM_TTS_SPEAKER: " RITU ", SARVAM_TTS_PACE: "1.2" })!;
+  assert(ttsCustom.speaker === "ritu" && ttsCustom.pace === 1.2, "the speaker and pace can be changed from the environment");
+  assert(getTtsConfig({ SARVAM_API_KEY: "k", SARVAM_TTS_MODEL: "bulbul:v2" })!.speaker === "anushka", "an older model gets a speaker it supports");
+  assert(getTtsConfig({ SARVAM_API_KEY: "k", SARVAM_TTS_PACE: "9" })!.pace === 1, "an out-of-range pace is ignored");
+  assert(normalizeTtsLanguage("hi-IN") === "hi-IN" && normalizeTtsLanguage("mr-IN") === "mr-IN" && normalizeTtsLanguage("fr-FR") === "en-IN" && normalizeTtsLanguage(undefined) === "en-IN", "only English, Hindi and Marathi are spoken; anything else is Indian English");
+
+  let ttsSeen: { url: string; init: any } | null = null;
+  const fakeSarvam = (async (url: any, init: any) => {
+    ttsSeen = { url: String(url), init };
+    return new Response(JSON.stringify({ request_id: "r1", audios: [Buffer.from("fake-mp3-bytes").toString("base64")] }), { status: 200 });
+  }) as typeof fetch;
+  const spoken = await synthesizeSpeech({ text: "  Hello  ", language: "hi-IN" }, ttsDefaults, fakeSarvam);
+  const ttsBody = JSON.parse(ttsSeen!.init.body);
+  assert(ttsSeen!.url === "https://api.sarvam.ai/text-to-speech" && ttsSeen!.init.headers["api-subscription-key"] === "sk_test_key", "calls the Sarvam text-to-speech endpoint with the subscription key");
+  assert(ttsBody.text === "Hello" && ttsBody.language_code === "hi-IN" && ttsBody.model === "bulbul:v3" && ttsBody.speaker === "priya" && ttsBody.output_audio_codec === "mp3", "sends the text, language, model, speaker and mp3 format");
+  assert(spoken.audio.toString() === "fake-mp3-bytes" && spoken.contentType === "audio/mpeg", "returns the decoded audio as mp3");
+  await synthesizeSpeech({ text: "x".repeat(2000), language: "en-IN" }, ttsDefaults, fakeSarvam);
+  assert(JSON.parse(ttsSeen!.init.body).text.length === TTS_MAX_CHARS, "text is cut to the per-call limit so one call stays cheap");
+
+  const ttsFailure = async (fake: typeof fetch, input = { text: "Hello", language: "en-IN" }) => {
+    try {
+      await synthesizeSpeech(input, ttsDefaults, fake);
+      return null;
+    } catch (e) {
+      return e;
+    }
+  };
+  const httpErr = await ttsFailure((async () => new Response("echo sk_test_key leaked", { status: 500 })) as typeof fetch);
+  assert(httpErr instanceof TtsError && !String((httpErr as Error).message).includes("sk_test"), "an HTTP error does not leak the provider body or the key");
+  const netErr = await ttsFailure((async () => {
+    throw new Error("network down sk_test_key");
+  }) as typeof fetch);
+  assert(netErr instanceof TtsError && !String((netErr as Error).message).includes("sk_test"), "a network error does not leak the key");
+  assert((await ttsFailure((async () => new Response(JSON.stringify({ audios: [] }), { status: 200 })) as typeof fetch)) instanceof TtsError, "a response with no audio is an error, so the browser voice takes over");
+  assert((await ttsFailure(fakeSarvam, { text: "   ", language: "en-IN" })) instanceof TtsError, "nothing is sent for empty text");
+
   console.log("\n--- Voice: hands-free detection ---");
   const cfg = DEFAULT_VAD_CONFIG;
   const run = (vad: Vad, from: number, ms: number, level: number) => {
