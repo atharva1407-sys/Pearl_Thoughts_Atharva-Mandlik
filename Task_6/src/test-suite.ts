@@ -611,9 +611,9 @@ async function runTests() {
   // TEST 24: Completed / no-show only once the visit has started
   console.log("\n--- 24. Complete & No-Show Timing ---");
   const visit = { appointmentDate: "2030-01-04", startTime: "10:00" };
-  assert(!hasAppointmentStarted(visit, new Date(2030, 0, 4, 9, 59)), "One minute before the start, the visit has not started");
-  assert(hasAppointmentStarted(visit, new Date(2030, 0, 4, 10, 0)), "At the start time, the visit counts as started");
-  assert(hasAppointmentStarted(visit, new Date(2030, 0, 5, 8, 0)), "The next day, the visit counts as started");
+  assert(!hasAppointmentStarted(visit, new Date("2030-01-04T09:59:00+05:30")), "One minute before the start, the visit has not started");
+  assert(hasAppointmentStarted(visit, new Date("2030-01-04T10:00:00+05:30")), "At the start time, the visit counts as started");
+  assert(hasAppointmentStarted(visit, new Date("2030-01-05T08:00:00+05:30")), "The next day, the visit counts as started");
 
   // TEST 25: Leave days can't strand booked patients
   console.log("\n--- 25. Leave Days vs Existing Bookings ---");
@@ -903,7 +903,7 @@ async function runTests() {
     startTime: "10:00",
     cancelledBy: "PATIENT",
     amountPaidPaise: paidPaise,
-    now: new Date("2030-05-08T10:00:00"), // 48h prior
+    now: new Date("2030-05-08T10:00:00+05:30"), // 48h prior
   });
   assert(refund24h.eligible === true && refund24h.refundPercentage === 100 && refund24h.refundAmountPaise === 100000, "Patient cancels >= 24h prior: 100% refund (₹1,000)");
 
@@ -913,7 +913,7 @@ async function runTests() {
     startTime: "10:00",
     cancelledBy: "PATIENT",
     amountPaidPaise: paidPaise,
-    now: new Date("2030-05-10T05:00:00"), // 5h prior
+    now: new Date("2030-05-10T05:00:00+05:30"), // 5h prior
   });
   assert(refund5h.eligible === true && refund5h.refundPercentage === 50 && refund5h.refundAmountPaise === 50000, "Patient cancels 5h prior (2-24h window): 50% refund (₹500)");
 
@@ -923,7 +923,7 @@ async function runTests() {
     startTime: "10:00",
     cancelledBy: "PATIENT",
     amountPaidPaise: paidPaise,
-    now: new Date("2030-05-10T09:00:00"), // 1h prior
+    now: new Date("2030-05-10T09:00:00+05:30"), // 1h prior
   });
   assert(refund1h.eligible === false && refund1h.refundPercentage === 0 && refund1h.refundAmountPaise === 0, "Patient cancels 1h prior (<2h window): 0% refund");
 
@@ -933,7 +933,7 @@ async function runTests() {
     startTime: "10:00",
     cancelledBy: "DOCTOR",
     amountPaidPaise: paidPaise,
-    now: new Date("2030-05-10T09:45:00"), // 15 mins prior
+    now: new Date("2030-05-10T09:45:00+05:30"), // 15 mins prior
   });
   assert(refundDocCancel.eligible === true && refundDocCancel.refundPercentage === 100 && refundDocCancel.refundAmountPaise === 100000, "Doctor cancels 15m prior: 100% refund");
 
@@ -944,7 +944,7 @@ async function runTests() {
     cancelledBy: "DOCTOR",
     amountPaidPaise: paidPaise,
     alreadyRefundedPaise: 70000, // ₹700 already refunded
-    now: new Date("2030-05-10T09:00:00"),
+    now: new Date("2030-05-10T09:00:00+05:30"),
   });
   assert(refundCapped.refundAmountPaise === 30000, "Refund is capped at remaining balance (₹300)");
 
