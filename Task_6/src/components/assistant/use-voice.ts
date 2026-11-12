@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { speakableText, speechLangFor, splitForSpeech } from "@/lib/voice/speech-text";
+import { groupForTts, speakableText, speechLangFor, splitForSpeech } from "@/lib/voice/speech-text";
 import { DEFAULT_VAD_CONFIG, Vad, type VadConfig } from "@/lib/voice/vad";
 
 const PUSH_TO_TALK_MAX_MS = 30_000;
@@ -10,6 +10,8 @@ const CALIBRATION_MS = 600;
 /** After the assistant stops talking, wait a moment so the tail of its voice is not picked up. */
 const RESUME_DELAY_MS = 350;
 const MIN_AUDIO_BYTES = 1200;
+/** A silent, valid WAV file: played once during a tap to unlock audio playback on phones. */
+const SILENT_WAV = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=";
 
 export type VoiceStatus = "idle" | "listening" | "hearing" | "processing" | "speaking";
 
@@ -63,6 +65,10 @@ export function useVoice({ onTranscript }: UseVoiceOptions) {
   const pttRef = useRef<MediaRecorder | null>(null);
   const pttTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeUtterancesRef = useRef<Set<SpeechSynthesisUtterance>>(new Set());
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
+  const stopPlaybackRef = useRef<(() => void) | null>(null);
+  /** Turns false when the server has no natural voice configured, so replies go straight to the built-in voice. */
+  const naturalVoiceOkRef = useRef(true);
 
   const handsFreeRef = useRef(false);
   const busyRef = useRef(false);
@@ -72,7 +78,7 @@ export function useVoice({ onTranscript }: UseVoiceOptions) {
 
   useEffect(() => {
     setSttSupported(Boolean(navigator.mediaDevices?.getUserMedia) && typeof MediaRecorder !== "undefined");
-    setTtsSupported(typeof window !== "undefined" && "speechSynthesis" in window);
+    setTtsSupported(typeof window !== "undefined" && ("speechSynthesis" in window || typeof Audio !== "undefined"));
   }, []);
 
   // ---- speech to text ------------------------------------------------------------------------
@@ -165,11 +171,28 @@ export function useVoice({ onTranscript }: UseVoiceOptions) {
 
   // ---- text to speech ------------------------------------------------------------------------
 
+  /**
+   * One audio element is reused for every clip and "unlocked" by a tap, so phones allow it to play later
+   * (a reply arrives after the tap, and browsers block sound that was not started by the user).
+   */
+  const unlockAudio = useCallback(() => {
+    if (typeof Audio === "undefined") return;
+    if (!audioElRef.current) audioElRef.current = new Audio();
+    const audio = audioElRef.current;
+    if (audio.dataset.unlocked === "1") return;
+    audio.dataset.unlocked = "1";
+    audio.src = SILENT_WAV;
+    void audio.play().catch(() => {
+      audio.dataset.unlocked = "";
+    });
+  }, []);
+
   const stopSpeaking = useCallback(
     (resume = true) => {
       speechGeneration.current++;
+      stopPlaybackRef.current?.(); // natural voice
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
+        window.speechSynthesis.cancel(); // built-in voice
       }
       activeUtterancesRef.current.clear();
       speakingRef.current = false;
@@ -179,24 +202,127 @@ export function useVoice({ onTranscript }: UseVoiceOptions) {
     [resumeListeningSoon]
   );
 
+  const finishSpeaking = useCallback(
+    (generation: number) => {
+      if (speechGeneration.current !== generation) return;
+      activeUtterancesRef.current.clear();
+      speakingRef.current = false;
+      setSpeaking(false);
+      if (handsFreeRef.current) resumeListeningSoon();
+    },
+    [resumeListeningSoon]
+  );
+
+  /** Reads text with the browser's built-in voice: the fallback when the natural voice is unavailable. */
+  const speakWithBrowserVoice = useCallback((clean: string, generation: number) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      finishSpeaking(generation);
+      return;
+    }
+    const synth = window.speechSynthesis;
+    synth.cancel();
+    activeUtterancesRef.current.clear();
+
+    const lang = speechLangFor(clean);
+    const voice = pickVoice(synth.getVoices(), lang);
+    const parts = splitForSpeech(clean);
+    if (parts.length === 0) {
+      finishSpeaking(generation);
+      return;
+    }
+
+    const totalParts = parts.length;
+    let completedParts = 0;
+    const partDone = () => {
+      completedParts++;
+      if (completedParts >= totalParts) finishSpeaking(generation);
+    };
+
+    parts.forEach((part) => {
+      const utterance = new SpeechSynthesisUtterance(part);
+      utterance.lang = lang;
+      if (voice) utterance.voice = voice;
+
+      // Retain reference to prevent garbage collection mid-speech (Chromium / Safari GC bug)
+      activeUtterancesRef.current.add(utterance);
+
+      utterance.onend = () => {
+        activeUtterancesRef.current.delete(utterance);
+        partDone();
+      };
+      utterance.onerror = (e) => {
+        activeUtterancesRef.current.delete(utterance);
+        if (e.error !== "canceled" && e.error !== "interrupted") {
+          console.warn("[TTS_ERROR]", e.error);
+        }
+        partDone();
+      };
+
+      synth.speak(utterance);
+    });
+  }, [finishSpeaking]);
+
+  /** One short clip of natural speech from the server, or null when it is unavailable. */
+  const fetchNaturalClip = useCallback(async (text: string, language: string): Promise<Blob | null> => {
+    try {
+      const res = await fetch("/api/agent/speak", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, language }),
+      });
+      if (res.status === 503) {
+        naturalVoiceOkRef.current = false; // not set up on this server: do not ask again
+        return null;
+      }
+      if (!res.ok) return null;
+      return await res.blob();
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const playClip = useCallback(
+    (blob: Blob): Promise<"ended" | "stopped" | "error"> =>
+      new Promise((resolve) => {
+        const audio = audioElRef.current ?? (audioElRef.current = new Audio());
+        const url = URL.createObjectURL(blob);
+        const done = (result: "ended" | "stopped" | "error") => {
+          audio.onended = null;
+          audio.onerror = null;
+          URL.revokeObjectURL(url);
+          stopPlaybackRef.current = null;
+          resolve(result);
+        };
+        stopPlaybackRef.current = () => {
+          audio.pause();
+          done("stopped");
+        };
+        audio.onended = () => done("ended");
+        audio.onerror = () => done("error");
+        audio.src = url;
+        audio.play().catch(() => done("error"));
+      }),
+    []
+  );
+
   const speak = useCallback(
     /** `force` reads the text aloud even when "read replies aloud" is off (the user just spoke to the assistant). */
     (text: string, force = false) => {
-      if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+      if (typeof window === "undefined") return;
       if (!force && !speakRepliesRef.current && !handsFreeRef.current) return;
       const clean = speakableText(text);
       if (!clean) return;
 
-      const synth = window.speechSynthesis;
-      synth.cancel();
+      const canNatural = naturalVoiceOkRef.current && typeof Audio !== "undefined";
+      const canBrowser = "speechSynthesis" in window;
+      if (!canNatural && !canBrowser) return;
+
+      // Replace whatever is being said right now.
+      stopPlaybackRef.current?.();
+      if (canBrowser) window.speechSynthesis.cancel();
       activeUtterancesRef.current.clear();
 
       const generation = ++speechGeneration.current;
-      const lang = speechLangFor(clean);
-      const voice = pickVoice(synth.getVoices(), lang);
-      const parts = splitForSpeech(clean);
-      if (parts.length === 0) return;
-
       clearResumeTimer();
       speakingRef.current = true;
       setSpeaking(true);
@@ -206,48 +332,35 @@ export function useVoice({ onTranscript }: UseVoiceOptions) {
         vadRef.current.setMode("speaking", performance.now());
       }
 
-      const totalParts = parts.length;
-      let completedParts = 0;
+      if (!canNatural) {
+        speakWithBrowserVoice(clean, generation);
+        return;
+      }
 
-      const finish = () => {
-        if (speechGeneration.current !== generation) return;
-        activeUtterancesRef.current.clear();
-        speakingRef.current = false;
-        setSpeaking(false);
-        if (handsFreeRef.current) resumeListeningSoon();
-      };
-
-      parts.forEach((part) => {
-        const utterance = new SpeechSynthesisUtterance(part);
-        utterance.lang = lang;
-        if (voice) utterance.voice = voice;
-
-        // Retain reference to prevent garbage collection mid-speech (Chromium / Safari GC bug)
-        activeUtterancesRef.current.add(utterance);
-
-        utterance.onend = () => {
-          activeUtterancesRef.current.delete(utterance);
-          completedParts++;
-          if (completedParts >= totalParts) {
-            finish();
+      const language = speechLangFor(clean);
+      const parts = groupForTts(clean);
+      void (async () => {
+        // Clip n + 1 is fetched while clip n plays, so there is no gap between them.
+        let upcoming: Promise<Blob | null> = fetchNaturalClip(parts[0], language);
+        for (let i = 0; i < parts.length; i++) {
+          const clip = await upcoming;
+          if (speechGeneration.current !== generation) return; // stopped or replaced meanwhile
+          if (!clip) {
+            speakWithBrowserVoice(parts.slice(i).join(" "), generation); // natural voice failed: built-in voice finishes the reply
+            return;
           }
-        };
-
-        utterance.onerror = (e) => {
-          activeUtterancesRef.current.delete(utterance);
-          if (e.error !== "canceled" && e.error !== "interrupted") {
-            console.warn("[TTS_ERROR]", e.error);
+          upcoming = i + 1 < parts.length ? fetchNaturalClip(parts[i + 1], language) : Promise.resolve(null);
+          const result = await playClip(clip);
+          if (speechGeneration.current !== generation || result === "stopped") return;
+          if (result === "error") {
+            speakWithBrowserVoice(parts.slice(i).join(" "), generation); // e.g. the browser refused to autoplay
+            return;
           }
-          completedParts++;
-          if (completedParts >= totalParts) {
-            finish();
-          }
-        };
-
-        synth.speak(utterance);
-      });
+        }
+        finishSpeaking(generation);
+      })();
     },
-    [discardRecorder, resumeListeningSoon]
+    [discardRecorder, fetchNaturalClip, finishSpeaking, playClip, speakWithBrowserVoice]
   );
 
   // ---- hands-free ----------------------------------------------------------------------------
@@ -390,13 +503,14 @@ export function useVoice({ onTranscript }: UseVoiceOptions) {
   }, [enterListening, onTick]);
 
   const toggleHandsFree = useCallback(() => {
+    unlockAudio(); // this tap lets the assistant's voice play later on phones
     if (handsFreeRef.current) {
       stopHandsFree();
       stopSpeaking(false);
     } else {
       void startHandsFree();
     }
-  }, [startHandsFree, stopHandsFree, stopSpeaking]);
+  }, [startHandsFree, stopHandsFree, stopSpeaking, unlockAudio]);
 
   /** The chat tells the voice layer when it is waiting for the assistant's reply. */
   const setBusy = useCallback(
@@ -414,6 +528,7 @@ export function useVoice({ onTranscript }: UseVoiceOptions) {
   // ---- push-to-talk (one message per tap) ----------------------------------------------------
 
   const togglePushToTalk = useCallback(async () => {
+    unlockAudio();
     if (pttRef.current && pttRef.current.state !== "inactive") {
       pttRef.current.stop();
       return;
@@ -451,7 +566,7 @@ export function useVoice({ onTranscript }: UseVoiceOptions) {
     recorder.start();
     setRecording(true);
     pttTimerRef.current = setTimeout(() => recorder.state !== "inactive" && recorder.stop(), PUSH_TO_TALK_MAX_MS);
-  }, [stopSpeaking, transcribe]);
+  }, [stopSpeaking, transcribe, unlockAudio]);
 
   // ---- housekeeping --------------------------------------------------------------------------
 
@@ -459,9 +574,10 @@ export function useVoice({ onTranscript }: UseVoiceOptions) {
     (value: boolean) => {
       speakRepliesRef.current = value;
       setSpeakRepliesState(value);
+      if (value) unlockAudio();
       if (!value && !handsFreeRef.current) stopSpeaking(false);
     },
-    [stopSpeaking]
+    [stopSpeaking, unlockAudio]
   );
 
   /** Release the microphone and silence the assistant (chat closed, tab hidden, page left). */
