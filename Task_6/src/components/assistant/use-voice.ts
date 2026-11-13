@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { speakableText, speechLangFor, splitForSpeech } from "@/lib/voice/speech-text";
+import { REPLY_LANGUAGES, chooseVoice, type ReplyLang } from "@/lib/voice/voice-choice";
 import { DEFAULT_VAD_CONFIG, Vad, type VadConfig } from "@/lib/voice/vad";
 
 const PUSH_TO_TALK_MAX_MS = 30_000;
@@ -21,11 +22,33 @@ interface UseVoiceOptions {
 const AudioContextCtor = (): typeof AudioContext | undefined =>
   typeof window === "undefined" ? undefined : window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
 
-function pickVoice(voices: SpeechSynthesisVoice[], lang: string): SpeechSynthesisVoice | undefined {
-  const exact = voices.find((v) => v.lang.replace("_", "-").toLowerCase() === lang.toLowerCase());
-  if (exact) return exact;
-  const base = lang.slice(0, 2).toLowerCase();
-  return voices.find((v) => v.lang.toLowerCase().startsWith(base));
+const VOICE_PREFS_KEY = "medrella.voice.prefs";
+
+/** What the user chose for how replies sound (kept in this browser only). */
+interface VoicePrefs {
+  voices: Partial<Record<ReplyLang, string>>;
+  rate: number;
+}
+const DEFAULT_PREFS: VoicePrefs = { voices: {}, rate: 1 };
+
+function loadVoicePrefs(): VoicePrefs {
+  try {
+    const raw = window.localStorage.getItem(VOICE_PREFS_KEY);
+    if (!raw) return DEFAULT_PREFS;
+    const parsed = JSON.parse(raw) as Partial<VoicePrefs>;
+    const rate = typeof parsed.rate === "number" && parsed.rate >= 0.5 && parsed.rate <= 2 ? parsed.rate : 1;
+    return { voices: parsed.voices && typeof parsed.voices === "object" ? parsed.voices : {}, rate };
+  } catch {
+    return DEFAULT_PREFS; // storage blocked or corrupt: just use the defaults
+  }
+}
+
+function saveVoicePrefs(prefs: VoicePrefs) {
+  try {
+    window.localStorage.setItem(VOICE_PREFS_KEY, JSON.stringify(prefs));
+  } catch {
+    // private mode or blocked storage: the choice simply lasts until the page closes
+  }
 }
 
 /**
@@ -69,6 +92,23 @@ export function useVoice({ onTranscript }: UseVoiceOptions) {
   const speakingRef = useRef(false);
   const speakRepliesRef = useRef(false);
   const speechGeneration = useRef(0);
+
+  // Which voice reads the replies: installed voices load late in some browsers, so listen for them.
+  const [installedVoices, setInstalledVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [voicePrefs, setVoicePrefs] = useState<VoicePrefs>(DEFAULT_PREFS);
+  const prefsRef = useRef<VoicePrefs>(DEFAULT_PREFS);
+
+  useEffect(() => {
+    const loaded = loadVoicePrefs();
+    prefsRef.current = loaded;
+    setVoicePrefs(loaded);
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    const synth = window.speechSynthesis;
+    const refresh = () => setInstalledVoices(synth.getVoices());
+    refresh();
+    synth.addEventListener("voiceschanged", refresh);
+    return () => synth.removeEventListener("voiceschanged", refresh);
+  }, []);
 
   useEffect(() => {
     setSttSupported(Boolean(navigator.mediaDevices?.getUserMedia) && typeof MediaRecorder !== "undefined");
@@ -193,7 +233,7 @@ export function useVoice({ onTranscript }: UseVoiceOptions) {
 
       const generation = ++speechGeneration.current;
       const lang = speechLangFor(clean);
-      const voice = pickVoice(synth.getVoices(), lang);
+      const voice = chooseVoice(synth.getVoices(), lang, prefsRef.current.voices[lang]);
       const parts = splitForSpeech(clean);
       if (parts.length === 0) return;
 
@@ -221,6 +261,7 @@ export function useVoice({ onTranscript }: UseVoiceOptions) {
         const utterance = new SpeechSynthesisUtterance(part);
         utterance.lang = lang;
         if (voice) utterance.voice = voice;
+        utterance.rate = prefsRef.current.rate;
 
         // Retain reference to prevent garbage collection mid-speech (Chromium / Safari GC bug)
         activeUtterancesRef.current.add(utterance);
@@ -248,6 +289,37 @@ export function useVoice({ onTranscript }: UseVoiceOptions) {
       });
     },
     [discardRecorder, resumeListeningSoon]
+  );
+
+  // ---- choosing the voice --------------------------------------------------------------------
+
+  const updatePrefs = useCallback((next: VoicePrefs) => {
+    prefsRef.current = next;
+    setVoicePrefs(next);
+    saveVoicePrefs(next);
+  }, []);
+
+  const setVoiceFor = useCallback(
+    (lang: ReplyLang, name: string) => {
+      updatePrefs({ ...prefsRef.current, voices: { ...prefsRef.current.voices, [lang]: name } });
+    },
+    [updatePrefs]
+  );
+
+  const setRate = useCallback(
+    (rate: number) => {
+      updatePrefs({ ...prefsRef.current, rate });
+    },
+    [updatePrefs]
+  );
+
+  /** Reads a short sample in that language with the voice and speed currently selected. */
+  const previewVoice = useCallback(
+    (lang: ReplyLang) => {
+      const sample = REPLY_LANGUAGES.find((l) => l.lang === lang)?.sample;
+      if (sample) speak(sample, true);
+    },
+    [speak]
   );
 
   // ---- hands-free ----------------------------------------------------------------------------
@@ -519,5 +591,10 @@ export function useVoice({ onTranscript }: UseVoiceOptions) {
     stopSpeaking,
     setBusy,
     stopAll,
+    installedVoices,
+    voicePrefs,
+    setVoiceFor,
+    setRate,
+    previewVoice,
   };
 }
