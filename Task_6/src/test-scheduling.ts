@@ -430,7 +430,7 @@ async function main() {
 
   let zoneFailures = 0;
   for (const tz of ZONES) {
-    const res = spawnSync("npx", ["tsx", __filename], {
+    const res = spawnSync(`npx --yes tsx "${__filename}"`, {
       env: { ...process.env, TZ: tz, TZ_CHILD: "1" },
       shell: true,
       encoding: "utf8",

@@ -112,6 +112,19 @@ export function formatKolkataTime(timeOrDate: string | Date): string {
 }
 
 /**
+ * Returns the first day of the calendar month (YYYY-MM-01) in Asia/Kolkata timezone.
+ * Avoids fragile string slicing on timestamps.
+ */
+export function getKolkataMonthStart(dateOrStr: Date | string = new Date()): string {
+  const dStr = typeof dateOrStr === "string" ? dateOrStr : istDateString(dateOrStr);
+  const match = /^(\d{4})-(\d{2})/.exec(dStr.trim());
+  if (match) {
+    return `${match[1]}-${match[2]}-01`;
+  }
+  return `${dStr.slice(0, 7)}-01`;
+}
+
+/**
  * Formats a full instant in Asia/Kolkata.
  * Example: "31 Oct 2026, 09:30 AM IST"
  */

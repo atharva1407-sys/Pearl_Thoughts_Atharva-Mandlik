@@ -21,3 +21,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
+
+export const POST = GET;

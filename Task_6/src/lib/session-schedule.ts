@@ -113,6 +113,78 @@ export function firstSharedDate(a: ScheduleFields, b: ScheduleFields, fromDate: 
   const lo = [aLo, bLo, fromDate].reduce((x, y) => (x > y ? x : y));
   const hi = aHi < bHi ? aHi : bHi;
   if (lo > hi) return null;
+
+  const aKind = recurrenceOf(a);
+  const bKind = recurrenceOf(b);
+
+  // Fast path 1: ONE_TIME sessions
+  if (aKind === "ONE_TIME" && bKind === "ONE_TIME") {
+    return a.specificDate === b.specificDate && a.specificDate && a.specificDate >= lo && a.specificDate <= hi
+      ? a.specificDate
+      : null;
+  }
+  if (aKind === "ONE_TIME" && a.specificDate) {
+    return a.specificDate >= lo && a.specificDate <= hi && scheduleCoversDate(b, a.specificDate)
+      ? a.specificDate
+      : null;
+  }
+  if (bKind === "ONE_TIME" && b.specificDate) {
+    return b.specificDate >= lo && b.specificDate <= hi && scheduleCoversDate(a, b.specificDate)
+      ? b.specificDate
+      : null;
+  }
+
+  // Fast path 2: If both are WEEKLY with different weekdays, they can never clash!
+  if (aKind === "WEEKLY" && bKind === "WEEKLY") {
+    if (a.dayOfWeek !== b.dayOfWeek) return null;
+    let d = lo;
+    for (let offset = 0; offset < 7; offset++) {
+      if (weekdayOfDate(d) === a.dayOfWeek) {
+        return d <= hi ? d : null;
+      }
+      d = addDaysToDate(d, 1);
+    }
+    return null;
+  }
+
+  // Fast path 3: If one is MONTHLY_DATE, check monthly candidates instead of daily iteration
+  if (aKind === "MONTHLY_DATE" || bKind === "MONTHLY_DATE") {
+    const monthly = aKind === "MONTHLY_DATE" ? a : b;
+    const other = aKind === "MONTHLY_DATE" ? b : a;
+    const targetDay = monthly.dayOfMonth;
+    if (targetDay == null) return null;
+
+    const cap = addDaysToDate(lo, CLASH_HORIZON_DAYS);
+    const end = hi < cap ? hi : cap;
+
+    const loYear = Number(lo.slice(0, 4));
+    const loMonth = Number(lo.slice(5, 7));
+    const endYear = Number(end.slice(0, 4));
+    const endMonth = Number(end.slice(5, 7));
+
+    let curYear = loYear;
+    let curMonth = loMonth;
+
+    while (curYear < endYear || (curYear === endYear && curMonth <= endMonth)) {
+      const monthStr = String(curMonth).padStart(2, "0");
+      const dayStr = String(targetDay).padStart(2, "0");
+      const candidate = `${curYear}-${monthStr}-${dayStr}`;
+
+      if (isRealDate(candidate) && candidate >= lo && candidate <= end) {
+        if (scheduleCoversDate(other, candidate)) {
+          return candidate;
+        }
+      }
+
+      curMonth++;
+      if (curMonth > 12) {
+        curMonth = 1;
+        curYear++;
+      }
+    }
+    return null;
+  }
+
   return firstDateWhere(lo, hi, (d) => scheduleCoversDate(a, d) && scheduleCoversDate(b, d));
 }
 

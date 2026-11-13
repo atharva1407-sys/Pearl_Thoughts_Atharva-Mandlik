@@ -59,18 +59,34 @@ export async function prepareRefund(repo: MedrellaRepository, input: PrepareRefu
     return { needsExecution: false, skippedReason: "No refundable balance remaining on this payment." };
   }
 
-  const refund = await repo.createRefund({
-    id: `ref-${crypto.randomUUID()}`,
-    paymentId: payment.id,
-    appointmentId,
-    amountPaise: amount,
-    reason,
-    status: "REQUESTED",
-    providerRefundId: null,
-    idempotencyKey: key,
-    failureReason: null,
-  });
-  return { refund, needsExecution: true };
+  let refund: RefundEntity;
+  try {
+    refund = await repo.createRefund({
+      id: `ref-${crypto.randomUUID()}`,
+      paymentId: payment.id,
+      appointmentId,
+      amountPaise: amount,
+      reason,
+      status: "REQUESTED",
+      providerRefundId: null,
+      idempotencyKey: key,
+      failureReason: null,
+    });
+  } catch (err: any) {
+    const fallback = await repo.getRefundByIdempotencyKey(key);
+    if (fallback) {
+      if (fallback.status === "PENDING" || fallback.status === "PROCESSED") {
+        return { refund: fallback, needsExecution: false };
+      }
+      return { refund: fallback, needsExecution: !fallback.providerRefundId };
+    }
+    throw err;
+  }
+
+  if (refund.status === "PENDING" || refund.status === "PROCESSED") {
+    return { refund, needsExecution: false };
+  }
+  return { refund, needsExecution: !refund.providerRefundId };
 }
 
 /**
