@@ -13,6 +13,7 @@ import {
   Loader2,
   Mic,
   SendHorizonal,
+  Settings2,
   Sparkles,
   Square,
   User,
@@ -29,6 +30,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PaymentCard } from "./payment-card";
 import { useVoice } from "./use-voice";
+import { VoiceSettings } from "./voice-settings";
 
 interface Message {
   role: "user" | "assistant";
@@ -39,6 +41,16 @@ interface Message {
 }
 
 type CardState = "working" | "done" | "failed" | "declined" | "expired";
+
+/** Shown when the API says nobody is signed in (session expired, signed out elsewhere, or a local dev server restart). */
+const SESSION_ENDED_TEXT = "Your session has ended, so I can't continue. Please sign in again.";
+const SESSION_ENDED_CARD: AgentCard = {
+  kind: "INFO",
+  title: "Session ended",
+  lines: ["You were signed out. This happens when the session expires, or when the local development server restarts."],
+  href: "/login",
+  linkLabel: "Sign in again",
+};
 
 const SUGGESTIONS: Record<AgentRole, string[]> = {
   PATIENT: [
@@ -88,6 +100,7 @@ export function AssistantChat({
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  const [voiceMenuOpen, setVoiceMenuOpen] = useState(false);
   const [cardStates, setCardStates] = useState<Record<string, CardState>>({});
   const endRef = useRef<HTMLDivElement>(null);
   const busyRef = useRef(false);
@@ -136,7 +149,9 @@ export function AssistantChat({
         body: JSON.stringify({ message, history }),
       });
       const data = (await res.json().catch(() => ({}))) as { reply?: string; cards?: AgentCard[]; error?: string };
-      if (!res.ok || !data.reply) {
+      if (res.status === 401) {
+        addAssistantMessage(SESSION_ENDED_TEXT, { isError: true, cards: [SESSION_ENDED_CARD] });
+      } else if (!res.ok || !data.reply) {
         addAssistantMessage(data.error || "Something went wrong. Please try again.", { isError: true });
       } else {
         addAssistantMessage(data.reply, { cards: data.cards ?? [] }, spoken ? "force" : "auto");
@@ -178,6 +193,11 @@ export function AssistantChat({
         cards?: AgentCard[];
         error?: string;
       };
+      if (res.status === 401) {
+        setCardStates((s) => ({ ...s, [confirm.token]: "failed" }));
+        addAssistantMessage(`${SESSION_ENDED_TEXT} Nothing was changed.`, { isError: true, cards: [SESSION_ENDED_CARD] });
+        return;
+      }
       const text = data.message || data.error || "Something went wrong and nothing was changed.";
       setCardStates((s) => ({ ...s, [confirm.token]: data.ok ? "done" : data.code === "EXPIRED" ? "expired" : "failed" }));
       addAssistantMessage(text, { payment: data.payment ?? undefined, cards: data.cards ?? [], isError: !data.ok && !data.cards?.length }, "auto");
@@ -230,6 +250,21 @@ export function AssistantChat({
               {voice.speakReplies ? <Volume2 size={15} /> : <VolumeX size={15} />}
             </button>
           )}
+          {voice.ttsSupported && (
+            <button
+              type="button"
+              onClick={() => setVoiceMenuOpen((open) => !open)}
+              aria-label="Choose the assistant's voice"
+              aria-expanded={voiceMenuOpen}
+              title="Choose the assistant's voice"
+              className={cn(
+                "grid size-7 place-items-center rounded-full hover:bg-slate-100",
+                voiceMenuOpen ? "bg-[#e8f2ff] text-[#1769e8]" : "text-slate-500"
+              )}
+            >
+              <Settings2 size={15} />
+            </button>
+          )}
           {onClose && (
             <button
               type="button"
@@ -242,6 +277,17 @@ export function AssistantChat({
           )}
         </div>
       </div>
+
+      {voiceMenuOpen && voice.ttsSupported && (
+        <VoiceSettings
+          voices={voice.installedVoices}
+          chosen={voice.voicePrefs.voices}
+          rate={voice.voicePrefs.rate}
+          onPick={voice.setVoiceFor}
+          onRate={voice.setRate}
+          onPreview={voice.previewVoice}
+        />
+      )}
 
       <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5" aria-live="polite">
         {!configured && (

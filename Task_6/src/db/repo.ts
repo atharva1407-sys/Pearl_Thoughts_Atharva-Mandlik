@@ -64,6 +64,27 @@ export function dayOfWeekFor(dateString: string): DayCode {
 
 export { buildSessionSlotGroups };
 
+/** A fresh, empty in-memory store (used only when no real database is configured). */
+function createEmptyMemoryStore(): MemoryStore {
+  return {
+    users: [],
+    patients: [],
+    doctors: [],
+    availabilities: [],
+    appointments: [],
+    doctorLeaves: [],
+    loginAttempts: [],
+    payments: [],
+    paymentEvents: [],
+    refunds: [],
+    notifications: [],
+    notificationPreferences: [],
+    agentEvents: [],
+    prescriptions: [],
+    inFlightNotificationClaims: new Set<string>(),
+  };
+}
+
 export class MedrellaRepository
   implements
     IUserRepository,
@@ -80,23 +101,13 @@ export class MedrellaRepository
   public notificationRepo: NotificationRepository;
 
   constructor() {
-    this.mem = {
-      users: [],
-      patients: [],
-      doctors: [],
-      availabilities: [],
-      appointments: [],
-      doctorLeaves: [],
-      loginAttempts: [],
-      payments: [],
-      paymentEvents: [],
-      refunds: [],
-      notifications: [],
-      notificationPreferences: [],
-      agentEvents: [],
-      prescriptions: [],
-      inFlightNotificationClaims: new Set<string>(),
-    };
+    // A dev server reloads modules whenever a file changes, and each reload used to build a NEW repository with an
+    // EMPTY in-memory store. Every account registered since start-up vanished while the browser kept its (still
+    // valid) cookie: the page looked signed in, but the next assistant message found no user and answered
+    // "Please sign in". One store per process, kept on globalThis, survives those reloads and is shared by every
+    // copy of this module. (It has no effect with a real database, which holds the data instead.)
+    const shared = globalThis as { __medrellaMemStore?: MemoryStore; __medrellaMemSeeded?: boolean };
+    this.mem = shared.__medrellaMemStore ??= createEmptyMemoryStore();
 
     const ctx: RepositoryContext = {
       getDb: () => db,
@@ -110,7 +121,13 @@ export class MedrellaRepository
     this.billingRepo = new BillingRepository(ctx);
     this.notificationRepo = new NotificationRepository(ctx);
 
-    if (!isPostgresConfigured() && process.env.ENABLE_SEED_DATA !== "false" && process.env.NODE_ENV !== "production") {
+    if (
+      !isPostgresConfigured() &&
+      process.env.ENABLE_SEED_DATA !== "false" &&
+      process.env.NODE_ENV !== "production" &&
+      !shared.__medrellaMemSeeded
+    ) {
+      shared.__medrellaMemSeeded = true; // seed once per process, never again on a hot reload
       this.seedMemory();
     }
   }
