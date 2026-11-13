@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx src/test-suite.ts && tsx src/test-payment-hardening.ts && tsx src/test-notifications.ts && tsx src/test-brevo-welcome.ts && tsx src/test-agent.ts && tsx src/test-assistant.ts && tsx src/test-dev-store.ts && tsx src/test-timezone.ts && tsx src/test-scheduling.ts && tsx src/test-elastic.ts && tsx src/test-phase1-hardening.ts && tsx src/test-phase3-lifecycle.ts",
+    "test": "tsx src/test-suite.ts && tsx src/test-payment-hardening.ts && tsx src/test-notifications.ts && tsx src/test-brevo-welcome.ts && tsx src/test-agent.ts && tsx src/test-assistant.ts && tsx src/test-dev-store.ts && tsx src/test-voice-choice.ts && tsx src/test-timezone.ts && tsx src/test-scheduling.ts && tsx src/test-elastic.ts && tsx src/test-phase1-hardening.ts && tsx src/test-phase3-lifecycle.ts",
     "test:pg": "tsx scripts/test-pg-integration.ts",
     "test:e2e": "playwright test",
     "db:migrate": "tsx scripts/migrate.ts",

@@ -48,7 +48,6 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com data:",
               "img-src 'self' data: https: blob:",
-              "media-src 'self' blob: data:",
               "connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://api.sarvam.ai",
               "frame-src https://api.razorpay.com https://checkout.razorpay.com",
               "object-src 'none'",

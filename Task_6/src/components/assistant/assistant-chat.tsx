@@ -13,6 +13,7 @@ import {
   Loader2,
   Mic,
   SendHorizonal,
+  Settings2,
   Sparkles,
   Square,
   User,
@@ -29,6 +30,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PaymentCard } from "./payment-card";
 import { useVoice } from "./use-voice";
+import { VoiceSettings } from "./voice-settings";
 
 interface Message {
   role: "user" | "assistant";
@@ -98,6 +100,7 @@ export function AssistantChat({
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  const [voiceMenuOpen, setVoiceMenuOpen] = useState(false);
   const [cardStates, setCardStates] = useState<Record<string, CardState>>({});
   const endRef = useRef<HTMLDivElement>(null);
   const busyRef = useRef(false);
@@ -247,6 +250,21 @@ export function AssistantChat({
               {voice.speakReplies ? <Volume2 size={15} /> : <VolumeX size={15} />}
             </button>
           )}
+          {voice.ttsSupported && (
+            <button
+              type="button"
+              onClick={() => setVoiceMenuOpen((open) => !open)}
+              aria-label="Choose the assistant's voice"
+              aria-expanded={voiceMenuOpen}
+              title="Choose the assistant's voice"
+              className={cn(
+                "grid size-7 place-items-center rounded-full hover:bg-slate-100",
+                voiceMenuOpen ? "bg-[#e8f2ff] text-[#1769e8]" : "text-slate-500"
+              )}
+            >
+              <Settings2 size={15} />
+            </button>
+          )}
           {onClose && (
             <button
               type="button"
@@ -259,6 +277,17 @@ export function AssistantChat({
           )}
         </div>
       </div>
+
+      {voiceMenuOpen && voice.ttsSupported && (
+        <VoiceSettings
+          voices={voice.installedVoices}
+          chosen={voice.voicePrefs.voices}
+          rate={voice.voicePrefs.rate}
+          onPick={voice.setVoiceFor}
+          onRate={voice.setRate}
+          onPreview={voice.previewVoice}
+        />
+      )}
 
       <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5" aria-live="polite">
         {!configured && (
