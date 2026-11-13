@@ -1,8 +1,12 @@
 import crypto from "crypto";
 
 function getSigningSecret(): string {
-  const secret = process.env.SESSION_SECRET || process.env.CRON_SECRET || "medrella-deterministic-token-secret-for-test";
-  return secret.trim();
+  const secret = process.env.SESSION_SECRET || process.env.CRON_SECRET;
+  if (secret?.trim()) return secret.trim();
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("SESSION_SECRET or CRON_SECRET is required in production for unsubscribe token signing.");
+  }
+  return "medrella-deterministic-token-secret-for-test";
 }
 
 /**

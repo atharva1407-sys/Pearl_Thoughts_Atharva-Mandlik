@@ -2,20 +2,22 @@
 
 import { useState } from "react";
 import { Bot, X } from "lucide-react";
+import type { AgentRole } from "@/lib/agent/tools";
 import { AssistantChat } from "./assistant-chat";
 
 /** Floating chat launcher (bottom-right) that opens the assistant as a popup over the current page. */
-export function AssistantWidget(props: { firstName: string; configured: boolean }) {
+export function AssistantWidget(props: { role: AgentRole; firstName: string; configured: boolean }) {
   const [open, setOpen] = useState(false);
 
   return (
     <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-3 sm:bottom-6 sm:right-6">
-      {/* Stays mounted while closed so the conversation survives closing the popup. */}
+      {/* Stays mounted while closed so the conversation survives closing the popup; the microphone is released. */}
       <div className={open ? "block" : "hidden"}>
         <AssistantChat
           {...props}
+          active={open}
           onClose={() => setOpen(false)}
-          className="h-[min(560px,calc(100vh-7rem))] min-h-0 w-[calc(100vw-2rem)] max-w-[380px] shadow-xl"
+          className="h-[min(600px,calc(100dvh-7rem))] min-h-0 w-[calc(100vw-2rem)] max-w-[400px] shadow-xl"
         />
       </div>
       <button

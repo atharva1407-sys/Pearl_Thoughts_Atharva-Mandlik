@@ -16,14 +16,14 @@ export default async function DoctorsPage({
   searchParams: Promise<{ specialization?: string }>;
 }) {
   const { specialization } = await searchParams;
-  const user = await getCurrentUser();
+  // The doctor list does not depend on who is signed in, so load both together.
+  const [user, everyDoctor] = await Promise.all([getCurrentUser(), dbRepo.getAllDoctors()]);
   if (!user) {
     // Keep the department filter (e.g. from a landing page tile) through the login round-trip.
     const returnTo = specialization ? `/doctors?specialization=${encodeURIComponent(specialization)}` : "/doctors";
     redirect(`/login?redirectTo=${encodeURIComponent(returnTo)}`);
   }
   // Filter pills come from the specialties of doctors actually registered, so a new department appears automatically.
-  const everyDoctor = await dbRepo.getAllDoctors();
   const allSpecializations = [
     "All",
     ...Array.from(new Set(everyDoctor.map((d) => d.specialization))).sort((a, b) => a.localeCompare(b)),

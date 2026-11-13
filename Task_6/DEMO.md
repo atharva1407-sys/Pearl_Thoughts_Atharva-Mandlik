@@ -18,14 +18,16 @@
 
 ## Demo script
 
-### 1. The assistant (Sarvam AI with tools) — `/patient/assistant`
-Log in as Priya, then open **Assistant** in the sidebar. Say:
+### 1. The assistant (Sarvam AI with tools, text and voice)
+Log in as Priya and open the assistant (bottom-right button). Say:
 - "Find a cardiologist" → real doctors and fees come from the database through a tool, not from the model's memory.
-- "Show open slots for Dr. Rohan Mehta tomorrow and book the first one" → a **booking card** appears. *Point out: the agent cannot book or take payment itself.*
-- Click **Review & book** → the booking page opens with the slot pre-selected → **Pay** → **Simulate Successful Payment**. Token and receipt appear.
-- Hindi: "मुझे कल कार्डियोलॉजिस्ट डॉक्टर से मिलना है, कौन से समय खाली हैं?" → native Hindi reply with real slots. Marathi works the same way.
-- Safety: "mujhe seene mein dard ho raha hai" or "I have chest pain" → fixed 112 emergency guidance, **the model is never called**.
-- "Which medicine should I take for fever?" → refuses and offers to book a doctor.
+- "Book Dr. Rohan Mehta tomorrow around 10:00" → a **Confirm booking** card appears. *Point out: nothing is booked until Confirm is pressed.*
+- Press **Confirm booking** → the seat is held and a **Pay** card appears in the chat → **Pay (test)**. Token and receipt appear and the booking shows on the dashboard.
+- "Cancel my appointment" → the card shows the refund first; **Not now** changes nothing.
+- Hindi: "मुझे कल कार्डियोलॉजिस्ट डॉक्टर से मिलना है, कौन से समय खाली हैं?" and Hinglish: "Kal ke liye slot dikhao" → replies in the same language.
+- Tap the **waveform** button and talk hands-free; interrupt the reply by talking or pressing **Stop**.
+- Safety: "I have chest pain" → fixed 112 emergency guidance, **the model is never called**.
+- Doctor side: log in as a doctor, open the assistant, ask "What is on my schedule today?", "Any scheduling conflicts this week?", "When is my next free slot?".
 
 ### 2. Proactive engagement + the bell inbox
 - In a second terminal (use your `CRON_SECRET` from `.env.local`):

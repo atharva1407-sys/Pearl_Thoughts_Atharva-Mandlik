@@ -19,14 +19,13 @@ export default async function PatientPaymentsPage() {
     redirect("/login?message=Please sign in to view payment history.");
   }
 
-  let patientId = user.profileId;
-  if (user.role === "DOCTOR") {
-    const p = await dbRepo.getPatientByUserId(user.userId);
-    if (p) patientId = p.id;
-  }
+  const patientId =
+    user.role === "DOCTOR" ? ((await dbRepo.getPatientByUserId(user.userId))?.id ?? user.profileId) : user.profileId;
 
-  const patient = patientId ? await dbRepo.getPatientById(patientId) : undefined;
-  const payments = patientId ? await dbRepo.getPaymentsByPatientId(patientId) : [];
+  const [patient, payments] = await Promise.all([
+    patientId ? dbRepo.getPatientById(patientId) : Promise.resolve(undefined),
+    patientId ? dbRepo.getPaymentsByPatientId(patientId) : Promise.resolve([]),
+  ]);
   const refundsByPayment = new Map(
     await Promise.all(payments.map(async (p) => [p.id, await dbRepo.getRefundsByPaymentId(p.id)] as const))
   );

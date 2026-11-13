@@ -4,10 +4,8 @@ import { getCurrentUser } from "@/actions/auth";
 import { PatientAppointmentActions } from "./patient-appointment-actions";
 import { dbRepo } from "@/db/repo";
 import { formatDate } from "@/lib/utils";
-import { sweepExpiredHolds } from "@/lib/payments/expire";
-import { runInBackground } from "@/lib/background";
 import { formatPaise } from "@/lib/payments";
-import { AssistantWidget } from "../assistant/assistant-widget";
+import { AssistantWidget } from "@/components/assistant/assistant-widget";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -33,22 +31,16 @@ export default async function PatientDashboard() {
     redirect("/login?message=Please sign in to access your appointments.");
   }
 
-  // Opportunistic sweep of expired payment holds
-  runInBackground(async () => {
-    await sweepExpiredHolds(dbRepo);
-  });
+  // Only a doctor needs a lookup to find their patient record; a patient's id is already in the session.
+  const patientId =
+    user.role === "DOCTOR" ? ((await dbRepo.getPatientByUserId(user.userId))?.id ?? user.profileId) : user.profileId;
 
-  let patientId = user.profileId;
-  if (user.role === "DOCTOR") {
-    const p = await dbRepo.getPatientByUserId(user.userId);
-    if (p) {
-      patientId = p.id;
-    }
-  }
-
-  const patient = patientId ? await dbRepo.getPatientById(patientId) : undefined;
-  const appointments = patientId ? await dbRepo.getAppointmentsByPatientId(patientId) : [];
-  const payments = patientId ? await dbRepo.getPaymentsByPatientId(patientId) : [];
+  // These three do not depend on each other, so fetch them together instead of one after another.
+  const [patient, appointments, payments] = await Promise.all([
+    patientId ? dbRepo.getPatientById(patientId) : Promise.resolve(undefined),
+    patientId ? dbRepo.getAppointmentsByPatientId(patientId) : Promise.resolve([]),
+    patientId ? dbRepo.getPaymentsByPatientId(patientId) : Promise.resolve([]),
+  ]);
   const paymentByApptId = new Map(payments.map((p) => [p.appointmentId, p]));
 
   const upcoming = appointments.filter((a) => a.status === "BOOKED");
@@ -282,6 +274,7 @@ export default async function PatientDashboard() {
 
       {user.role === "PATIENT" && (
         <AssistantWidget
+          role="PATIENT"
           firstName={user.name.split(" ")[0] || "there"}
           configured={Boolean(process.env.SARVAM_API_KEY?.trim())}
         />

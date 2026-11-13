@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentUser } from "@/actions/auth";
 import { DoctorAppointmentActions } from "./doctor-appointment-actions";
+import { PrescriptionDialog } from "./prescription-dialog";
+import { AssistantWidget } from "@/components/assistant/assistant-widget";
 import { dbRepo, toLocalDateString } from "@/db/repo";
 import { summarizeSchedule } from "@/lib/session-schedule";
 import { formatDate } from "@/lib/utils";
@@ -216,6 +218,7 @@ export default async function DoctorDashboard() {
                   <TableHead>Time Slot</TableHead>
                   <TableHead>Chief Complaint</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Prescription</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -228,6 +231,9 @@ export default async function DoctorDashboard() {
                     <TableCell>
                       <Badge variant="green">Completed</Badge>
                     </TableCell>
+                    <TableCell>
+                      <PrescriptionDialog appointmentId={apt.id} patientName={`${apt.patient.firstName} ${apt.patient.lastName}`} />
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -235,6 +241,12 @@ export default async function DoctorDashboard() {
           </div>
         </Card>
       )}
+
+      <AssistantWidget
+        role="DOCTOR"
+        firstName={doctor?.firstName || "Doctor"}
+        configured={Boolean(process.env.SARVAM_API_KEY?.trim())}
+      />
     </div>
   );
 }
