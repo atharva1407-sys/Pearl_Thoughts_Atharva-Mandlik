@@ -365,6 +365,8 @@ export function AssistantChat({
         </div>
       </div>
 
+      {/* The History and Voice panels scroll inside this box, so on a short window the messages never get squeezed out. */}
+      <div className="max-h-[55%] shrink-0 overflow-y-auto">
       {historyOpen && history.enabled && (
         <HistoryPanel
           chats={history.chats}
@@ -387,6 +389,7 @@ export function AssistantChat({
           onPreview={voice.previewVoice}
         />
       )}
+      </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5" aria-live="polite">
         {!configured && (
