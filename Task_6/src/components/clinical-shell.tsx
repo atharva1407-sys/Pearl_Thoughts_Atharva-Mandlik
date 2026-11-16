@@ -35,8 +35,18 @@ import {
 import type { SessionPayload } from "@/lib/auth-crypto";
 import { logoutAction, deleteAccountAction } from "@/actions/auth";
 import { getMyNotificationsAction, type InboxItem } from "@/actions/notifications";
+import { clearAllChatHistory } from "@/lib/assistant/chat-history";
 
 import { Button } from "@/components/ui/button";
+/** Signing out or deleting the account also wipes the assistant's saved chats from this device (shared computers). */
+function clearChatHistoryOnThisDevice() {
+  try {
+    clearAllChatHistory(window.localStorage);
+  } catch {
+    // storage blocked: nothing was saved, so nothing to clear
+  }
+}
+
 interface ClinicalShellProps {
   user: SessionPayload | null;
   children: React.ReactNode;
@@ -123,6 +133,7 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
     try {
       const res = await deleteAccountAction(password);
       if (res && res.success) {
+        clearChatHistoryOnThisDevice();
         window.location.href = res.redirectPath || "/signup";
       } else {
         alert(res?.error || "Failed to delete account. Please try again.");
@@ -440,7 +451,7 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
                 >
                   <Trash2 size={16} />
                 </Button>
-                <form action={logoutAction}>
+                <form action={logoutAction} onSubmit={clearChatHistoryOnThisDevice}>
                   <Button variant="bare"
                     type="submit"
                     title="Sign out of hospital account"

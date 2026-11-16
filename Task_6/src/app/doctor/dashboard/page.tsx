@@ -244,6 +244,7 @@ export default async function DoctorDashboard() {
 
       <AssistantWidget
         role="DOCTOR"
+        userKey={user.userId}
         firstName={doctor?.firstName || "Doctor"}
         configured={Boolean(process.env.SARVAM_API_KEY?.trim())}
       />

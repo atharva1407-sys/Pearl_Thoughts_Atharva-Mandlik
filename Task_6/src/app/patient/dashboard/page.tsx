@@ -275,6 +275,7 @@ export default async function PatientDashboard() {
       {user.role === "PATIENT" && (
         <AssistantWidget
           role="PATIENT"
+          userKey={user.userId}
           firstName={user.name.split(" ")[0] || "there"}
           configured={Boolean(process.env.SARVAM_API_KEY?.trim())}
         />

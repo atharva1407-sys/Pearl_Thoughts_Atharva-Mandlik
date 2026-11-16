@@ -9,6 +9,7 @@ import {
   CalendarCheck,
   CheckCircle2,
   Clock3,
+  History,
   Info,
   Loader2,
   Mic,
@@ -31,6 +32,8 @@ import { Input } from "@/components/ui/input";
 import { PaymentCard } from "./payment-card";
 import { useVoice } from "./use-voice";
 import { VoiceSettings } from "./voice-settings";
+import { HistoryPanel } from "./history-panel";
+import { useChatHistory } from "./use-chat-history";
 
 interface Message {
   role: "user" | "assistant";
@@ -88,6 +91,7 @@ export function AssistantChat({
   className,
   onClose,
   active = true,
+  userKey,
 }: {
   role?: AgentRole;
   firstName: string;
@@ -96,11 +100,14 @@ export function AssistantChat({
   onClose?: () => void;
   /** False while the popup is closed: the microphone is released and speech stops. */
   active?: boolean;
+  /** Identifies the signed-in user: chats are saved on this device under this key. Without it, history is off. */
+  userKey?: string;
 }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [voiceMenuOpen, setVoiceMenuOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [cardStates, setCardStates] = useState<Record<string, CardState>>({});
   const endRef = useRef<HTMLDivElement>(null);
   const busyRef = useRef(false);
@@ -110,6 +117,24 @@ export function AssistantChat({
   const sendRef = useRef<(text: string, spoken?: boolean) => Promise<void>>(async () => {});
   const voice = useVoice({ onTranscript: (text) => void sendRef.current(text, true) });
   const { setBusy: setVoiceBusy, speak, stopAll } = voice;
+
+  // Chat history: saved on this device only, per signed-in user.
+  const history = useChatHistory(userKey);
+  const { ready: historyReady, restoreActive, save: saveHistory } = history;
+  const restoredRef = useRef(false);
+
+  // Bring back the conversation that was open last time (once, after the saved history has loaded).
+  useEffect(() => {
+    if (!historyReady || restoredRef.current) return;
+    restoredRef.current = true;
+    const saved = restoreActive();
+    if (saved && saved.length > 0 && messagesRef.current.length === 0) setMessages(saved);
+  }, [historyReady, restoreActive]);
+
+  // Keep the saved copy up to date as the conversation grows.
+  useEffect(() => {
+    if (historyReady) saveHistory(messages);
+  }, [messages, historyReady, saveHistory]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -216,6 +241,46 @@ export function AssistantChat({
     addAssistantMessage("Okay, I did not change anything. Tell me if you want something else.", undefined, "auto");
   }
 
+  function resetConversationView() {
+    voice.stopSpeaking(false);
+    setCardStates({});
+    setDraft("");
+  }
+
+  function startNewChat() {
+    if (busyRef.current) return;
+    resetConversationView();
+    history.startNew();
+    setMessages([]);
+    setHistoryOpen(false);
+  }
+
+  function openSavedChat(id: string) {
+    if (busyRef.current) return;
+    const saved = history.open(id);
+    if (!saved) return;
+    resetConversationView();
+    setMessages(saved);
+    setHistoryOpen(false);
+  }
+
+  function deleteSavedChat(id: string) {
+    const isOpen = history.activeId === id;
+    if (isOpen && busyRef.current) return;
+    history.remove(id);
+    if (isOpen) {
+      resetConversationView();
+      setMessages([]);
+    }
+  }
+
+  function clearSavedChats() {
+    if (busyRef.current) return;
+    history.clearAll();
+    resetConversationView();
+    setMessages([]);
+  }
+
   const onPaymentResult = useCallback((message: string) => addAssistantMessage(message, undefined, "auto"), [addAssistantMessage]);
 
   const voiceBusy = voice.recording || voice.transcribing;
@@ -235,6 +300,25 @@ export function AssistantChat({
         </div>
         <div className="flex items-center gap-1.5">
           <Badge variant={configured ? "green" : "amber"}>{configured ? "Online" : "Not set up"}</Badge>
+          {history.enabled && (
+            <button
+              type="button"
+              onClick={() => {
+                setHistoryOpen((open) => !open);
+                setVoiceMenuOpen(false);
+              }}
+              aria-label="Chat history"
+              aria-expanded={historyOpen}
+              title="Chat history"
+              className={cn(
+                "relative grid size-7 place-items-center rounded-full hover:bg-slate-100",
+                historyOpen ? "bg-[#e8f2ff] text-[#1769e8]" : "text-slate-500"
+              )}
+            >
+              <History size={15} />
+              {history.chats.length > 0 && !historyOpen && <span className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-[#1769e8]" />}
+            </button>
+          )}
           {voice.ttsSupported && (
             <button
               type="button"
@@ -253,7 +337,10 @@ export function AssistantChat({
           {voice.ttsSupported && (
             <button
               type="button"
-              onClick={() => setVoiceMenuOpen((open) => !open)}
+              onClick={() => {
+                setVoiceMenuOpen((open) => !open);
+                setHistoryOpen(false);
+              }}
               aria-label="Choose the assistant's voice"
               aria-expanded={voiceMenuOpen}
               title="Choose the assistant's voice"
@@ -277,6 +364,18 @@ export function AssistantChat({
           )}
         </div>
       </div>
+
+      {historyOpen && history.enabled && (
+        <HistoryPanel
+          chats={history.chats}
+          activeId={history.activeId}
+          disabled={busy}
+          onOpen={openSavedChat}
+          onNew={startNewChat}
+          onDelete={deleteSavedChat}
+          onClearAll={clearSavedChats}
+        />
+      )}
 
       {voiceMenuOpen && voice.ttsSupported && (
         <VoiceSettings
