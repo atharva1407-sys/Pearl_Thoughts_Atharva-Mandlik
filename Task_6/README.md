@@ -79,6 +79,16 @@ Full-stack clinical management platform featuring a **Conversational Healthcare 
 | Privacy | The microphone is released when the chat closes, the tab is hidden or the page is left. |
 | Cost | Speech-to-text only runs on real utterances; text-to-speech uses the free browser engine. |
 
+### Chat history
+
+A **History** button in the assistant's header lists the user's past conversations: reopen one to continue it, start a **New chat**, delete one, or clear them all. The open chat is restored after a page refresh.
+
+| Aspect | How it works |
+|---|---|
+| Where it is stored | On **this device only** (browser storage), separately for each signed-in user. The server still never stores message text. |
+| What is saved | Message text and harmless info or slot cards. Confirmation cards, payment cards and their signed tokens are **never** saved, so an old copy can't be pressed again. |
+| Privacy | Cleared at sign-out and when the account is deleted. Up to 30 chats of 60 messages are kept; the oldest drop off first. |
+
 ### Prescriptions (new, needed by the assistant)
 
 Doctors write a prescription for a completed visit (**Prescription** button in *Completed Consultations*). Patients read them at `/patient/prescriptions` or by asking the assistant. Table `prescriptions` via `npm run db:migrate-0007`.

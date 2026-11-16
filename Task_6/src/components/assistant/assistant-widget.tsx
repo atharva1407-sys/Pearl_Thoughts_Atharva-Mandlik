@@ -6,7 +6,7 @@ import type { AgentRole } from "@/lib/agent/tools";
 import { AssistantChat } from "./assistant-chat";
 
 /** Floating chat launcher (bottom-right) that opens the assistant as a popup over the current page. */
-export function AssistantWidget(props: { role: AgentRole; firstName: string; configured: boolean }) {
+export function AssistantWidget(props: { role: AgentRole; firstName: string; configured: boolean; userKey?: string }) {
   const [open, setOpen] = useState(false);
 
   return (
