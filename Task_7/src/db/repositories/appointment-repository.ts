@@ -337,6 +337,7 @@ export class AppointmentRepository implements IAppointmentRepository {
     extra?: {
       cancelledBy?: "PATIENT" | "DOCTOR" | "SYSTEM" | null;
       cancelReason?: string | null;
+      expectedStatus?: AppointmentStatus;
     }
   ): Promise<boolean> {
     this.ctx.checkProductionDatabase();
@@ -347,10 +348,11 @@ export class AppointmentRepository implements IAppointmentRepository {
       if (extra?.cancelReason !== undefined) updateValues.cancelReason = extra.cancelReason;
 
       // If cancelling, prevent duplicate cancellations by asserting current status != CANCELLED
-      const whereCondition =
-        status === "CANCELLED"
-          ? and(eq(schema.appointments.id, id), sql`${schema.appointments.status} != 'CANCELLED'`)
-          : eq(schema.appointments.id, id);
+      const whereCondition = and(
+        eq(schema.appointments.id, id),
+        status === "CANCELLED" ? sql`${schema.appointments.status} != 'CANCELLED'` : undefined,
+        extra?.expectedStatus ? eq(schema.appointments.status, extra.expectedStatus) : undefined
+      );
 
       const res = await db.update(schema.appointments).set(updateValues).where(whereCondition);
       return ((res as any).rowCount ?? 1) > 0;
@@ -359,6 +361,7 @@ export class AppointmentRepository implements IAppointmentRepository {
     const apt = this.ctx.getMem().appointments.find((a) => a.id === id);
     if (!apt) return false;
     if (status === "CANCELLED" && apt.status === "CANCELLED") return false;
+    if (extra?.expectedStatus && apt.status !== extra.expectedStatus) return false;
 
     apt.status = status;
     if (extra?.cancelledBy !== undefined) apt.cancelledBy = extra.cancelledBy;
@@ -798,14 +801,17 @@ export class AppointmentRepository implements IAppointmentRepository {
     appointmentId: string,
     doctorId: string,
     checkedInBy: string,
-    now?: Date
+    now?: Date,
+    expectedDate?: string
   ): Promise<{ success: boolean; error?: string; appointment?: AppointmentEntity }> {
     this.ctx.checkProductionDatabase();
     const db = this.ctx.getDb();
     const checkInTime = now ?? new Date();
+    const wrongDateError = "Only same-day appointments can be checked in.";
 
     if (db) {
       // Atomic guard: status = 'BOOKED' AND checked_in_at IS NULL AND doctor_id = doctorId
+      // (and, when the caller names a date, appointment_date = expectedDate)
       const res = await db
         .update(schema.appointments)
         .set({
@@ -818,7 +824,8 @@ export class AppointmentRepository implements IAppointmentRepository {
             eq(schema.appointments.id, appointmentId),
             eq(schema.appointments.doctorId, doctorId),
             eq(schema.appointments.status, "BOOKED"),
-            sql`${schema.appointments.checkedInAt} IS NULL`
+            sql`${schema.appointments.checkedInAt} IS NULL`,
+            expectedDate ? eq(schema.appointments.appointmentDate, expectedDate) : undefined
           )
         )
         .returning();
@@ -834,6 +841,9 @@ export class AppointmentRepository implements IAppointmentRepository {
       }
       if (existing.doctorId !== doctorId) {
         return { success: false, error: "Forbidden: You can only check in patients assigned to your schedule." };
+      }
+      if (expectedDate && existing.appointmentDate !== expectedDate) {
+        return { success: false, error: wrongDateError };
       }
       if (existing.checkedInAt || existing.status === "CHECKED_IN") {
         const timeStr = existing.checkedInAt ? formatKolkataHHMM(existing.checkedInAt) : "earlier";
@@ -860,6 +870,9 @@ export class AppointmentRepository implements IAppointmentRepository {
     }
     if (existing.doctorId !== doctorId) {
       return { success: false, error: "Forbidden: You can only check in patients assigned to your schedule." };
+    }
+    if (expectedDate && existing.appointmentDate !== expectedDate) {
+      return { success: false, error: wrongDateError };
     }
     if (existing.checkedInAt || existing.status === "CHECKED_IN") {
       const timeStr = existing.checkedInAt ? formatKolkataHHMM(existing.checkedInAt) : "earlier";
@@ -912,6 +925,12 @@ export class AppointmentRepository implements IAppointmentRepository {
           };
         }
 
+        // Serialize concurrent starts for the same doctor and date: the lock is held until this
+        // transaction commits, so a second request waits and then sees the first one's IN_CONSULTATION row.
+        await tx.execute(
+          sql`SELECT pg_advisory_xact_lock(hashtext(${`start-consultation:${doctorId}:${appt.appointmentDate}`}))`
+        );
+
         const active = await tx
           .select()
           .from(schema.appointments)
@@ -935,8 +954,21 @@ export class AppointmentRepository implements IAppointmentRepository {
             status: "IN_CONSULTATION",
             consultationStartedAt: consultTime,
           })
-          .where(eq(schema.appointments.id, appointmentId))
+          .where(
+            and(
+              eq(schema.appointments.id, appointmentId),
+              // A cancellation or completion that committed after the read above must not be overwritten.
+              eq(schema.appointments.status, "CHECKED_IN")
+            )
+          )
           .returning();
+
+        if (!updated) {
+          return {
+            success: false,
+            error: "Cannot start consultation. The appointment status changed; refresh and try again.",
+          };
+        }
 
         return { success: true, appointment: updated as AppointmentEntity };
       });

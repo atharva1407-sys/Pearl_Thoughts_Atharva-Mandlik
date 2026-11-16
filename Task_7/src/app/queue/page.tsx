@@ -2,7 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/actions/auth";
 import { dbRepo } from "@/db/repo";
-import { computeDoctorQueue } from "@/lib/queue";
+import { computeDoctorQueue, DEFAULT_SLOT_DURATION_MINUTES } from "@/lib/queue";
+import { sessionAppliesOnDate } from "@/lib/session-schedule";
+import { AutoRefresh } from "./auto-refresh";
 import { istDateString, formatKolkataDate, formatKolkataHHMM } from "@/lib/time";
 import {
   Clock3,
@@ -38,9 +40,13 @@ export default async function QueuePage({ searchParams }: QueuePageProps) {
 
   const resolvedParams = searchParams ? await searchParams : {};
   const today = istDateString(new Date());
+  const requestedDate = resolvedParams?.date;
+  // Must match the format AND be a real calendar date (so 2026-13-45 falls back to today).
   const targetDate =
-    resolvedParams?.date && /^\d{4}-\d{2}-\d{2}$/.test(resolvedParams.date)
-      ? resolvedParams.date
+    requestedDate &&
+    /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) &&
+    new Date(`${requestedDate}T00:00:00Z`).toISOString().slice(0, 10) === requestedDate
+      ? requestedDate
       : today;
 
   const [doctor, doctorAppointments, availabilities] = await Promise.all([
@@ -49,8 +55,9 @@ export default async function QueuePage({ searchParams }: QueuePageProps) {
     dbRepo.getAvailabilitiesByDoctorId(user.profileId),
   ]);
 
-  const activeSession = availabilities.find((a) => a.isActive);
-  const slotDuration = activeSession?.slotDurationMinutes ?? 20;
+  // Use the session that actually runs on the viewed date, not just the doctor's first active one.
+  const activeSession = availabilities.find((a) => sessionAppliesOnDate(a, targetDate));
+  const slotDuration = activeSession?.slotDurationMinutes ?? DEFAULT_SLOT_DURATION_MINUTES;
 
   const queue = computeDoctorQueue(doctorAppointments, {
     targetDate,
@@ -61,6 +68,7 @@ export default async function QueuePage({ searchParams }: QueuePageProps) {
 
   return (
     <div className="space-y-6">
+      {isToday && <AutoRefresh intervalSeconds={20} />}
       {/* Queue Toolbar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
         <div>

@@ -8,6 +8,7 @@ import { formatPaise } from "@/lib/payments";
 import { AssistantWidget } from "@/components/assistant/assistant-widget";
 import { istDateString, formatKolkataTimeShort } from "@/lib/time";
 import { computePatientQueueStatus, type PatientQueueStatus } from "@/lib/queue";
+import { sessionAppliesOnDate } from "@/lib/session-schedule";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -57,8 +58,17 @@ export default async function PatientDashboard() {
   const queueStatusByApptId = new Map<string, PatientQueueStatus>();
   for (const apt of upcoming) {
     if (apt.appointmentDate === today) {
-      const docAppts = await dbRepo.getDoctorAppointmentsForDate(apt.doctorId, today);
-      const qStatus = computePatientQueueStatus(docAppts, apt.id);
+      const [docAppts, docSessions] = await Promise.all([
+        dbRepo.getDoctorAppointmentsForDate(apt.doctorId, today),
+        dbRepo.getAvailabilitiesByDoctorId(apt.doctorId),
+      ]);
+      // Prefer the session this appointment was booked into, then any session running today.
+      const session =
+        docSessions.find((s) => s.id === apt.sessionId) ?? docSessions.find((s) => sessionAppliesOnDate(s, today));
+      const qStatus = computePatientQueueStatus(docAppts, apt.id, {
+        targetDate: today,
+        slotDurationMinutes: session?.slotDurationMinutes,
+      });
       queueStatusByApptId.set(apt.id, qStatus);
     }
   }

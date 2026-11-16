@@ -885,7 +885,7 @@ export async function checkInAppointmentAction(appointmentId: string) {
   const doctor = await dbRepo.getDoctorById(user.profileId);
   const checkedInBy = doctor ? `Dr. ${doctor.firstName} ${doctor.lastName}` : user.name || user.email;
 
-  const result = await dbRepo.checkInAppointment(appointmentId, user.profileId, checkedInBy);
+  const result = await dbRepo.checkInAppointment(appointmentId, user.profileId, checkedInBy, undefined, today);
   if (!result.success) {
     return { success: false, error: result.error || "Failed to check in patient." };
   }
@@ -1029,9 +1029,11 @@ export async function markNoShowAction(appointmentId: string) {
     };
   }
 
-  const success = await dbRepo.updateAppointmentStatus(appointmentId, "NO_SHOW");
+  // Only a still-BOOKED appointment may become NO_SHOW; this stops a check-in that lands a moment
+  // earlier from being overwritten.
+  const success = await dbRepo.updateAppointmentStatus(appointmentId, "NO_SHOW", { expectedStatus: "BOOKED" });
   if (!success) {
-    return { success: false, error: "Failed to update appointment status." };
+    return { success: false, error: "Appointment status changed; refresh and try again." };
   }
 
   await cancelAppointmentReminders(dbRepo, appointmentId);

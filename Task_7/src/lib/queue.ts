@@ -18,6 +18,9 @@ export interface DoctorQueueSummary<T extends AppointmentEntity = AppointmentEnt
   totalCheckedIn: number;
 }
 
+/** Used when neither the doctor's session nor the caller supplies a consultation length. */
+export const DEFAULT_SLOT_DURATION_MINUTES = 15;
+
 export interface QueueComputeOptions {
   targetDate?: string;
   now?: Date;
@@ -44,7 +47,7 @@ export function computeDoctorQueue<T extends AppointmentEntity = AppointmentEnti
 ): DoctorQueueSummary<T> {
   const now = options?.now ?? new Date();
   const targetDate = options?.targetDate ?? istDateString(now);
-  const slotDuration = options?.slotDurationMinutes ?? options?.defaultSlotDurationMinutes ?? 20;
+  const slotDuration = options?.slotDurationMinutes ?? options?.defaultSlotDurationMinutes ?? DEFAULT_SLOT_DURATION_MINUTES;
 
   // 1. Filter to target date only
   const dayAppointments = appointments.filter((a) => a.appointmentDate === targetDate);
@@ -152,7 +155,10 @@ export function computePatientQueueStatus(
   options?: QueueComputeOptions
 ): PatientQueueStatus {
   const queue = computeDoctorQueue(doctorAppointments, options);
-  const targetAppt = doctorAppointments.find((a) => a.id === patientAppointmentId) ?? null;
+  // Only match an appointment on the queue's date, so a list spanning several dates cannot return a future visit.
+  const targetDate = queue.date;
+  const targetAppt =
+    doctorAppointments.find((a) => a.id === patientAppointmentId && a.appointmentDate === targetDate) ?? null;
 
   if (!targetAppt) {
     return {

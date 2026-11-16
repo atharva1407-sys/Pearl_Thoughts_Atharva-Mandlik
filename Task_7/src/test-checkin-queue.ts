@@ -1,3 +1,6 @@
+// Force the in-memory repository even if a real DATABASE_URL is exported in the shell.
+process.env.DATABASE_URL = "disabled-for-local-test";
+
 import assert from "node:assert";
 import crypto from "crypto";
 import { dbRepo, type AppointmentEntity } from "./db/repo";
@@ -587,8 +590,47 @@ async function runCheckinQueueTests() {
     );
   });
 
+  console.log("\n--- 12. CodeRabbit Review Hardening ---");
+  await it("Rejects check-in when the appointment date differs from the expected date", async () => {
+    const apt = await createTestAppointment({ appointmentDate: "2099-01-01", status: "BOOKED" });
+    const res = await dbRepo.checkInAppointment(apt.id, testDoctorId, "Staff", undefined, today);
+    assert.strictEqual(res.success, false);
+    assert(res.error?.includes("same-day"), `Expected same-day error, got: ${res.error}`);
+    assert.strictEqual(apt.status, "BOOKED", "Appointment must stay BOOKED");
+  });
+
+  await it("updateAppointmentStatus only applies when the expected status still matches", async () => {
+    const apt = await createTestAppointment({ appointmentDate: today, status: "CHECKED_IN", checkedInAt: new Date() });
+    const ok = await dbRepo.updateAppointmentStatus(apt.id, "NO_SHOW", { expectedStatus: "BOOKED" });
+    assert.strictEqual(ok, false);
+    assert.strictEqual(apt.status, "CHECKED_IN", "A checked-in patient must not be overwritten with NO_SHOW");
+  });
+
+  await it("Defaults to a 15 minute slot when no duration is supplied", async () => {
+    const waiting = await createTestAppointment({
+      appointmentDate: today,
+      status: "CHECKED_IN",
+      checkedInAt: new Date(),
+      tokenNumber: 1,
+    });
+    const second = await createTestAppointment({
+      appointmentDate: today,
+      status: "CHECKED_IN",
+      checkedInAt: new Date(Date.now() + 1000),
+      tokenNumber: 2,
+    });
+    const q = computeDoctorQueue([waiting, second], { targetDate: today });
+    assert.strictEqual(q.waiting[1].estimatedWaitMinutes, 15);
+  });
+
+  await it("Patient queue status ignores an appointment on a different date than the target date", async () => {
+    const future = await createTestAppointment({ appointmentDate: "2099-01-01", status: "BOOKED" });
+    const status = computePatientQueueStatus([future], future.id, { targetDate: today });
+    assert.strictEqual(status.appointment, null);
+  });
+
   console.log(`\n==============================================`);
-  console.log(`Patient Check-in & Queue Tests: ${passed} passed, ${failed} failed`);
+  console.log(`Patient Check-in & Queue Tests:${passed} passed, ${failed} failed`);
   console.log(`==============================================\n`);
 
   if (failed > 0) {
