@@ -26,10 +26,10 @@
 A hospital appointment platform built one task at a time. Patients find a doctor, book a slot, pay online and get email reminders. Doctors run their own schedule. A **voice AI assistant** (English, Hindi, Marathi, Hinglish) lets both sides do all of that by chatting, with an explicit **Confirm** before anything changes.
 
 - 🔒 **No double booking**: database advisory locks serialize concurrent bookings.
-- 🤖 **AI that acts safely**: real backend actions, signed single-use confirmations, emergency messages routed to 112.
+- 🤖 **AI that acts safely**: real backend actions, signed single-use confirmations, emergency messages routed to 112, client-side chat history.
 - 💳 **Real payment flow**: Razorpay checkout, 10-minute seat holds, signature checks, tiered refunds.
 - 📬 **Reliable emails**: transactional outbox with retries and a dead-letter dashboard.
-- ✅ **Tested**: 750+ automated checks, run in CI on every push.
+- ✅ **Tested**: 790+ automated checks, run in CI on every push.
 
 ## 📋 All tasks and their features
 
@@ -42,7 +42,7 @@ Each folder is a complete, separately runnable app. Every task builds on the one
 | [**3**](Task_3) | Advanced scheduling | • Morning and evening sessions on the same day<br>• Weekly, monthly-date or one-date recurrence<br>• Stream and Wave capacity (1 to 20 patients per slot)<br>• Doctor leave, and one-click atomic reschedule<br>• Review fixes: doctors see only their own patients, login rate limit | 205 |
 | [**4**](Task_4) | Razorpay payments | • Razorpay checkout in test mode<br>• 10-minute seat holds during payment<br>• Server-side signature checks and idempotent webhooks<br>• Refunds by notice: 100% (24h+), 50% (2 to 24h), 0% (under 2h)<br>• Printable receipts | 305 |
 | [**5**](Task_5) | Email outbox | • Transactional outbox: emails never block a booking<br>• Brevo and Resend delivery with retries<br>• Confirmation and reminder emails, IST-accurate timing<br>• Medical details kept out of emails<br>• Admin dead-letter dashboard and one-click unsubscribe | 417 |
-| [**6**](Task_6) | AI assistant and elastic scheduling | • **Assistant for patients and doctors**: text or hands-free voice, 4 languages, interrupt and stop<br>• Patients: search doctors, book, reschedule, cancel, pay in chat, see prescriptions and refunds<br>• Doctors: schedule, stats, leaves, conflicts, next free slot, reschedule suggestions<br>• **Confirm before any change**, slot rechecked at confirm time<br>• Elastic sessions: stretch or shrink hours even when booked<br>• Doctor-written prescriptions, follow-up and reminder jobs | 753 |
+| [**6**](Task_6) | AI assistant and elastic scheduling | • **Assistant for patients and doctors**: text or hands-free voice, 4 languages, interrupt and stop<br>• **Chat history**: saved in browser per user, reopen, delete, clear<br>• Patients: search doctors, book, reschedule, cancel, pay in chat, see prescriptions and refunds<br>• Doctors: schedule, stats, leaves, conflicts, next free slot, reschedule suggestions<br>• **Confirm before any change**, slot rechecked at confirm time<br>• Elastic sessions: stretch or shrink hours even when booked<br>• Doctor-written prescriptions, follow-up and reminder jobs | 794 |
 
 ## 🎬 2-minute demo (what to click)
 
