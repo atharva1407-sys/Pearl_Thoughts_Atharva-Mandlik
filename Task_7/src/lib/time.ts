@@ -139,3 +139,41 @@ export function formatKolkataDateTime(d: Date): string {
     hour12: true,
   }).format(d) + " IST";
 }
+
+/**
+ * Formats a Date or timestamp string into 24-hour HH:mm in Asia/Kolkata.
+ * Example: "10:15", "14:45"
+ */
+export function formatKolkataHHMM(timeOrDate: string | Date): string {
+  if (typeof timeOrDate === "string" && /^\d{1,2}:\d{2}$/.test(timeOrDate.trim())) {
+    return timeOrDate.trim();
+  }
+  const d = typeof timeOrDate === "string" ? new Date(timeOrDate) : timeOrDate;
+  return new Intl.DateTimeFormat("en-IN", {
+    timeZone: ASIA_KOLKATA_TIMEZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(d);
+}
+
+/**
+ * Formats a Date or timestamp string into 12-hour "hh:mm a" in Asia/Kolkata without IST suffix.
+ * Example: "10:15 AM", "02:30 PM"
+ */
+export function formatKolkataTimeShort(timeOrDate: string | Date): string {
+  if (typeof timeOrDate === "string" && /^\d{1,2}:\d{2}$/.test(timeOrDate.trim())) {
+    const [h, m] = timeOrDate.split(":").map((s) => parseInt(s, 10));
+    const period = h >= 12 ? "PM" : "AM";
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${pad(hour12)}:${pad(m)} ${period}`;
+  }
+  const d = typeof timeOrDate === "string" ? new Date(timeOrDate) : timeOrDate;
+  return new Intl.DateTimeFormat("en-IN", {
+    timeZone: ASIA_KOLKATA_TIMEZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  }).format(d);
+}
