@@ -19,7 +19,9 @@ export interface CancellationAssessment {
 
 const VALID_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
   PENDING_PAYMENT: ["BOOKED", "EXPIRED", "CANCELLED"],
-  BOOKED: ["COMPLETED", "NO_SHOW", "CANCELLED", "BOOKED"],
+  BOOKED: ["CHECKED_IN", "IN_CONSULTATION", "COMPLETED", "NO_SHOW", "CANCELLED", "BOOKED"],
+  CHECKED_IN: ["IN_CONSULTATION", "COMPLETED", "CANCELLED", "CHECKED_IN"],
+  IN_CONSULTATION: ["COMPLETED", "CANCELLED", "IN_CONSULTATION"],
   COMPLETED: [],
   CANCELLED: [],
   NO_SHOW: [],
@@ -64,7 +66,12 @@ export class AppointmentLifecycle {
       throw new DomainError("NOT_FOUND", "Appointment not found.");
     }
 
-    if (appointment.status !== "BOOKED" && appointment.status !== "PENDING_PAYMENT") {
+    if (
+      appointment.status !== "BOOKED" &&
+      appointment.status !== "PENDING_PAYMENT" &&
+      appointment.status !== "CHECKED_IN" &&
+      appointment.status !== "IN_CONSULTATION"
+    ) {
       return {
         eligible: false,
         appointment,
