@@ -5,6 +5,7 @@ import { DoctorAppointmentActions } from "./doctor-appointment-actions";
 import { PrescriptionDialog } from "./prescription-dialog";
 import { AssistantWidget } from "@/components/assistant/assistant-widget";
 import { dbRepo, toLocalDateString } from "@/db/repo";
+import { formatKolkataHHMM } from "@/lib/time";
 import { summarizeSchedule } from "@/lib/session-schedule";
 import { formatDate } from "@/lib/utils";
 
@@ -37,8 +38,11 @@ export default async function DoctorDashboard() {
     dbRepo.getAvailabilitiesByDoctorId(user.profileId),
   ]);
 
+  const today = toLocalDateString(new Date());
   const activeShifts = availabilities.filter((a) => a.isActive);
-  const activeBookings = appointments.filter((a) => a.status === "BOOKED");
+  const activeBookings = appointments.filter(
+    (a) => a.status === "BOOKED" || a.status === "CHECKED_IN" || a.status === "IN_CONSULTATION"
+  );
   const completedBookings = appointments.filter((a) => a.status === "COMPLETED");
 
   return (
@@ -145,54 +149,75 @@ export default async function DoctorDashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {activeBookings.map((apt, index) => (
-                  <TableRow key={apt.id}>
-                    <TableCell>
-                      <div className="flex flex-col items-center">
-                        <span className="token w-8 h-8 text-xs font-black bg-blue-100 text-blue-800 rounded-lg flex items-center justify-center">
-                          #{apt.tokenNumber}
-                        </span>
-                        <span className="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap">
-                          ~{(apt.tokenNumber - 1) * 20}m wait
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <b className="text-slate-900">{formatDate(apt.appointmentDate)}</b>
-                        {apt.rescheduledAt && (
-                          <span className="text-[10px] bg-purple-100 text-purple-800 font-semibold px-1.5 py-0.5 rounded">
-                            Rescheduled
+                {activeBookings.map((apt, index) => {
+                  const isToday = apt.appointmentDate === today;
+                  return (
+                    <TableRow key={apt.id}>
+                      <TableCell>
+                        <div className="flex flex-col items-center">
+                          <span className="token w-8 h-8 text-xs font-black bg-blue-100 text-blue-800 rounded-lg flex items-center justify-center">
+                            #{apt.tokenNumber}
                           </span>
+                          <span className="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap">
+                            Token #{apt.tokenNumber}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <b className="text-slate-900">{formatDate(apt.appointmentDate)}</b>
+                          {apt.status === "IN_CONSULTATION" && (
+                            <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-1.5 py-0.5 rounded">
+                              In Consultation
+                            </span>
+                          )}
+                          {apt.status === "CHECKED_IN" && (
+                            <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded">
+                              Checked in ({apt.checkedInAt ? formatKolkataHHMM(apt.checkedInAt) : "Yes"})
+                            </span>
+                          )}
+                          {apt.status === "BOOKED" && isToday && (
+                            <span className="text-[10px] bg-slate-100 text-slate-600 font-medium px-1.5 py-0.5 rounded">
+                              Not arrived
+                            </span>
+                          )}
+                          {apt.rescheduledAt && (
+                            <span className="text-[10px] bg-purple-100 text-purple-800 font-semibold px-1.5 py-0.5 rounded">
+                              Rescheduled
+                            </span>
+                          )}
+                        </div>
+                        <small className="font-mono text-blue-600 block">{apt.startTime} – {apt.endTime}</small>
+                        {apt.originalAppointmentDate && (
+                          <small className="text-[10px] text-slate-400 block">
+                            was {apt.originalAppointmentDate} {apt.originalStartTime}
+                          </small>
                         )}
-                      </div>
-                      <small className="font-mono text-blue-600 block">{apt.startTime} – {apt.endTime}</small>
-                      {apt.originalAppointmentDate && (
-                        <small className="text-[10px] text-slate-400 block">
-                          was {apt.originalAppointmentDate} {apt.originalStartTime}
-                        </small>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <b>{apt.patient.firstName} {apt.patient.lastName}</b>
-                      <small>Patient ID: {apt.patientId.slice(0, 8)}</small>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">{apt.patient.phone}</TableCell>
-                    <TableCell>
-                      <span className="text-slate-700 font-medium">{apt.reason}</span>
-                    </TableCell>
-                    <TableCell>
-                      <DoctorAppointmentActions
-                        appointmentId={apt.id}
-                        patientName={`${apt.patient.firstName} ${apt.patient.lastName}`}
-                        doctorId={user.profileId}
-                        doctorName={`${doctor?.firstName} ${doctor?.lastName}`}
-                        appointmentDate={apt.appointmentDate}
-                        startTime={apt.startTime}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                      <TableCell>
+                        <b>{apt.patient.firstName} {apt.patient.lastName}</b>
+                        <small>Patient ID: {apt.patientId.slice(0, 8)}</small>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">{apt.patient.phone}</TableCell>
+                      <TableCell>
+                        <span className="text-slate-700 font-medium">{apt.reason}</span>
+                      </TableCell>
+                      <TableCell>
+                        <DoctorAppointmentActions
+                          appointmentId={apt.id}
+                          patientName={`${apt.patient.firstName} ${apt.patient.lastName}`}
+                          doctorId={user.profileId}
+                          doctorName={`${doctor?.firstName} ${doctor?.lastName}`}
+                          appointmentDate={apt.appointmentDate}
+                          startTime={apt.startTime}
+                          status={apt.status}
+                          checkedInAt={apt.checkedInAt}
+                          isToday={isToday}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

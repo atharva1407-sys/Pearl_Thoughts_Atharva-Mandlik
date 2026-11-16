@@ -151,6 +151,21 @@ export interface IAppointmentRepository {
     toDate: string,
     statuses: AppointmentStatus[]
   ): Promise<AppointmentEntity[]>;
+  checkInAppointment(
+    appointmentId: string,
+    doctorId: string,
+    checkedInBy: string,
+    now?: Date
+  ): Promise<{ success: boolean; error?: string; appointment?: AppointmentEntity }>;
+  startConsultation(
+    appointmentId: string,
+    doctorId: string,
+    now?: Date
+  ): Promise<{ success: boolean; error?: string; appointment?: AppointmentEntity }>;
+  getDoctorAppointmentsForDate(
+    doctorId: string,
+    date: string
+  ): Promise<AppointmentEntity[]>;
 }
 
 export interface IBillingRepository {

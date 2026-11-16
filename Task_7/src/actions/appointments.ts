@@ -12,7 +12,7 @@ import type { MockProvider } from "@/lib/payments";
 import { checkPaymentBinding, checkOrderSettled } from "@/lib/payments/binding";
 import { prepareRefund, executeRefund, issueRefund } from "@/lib/payments/refunds";
 import type { PreparedRefund } from "@/lib/payments/refunds";
-import { buildInstantFromKolkataTime } from "@/lib/time";
+import { buildInstantFromKolkataTime, istDateString, formatKolkataHHMM } from "@/lib/time";
 import { finalizeConfirmedBooking } from "@/lib/payments/finalize";
 import { computeRefund } from "@/lib/refund-policy";
 import {
@@ -841,6 +841,97 @@ export async function cancelAppointmentAction(appointmentId: string) {
   };
 }
 
+export async function checkInAppointmentAction(appointmentId: string) {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "DOCTOR") {
+    return { success: false, error: "Unauthorized: Only doctors or clinical staff can check in patients." };
+  }
+
+  const appointment = await dbRepo.getAppointmentById(appointmentId);
+  if (!appointment) {
+    return { success: false, error: "Appointment not found." };
+  }
+
+  if (appointment.doctorId !== user.profileId) {
+    return {
+      success: false,
+      error: "Forbidden: You can only check in patients assigned to your own schedule.",
+    };
+  }
+
+  const today = istDateString(new Date());
+  if (appointment.appointmentDate !== today) {
+    return {
+      success: false,
+      error: "Only same-day appointments can be checked in.",
+    };
+  }
+
+  if (appointment.checkedInAt || appointment.status === "CHECKED_IN") {
+    const timeStr = appointment.checkedInAt ? formatKolkataHHMM(appointment.checkedInAt) : "earlier";
+    return {
+      success: false,
+      error: `Patient is already checked in at ${timeStr}`,
+    };
+  }
+
+  if (appointment.status !== "BOOKED") {
+    return {
+      success: false,
+      error: `Cannot check in appointment with status ${appointment.status}. Only BOOKED appointments can be checked in.`,
+    };
+  }
+
+  const doctor = await dbRepo.getDoctorById(user.profileId);
+  const checkedInBy = doctor ? `Dr. ${doctor.firstName} ${doctor.lastName}` : user.name || user.email;
+
+  const result = await dbRepo.checkInAppointment(appointmentId, user.profileId, checkedInBy);
+  if (!result.success) {
+    return { success: false, error: result.error || "Failed to check in patient." };
+  }
+
+  revalidatePath("/queue");
+  revalidatePath("/doctor/dashboard");
+  revalidatePath("/patient/dashboard");
+  return { success: true, message: "Patient successfully checked in." };
+}
+
+export async function startConsultationAction(appointmentId: string) {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "DOCTOR") {
+    return { success: false, error: "Unauthorized: Only doctors can start consultations." };
+  }
+
+  const appointment = await dbRepo.getAppointmentById(appointmentId);
+  if (!appointment) {
+    return { success: false, error: "Appointment not found." };
+  }
+
+  if (appointment.doctorId !== user.profileId) {
+    return {
+      success: false,
+      error: "Forbidden: You can only start consultations for your own schedule.",
+    };
+  }
+
+  if (appointment.status !== "CHECKED_IN") {
+    return {
+      success: false,
+      error: `Cannot start consultation. Patient must be checked in first (current status: ${appointment.status}).`,
+    };
+  }
+
+  const result = await dbRepo.startConsultation(appointmentId, user.profileId);
+  if (!result.success) {
+    return { success: false, error: result.error || "Failed to start consultation." };
+  }
+
+  revalidatePath("/queue");
+  revalidatePath("/doctor/dashboard");
+  revalidatePath("/patient/dashboard");
+  return { success: true, message: "Consultation started." };
+}
+
 export async function completeAppointmentAction(appointmentId: string) {
   const user = await getCurrentUser();
   if (!user || user.role !== "DOCTOR") {
@@ -872,7 +963,11 @@ export async function completeAppointmentAction(appointmentId: string) {
     };
   }
 
-  if (!hasAppointmentStarted(appointment)) {
+  if (
+    appointment.status !== "IN_CONSULTATION" &&
+    appointment.status !== "CHECKED_IN" &&
+    !hasAppointmentStarted(appointment)
+  ) {
     return {
       success: false,
       error: "Cannot mark an appointment as completed before its scheduled start time.",
@@ -908,6 +1003,13 @@ export async function markNoShowAction(appointmentId: string) {
     return {
       success: false,
       error: "Forbidden: You can only update appointments assigned to your own schedule.",
+    };
+  }
+
+  if (appointment.status === "CHECKED_IN" || appointment.status === "IN_CONSULTATION") {
+    return {
+      success: false,
+      error: "Patient is already checked in; cancel their appointment instead of marking no-show.",
     };
   }
 
