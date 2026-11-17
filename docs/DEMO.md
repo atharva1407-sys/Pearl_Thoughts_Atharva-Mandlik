@@ -9,17 +9,17 @@
    ```
 2. Open http://localhost:3000. Everything runs offline: in-memory data, mock payments. Only the AI assistant calls the internet (Sarvam).
 3. **Logins** (passwords are in `.env.local`, never in this file):
-   | Who | Email | Password variable |
+   | Who | Email | How to log in |
    |---|---|---|
-   | Patient (main demo) | `priya.demo@medrella.demo` | `DEMO_PATIENT_PASSWORD` |
+   | Patient | Any email registered via Sign up (`/register`) | Enter password chosen at registration |
    | Doctor | `rohan.mehta@medrella.com` (any doctor in `src/db/specialists-catalog.ts`) | `SEED_DOCTOR_PASSWORD` |
-4. Priya starts with one completed visit 2 days ago. Priya can also open the admin outbox because her email is in `ADMIN_EMAILS`.
+4. Doctors and slots are seeded when `ENABLE_SEED_DATA="true"`.
 5. **To reset the demo to a clean state, stop the server and run `npm run dev` again** (data lives in memory).
 
 ## Demo script
 
 ### 1. The assistant (Sarvam AI with tools, text and voice)
-Log in as Priya and open the assistant (bottom-right button). Say:
+Log in as a patient and open the assistant (bottom-right button). Say:
 - "Find a cardiologist" → real doctors and fees come from the database through a tool, not from the model's memory.
 - "Book Dr. Rohan Mehta tomorrow around 10:00" → a **Confirm booking** card appears. *Point out: nothing is booked until Confirm is pressed.*
 - Press **Confirm booking** → the seat is held and a **Pay** card appears in the chat → **Pay (test)**. Token and receipt appear and the booking shows on the dashboard.
@@ -34,10 +34,10 @@ Log in as Priya and open the assistant (bottom-right button). Say:
   ```bash
   curl -H "Authorization: Bearer <CRON_SECRET>" http://localhost:3000/api/cron/engagement
   ```
-  The JSON shows `followUpsQueued: 1`.
-- Back in the app click the **bell** icon: Priya's follow-up email, booking confirmation and receipt are listed. The server terminal also prints each email (`[NOTIFICATION OUTBOX - CONSOLE]`).
+  The JSON shows follow-up engagement status.
+- Back in the app click the **bell** icon: follow-up email, booking confirmation and receipt are listed. The server terminal also prints each email (`[NOTIFICATION OUTBOX - CONSOLE]`).
 - Promotional messages (such as the check-up reminder) are sent only to people who opted in (Settings page).
-- `/admin/notifications` (Priya) shows outbox health: sent, pending, failed, dead-letter retry.
+- `/admin/notifications` shows outbox health: sent, pending, failed, dead-letter retry.
 
 ### 3. Cancel and refund (optional)
 Dashboard → Cancel the new appointment → the refund amount is shown before you confirm.

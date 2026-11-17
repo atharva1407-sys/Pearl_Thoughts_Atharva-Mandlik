@@ -231,40 +231,6 @@ export class MedrellaRepository
       }
     });
 
-    this.seedDemoPatients();
-  }
-
-  private seedDemoPatients() {
-    const password = process.env.DEMO_PATIENT_PASSWORD;
-    if (process.env.DEMO_DATA !== "true" || !password || this.mem.doctors.length === 0) return;
-
-    const hash = hashPassword(password);
-    const dayMs = 24 * 60 * 60 * 1000;
-    const daysAgo = (n: number) => istDateString(new Date(Date.now() - n * dayMs));
-    const doctor = this.mem.doctors[0];
-    const patients = [
-      { key: "priya", email: "priya.demo@medrella.demo", firstName: "Priya", lastName: "Deshmukh", visitDaysAgo: 2 },
-    ];
-
-    for (const p of patients) {
-      const userId = `demo-user-${p.key}`;
-      const patientId = `demo-patient-${p.key}`;
-      this.mem.users.push({ id: userId, email: p.email, passwordHash: hash, role: "PATIENT", isActive: true, createdAt: new Date() });
-      this.mem.patients.push({ id: patientId, userId, firstName: p.firstName, lastName: p.lastName, phone: "9800000000" });
-      this.mem.appointments.push({
-        id: `demo-appt-${p.key}`,
-        patientId,
-        doctorId: doctor.id,
-        appointmentDate: daysAgo(p.visitDaysAgo),
-        startTime: "10:00",
-        endTime: "10:15",
-        status: "COMPLETED",
-        tokenNumber: 1,
-        reason: "General consultation",
-        createdAt: new Date(Date.now() - (p.visitDaysAgo + 2) * dayMs),
-      });
-      this.mem.notificationPreferences.push({ userId, emailPromotional: true, consentedAt: new Date(), updatedAt: new Date() });
-    }
   }
 
   // --- User & Patient Operations ---
