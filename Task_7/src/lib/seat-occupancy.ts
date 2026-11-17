@@ -12,7 +12,13 @@ export function appointmentOccupiesSeat(
   app: { status: string; holdExpiresAt?: Date | string | null },
   now: Date = new Date()
 ): boolean {
-  if (app.status === "BOOKED" || app.status === "COMPLETED" || app.status === "NO_SHOW") {
+  if (
+    app.status === "BOOKED" ||
+    app.status === "CHECKED_IN" ||
+    app.status === "IN_CONSULTATION" ||
+    app.status === "COMPLETED" ||
+    app.status === "NO_SHOW"
+  ) {
     return true;
   }
   if (app.status === "PENDING_PAYMENT") {
@@ -28,5 +34,5 @@ export function appointmentOccupiesSeat(
  */
 export function occupiesSeatSql(now: Date = new Date()): SQL {
   const nowIso = now.toISOString();
-  return sql`(${schema.appointments.status} IN ('BOOKED', 'COMPLETED', 'NO_SHOW') OR (${schema.appointments.status} = 'PENDING_PAYMENT' AND ${schema.appointments.holdExpiresAt} > ${nowIso}::timestamp))`;
+  return sql`(${schema.appointments.status} IN ('BOOKED', 'CHECKED_IN', 'IN_CONSULTATION', 'COMPLETED', 'NO_SHOW') OR (${schema.appointments.status} = 'PENDING_PAYMENT' AND ${schema.appointments.holdExpiresAt} > ${nowIso}::timestamp))`;
 }

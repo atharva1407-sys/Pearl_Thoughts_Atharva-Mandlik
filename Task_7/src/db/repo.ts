@@ -306,6 +306,9 @@ export class MedrellaRepository
   public async getPrescriptionByAppointmentId(appointmentId: string) { return this.appointmentRepo.getPrescriptionByAppointmentId(appointmentId); }
   public async getPrescriptionsByPatientId(patientId: string) { return this.appointmentRepo.getPrescriptionsByPatientId(patientId); }
   public async getAppointmentsInRange(fromDate: string, toDate: string, statuses: AppointmentStatus[]) { return this.appointmentRepo.getAppointmentsInRange(fromDate, toDate, statuses); }
+  public async checkInAppointment(appointmentId: string, doctorId: string, checkedInBy: string, now?: Date) { return this.appointmentRepo.checkInAppointment(appointmentId, doctorId, checkedInBy, now); }
+  public async startConsultation(appointmentId: string, doctorId: string, now?: Date) { return this.appointmentRepo.startConsultation(appointmentId, doctorId, now); }
+  public async getDoctorAppointmentsForDate(doctorId: string, date: string) { return this.appointmentRepo.getDoctorAppointmentsForDate(doctorId, date); }
 
   // --- Billing & Payment Operations ---
   public async createPayment(data: Parameters<BillingRepository["createPayment"]>[0]) { return this.billingRepo.createPayment(data); }

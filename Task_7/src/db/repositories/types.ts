@@ -73,6 +73,8 @@ export interface DoctorLeaveEntity {
 export type AppointmentStatus =
   | "PENDING_PAYMENT"
   | "BOOKED"
+  | "CHECKED_IN"
+  | "IN_CONSULTATION"
   | "COMPLETED"
   | "CANCELLED"
   | "NO_SHOW"
@@ -97,6 +99,9 @@ export interface AppointmentEntity {
   originalAppointmentDate?: string | null;
   originalStartTime?: string | null;
   originalEndTime?: string | null;
+  checkedInAt?: Date | null;
+  checkedInBy?: string | null;
+  consultationStartedAt?: Date | null;
   createdAt: Date;
 }
 

@@ -92,7 +92,7 @@ export const appointments = pgTable(
     endTime: text("end_time").notNull(),
     status: text("status")
       .notNull()
-      .$type<"PENDING_PAYMENT" | "BOOKED" | "COMPLETED" | "CANCELLED" | "NO_SHOW" | "EXPIRED">()
+      .$type<"PENDING_PAYMENT" | "BOOKED" | "CHECKED_IN" | "IN_CONSULTATION" | "COMPLETED" | "CANCELLED" | "NO_SHOW" | "EXPIRED">()
       .default("BOOKED"),
     tokenNumber: integer("token_number").default(1).notNull(),
     reason: text("reason"),
@@ -104,6 +104,9 @@ export const appointments = pgTable(
     originalAppointmentDate: text("original_appointment_date"),
     originalStartTime: text("original_start_time"),
     originalEndTime: text("original_end_time"),
+    checkedInAt: timestamp("checked_in_at"),
+    checkedInBy: text("checked_in_by"),
+    consultationStartedAt: timestamp("consultation_started_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
@@ -112,6 +115,7 @@ export const appointments = pgTable(
     index("appointment_date_idx").on(table.appointmentDate),
     index("appointment_doctor_slot_idx").on(table.doctorId, table.appointmentDate, table.startTime),
     index("appointment_status_idx").on(table.status),
+    index("appointment_checkin_idx").on(table.doctorId, table.appointmentDate, table.checkedInAt),
   ]
 );
 
