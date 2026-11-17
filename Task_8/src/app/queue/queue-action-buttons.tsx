@@ -2,13 +2,23 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, CheckCircle2, UserCheck, Stethoscope } from "lucide-react";
+import { Loader2, CheckCircle2, UserCheck, Stethoscope, UserMinus, AlertCircle } from "lucide-react";
 import {
   checkInAppointmentAction,
   startConsultationAction,
   completeAppointmentAction,
+  markPatientUnavailableAction,
 } from "@/actions/appointments";
 import { Button } from "@/components/ui/button";
+import { useOpenReschedule } from "@/components/unavailable-reschedule-provider";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export function CheckInButton({
   appointmentId,
@@ -138,5 +148,112 @@ export function CompleteConsultationButton({
       </Button>
       {error && <span className="text-[10px] text-red-600 font-medium">{error}</span>}
     </div>
+  );
+}
+
+export function UnavailableButton({
+  appointmentId,
+  patientName,
+  doctorId,
+  doctorName,
+  appointmentDate,
+  startTime,
+}: {
+  appointmentId: string;
+  patientName: string;
+  doctorId: string;
+  doctorName: string;
+  appointmentDate: string;
+  startTime: string;
+}) {
+  const openReschedule = useOpenReschedule();
+  const [isPending, startTransition] = useTransition();
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleConfirmUnavailable = () => {
+    setError(null);
+    startTransition(async () => {
+      const res = await markPatientUnavailableAction(appointmentId);
+      if (res.success) {
+        // Hand the reschedule dialog to the provider first: this row is about to leave the waiting list.
+        openReschedule({
+          appointmentId,
+          doctorId,
+          doctorName,
+          currentDate: appointmentDate,
+          currentTime: startTime,
+        });
+        setIsConfirmOpen(false);
+      } else {
+        setError(res.error || "Failed to mark patient unavailable.");
+      }
+    });
+  };
+
+  return (
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          setError(null);
+          setIsConfirmOpen(true);
+        }}
+        disabled={isPending}
+        className="text-xs py-1 px-2.5 text-amber-700 hover:bg-amber-50 border-amber-300 font-semibold inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
+        title={`Mark ${patientName} as unavailable in waiting queue`}
+      >
+        <UserMinus size={13} />
+        <span>Unavailable</span>
+      </Button>
+
+      {/* Confirmation Dialog */}
+      <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <span className="p-1 rounded bg-amber-100 text-amber-700">
+                <AlertCircle size={18} />
+              </span>
+              Mark Patient Unavailable?
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-600 pt-1 leading-relaxed">
+              Are you sure you want to mark <strong>{patientName}</strong> as unavailable?
+              They will be removed from the active waiting queue, and you will be prompted to reschedule them to another available slot with Dr. {doctorName}.
+            </DialogDescription>
+          </DialogHeader>
+
+          {error && (
+            <div className="p-2.5 rounded bg-red-50 border border-red-200 text-xs text-red-700">
+              {error}
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              onClick={() => setIsConfirmOpen(false)}
+              disabled={isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              type="button"
+              onClick={handleConfirmUnavailable}
+              disabled={isPending}
+              className="bg-amber-600 hover:bg-amber-700 text-white font-semibold flex items-center gap-1.5"
+            >
+              {isPending && <Loader2 size={13} className="animate-spin" />}
+              <span>{isPending ? "Updating..." : "Confirm & Reschedule"}</span>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

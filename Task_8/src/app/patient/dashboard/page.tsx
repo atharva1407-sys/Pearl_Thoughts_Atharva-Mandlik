@@ -33,6 +33,10 @@ export default async function PatientDashboard() {
   if (!user) {
     redirect("/login?message=Please sign in to access your appointments.");
   }
+  // Front-desk staff have no patient record; their workspace is the reception console.
+  if (user.role === "RECEPTIONIST") {
+    redirect("/reception");
+  }
 
   // Only a doctor needs a lookup to find their patient record; a patient's id is already in the session.
   const patientId =

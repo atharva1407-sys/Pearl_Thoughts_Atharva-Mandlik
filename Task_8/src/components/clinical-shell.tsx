@@ -120,7 +120,7 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleDeleteAccount = async () => {
-    const roleLabel = user?.role === "DOCTOR" ? "Doctor" : "Patient";
+    const roleLabel = user?.role === "DOCTOR" ? "Doctor" : user?.role === "RECEPTIONIST" ? "Receptionist" : "Patient";
     const password = window.prompt(
       `⚠️ PERMANENT ACCOUNT DELETION\n\nAre you sure you want to permanently delete your ${roleLabel} account?\n\nAll personal information, active bookings, and associated clinical records will be permanently removed from the database.\n\nPlease enter your account password to confirm deletion:`
     );
@@ -155,6 +155,7 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
   }
 
   const getBreadcrumb = () => {
+    if (pathname.startsWith("/reception")) return "Front Desk Reception Console";
     if (pathname.startsWith("/queue")) return "Live Token Queue";
     if (pathname === "/doctors") return "Specialists Directory";
     if (pathname.startsWith("/doctors/")) return "Book Consultation";
@@ -359,6 +360,38 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
               </Link>
             </nav>
           </>
+        ) : user?.role === "RECEPTIONIST" ? (
+          <>
+            <div className="nav-label">RECEPTION &amp; FRONT DESK</div>
+            <nav>
+              <Link
+                href="/reception"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname.startsWith("/reception") ? "active" : ""}`}
+              >
+                <ClipboardList size={17} />
+                <span>Reception Console</span>
+              </Link>
+
+              <Link
+                href="/queue"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname.startsWith("/queue") ? "active" : ""}`}
+              >
+                <Clock3 size={17} />
+                <span>Live Queue</span>
+              </Link>
+
+              <Link
+                href="/doctors"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname === "/doctors" || pathname.startsWith("/doctors/") ? "active" : ""}`}
+              >
+                <Stethoscope size={17} />
+                <span>Specialists Directory</span>
+              </Link>
+            </nav>
+          </>
         ) : (
           <>
             <div className="nav-label">OUTPATIENT SERVICES</div>
@@ -439,7 +472,11 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
               <div>
                 <b>{user.name}</b>
                 <small>
-                  {user.role === "DOCTOR" ? "Doctor · Admin access" : "Patient · Verified"}
+                  {user.role === "DOCTOR"
+                    ? "Doctor · Admin access"
+                    : user.role === "RECEPTIONIST"
+                    ? "Front Desk · Reception"
+                    : "Patient · Verified"}
                 </small>
               </div>
               <div className="flex items-center gap-1 shrink-0">
@@ -512,21 +549,32 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
             </div>
 
             {/* Quick Action Button */}
-            <Link href="/doctors" className="btn primary topbar-book-btn hidden sm:inline-flex">
-              <Plus size={14} />
-              <span>Book Appointment</span>
-            </Link>
+            {user?.role !== "RECEPTIONIST" && (
+              <Link href="/doctors" className="btn primary topbar-book-btn hidden sm:inline-flex">
+                <Plus size={14} />
+                <span>Book Appointment</span>
+              </Link>
+            )}
 
             {/* Notifications Button */}
             <NotificationBell signedIn={!!user} />
 
             {/* User Profile Mini Trigger */}
             {user ? (
-              <Link href={user.role === "DOCTOR" ? "/doctor/dashboard" : "/patient/dashboard"} className="profile-button">
+              <Link
+                href={
+                  user.role === "DOCTOR"
+                    ? "/doctor/dashboard"
+                    : user.role === "RECEPTIONIST"
+                    ? "/reception"
+                    : "/patient/dashboard"
+                }
+                className="profile-button"
+              >
                 <span className="avatar small-avatar">{getInitials(user.name)}</span>
                 <span className="hidden md:block">
                   <b>{user.name}</b>
-                  <small>{user.role === "DOCTOR" ? "Doctor" : "Patient"}</small>
+                  <small>{user.role === "DOCTOR" ? "Doctor" : user.role === "RECEPTIONIST" ? "Receptionist" : "Patient"}</small>
                 </span>
               </Link>
             ) : (

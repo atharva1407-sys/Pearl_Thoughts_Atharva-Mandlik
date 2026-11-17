@@ -26,6 +26,8 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { UnavailableRescheduleProvider } from "@/components/unavailable-reschedule-provider";
+
 export default async function DoctorDashboard() {
   const user = await getCurrentUser();
   if (!user || user.role !== "DOCTOR") {
@@ -46,6 +48,7 @@ export default async function DoctorDashboard() {
   const completedBookings = appointments.filter((a) => a.status === "COMPLETED");
 
   return (
+    <UnavailableRescheduleProvider>
     <div className="space-y-6">
       {/* Page Heading */}
       <div className="page-heading">
@@ -274,5 +277,6 @@ export default async function DoctorDashboard() {
         configured={Boolean(process.env.SARVAM_API_KEY?.trim())}
       />
     </div>
+    </UnavailableRescheduleProvider>
   );
 }
