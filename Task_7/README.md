@@ -1,6 +1,6 @@
 <div align="center">
 
-# Task 6: Conversational Healthcare Agent & Elastic Scheduling
+# Task 7: Patient Check-In & Dynamic OPD Queue Management
 
 <p align="center">
   <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js_16-000000?style=flat-square&logo=nextdotjs&logoColor=white" alt="Next.js" /></a>
@@ -11,11 +11,11 @@
 
 </div>
 
-Full-stack clinical management platform featuring a **Conversational Healthcare Agent**, **Proactive Engagement Jobs**, and **Elastic Scheduling** for **Pearl Thoughts (Task 6)**.
+Full-stack clinical management platform featuring **Patient Check-in**, **Dynamic OPD Queue Management**, **Conversational Healthcare Agent**, and **Elastic Scheduling** for **Pearl Thoughts (Task 7)**.
 
 ---
 
-## 💎 Task 6 Core Innovations
+## 💎 Task 7 Core Innovations
 
 > [!NOTE]
 > ### 🤖 AI Assistant for Patients **and** Doctors (floating chat on each dashboard)
@@ -28,6 +28,15 @@ Full-stack clinical management platform featuring a **Conversational Healthcare 
 > [!IMPORTANT]
 > ### 📬 Proactive Patient Engagement Jobs (`/api/cron/engagement`)
 > **Care Follow-Up & Retention** · Automated cron jobs run daily: post-visit follow-ups sent after consultation completion, preventive care reminders (90 days), and patient re-engagement nudges (180 days). Promotional messages are strictly gated by patient opt-in preferences.
+
+> [!NOTE]
+> ### 🏥 Patient Check-In & Dynamic OPD Queue Management (`src/lib/queue.ts`)
+> **Live Triage & Consultation Progress** · Doctors and clinic staff can check in same-day `BOOKED` patients directly from their agenda or the live queue (`/queue`). Check-in records `checkedInAt` and `checkedInBy` with atomic database guards preventing duplicate attempts or timestamp overwriting.
+> - **Dynamic Positions, Permanent Tokens**: Check-in order establishes queue positions (`1..N` with zero gaps). Permanent token numbers are never renumbered ("Token #5 · Position 2").
+> - **Accurate Wait Times**: Computed using active session duration and elapsed consultation progress (replacing static token formulas).
+> - **Clinical Lifecycle**: `BOOKED` → `CHECKED_IN` → `IN_CONSULTATION` → `COMPLETED`. Only one patient may be in consultation with a doctor at a time.
+> - **Privacy-Safe Patient Portal**: Patients track live queue status ("Now Serving Token #3 · Your Token #5 · 1 patient ahead of you") with zero exposure of other patients' identities.
+> - *Role Note*: The platform supports `DOCTOR` and `PATIENT` roles; doctors perform check-in and consultation control. A specialized `RECEPTIONIST` front-desk role is documented as a future access control extension.
 
 ---
 
@@ -110,14 +119,15 @@ When editing session hours that affect booked patients, the system requires an e
 ## 🛠️ Verification & Test Suite
 
 ```bash
-cd Task_6
+cd Task_7
 npm install
 cp .env.example .env.local
 npm run db:migrate        # runs complete advisory-locked database migrations
+npm run db:migrate-0008   # runs additive patient check-in & queue migration (columns & index)
 npm run test:pg           # runs real PostgreSQL concurrency and advisory lock tests
 npm run test:e2e          # runs Playwright E2E clinical user journeys
 npm run dev               # Starts dev server on http://localhost:3000
-npm test                  # Runs 753 automated tests across 11 suites (zero network needed)
+npm test                  # Runs 840 automated tests across 15 suites (zero network needed)
 ```
 
 | Test Suite | Tests | Result | Verification Scope |
@@ -128,13 +138,17 @@ npm test                  # Runs 753 automated tests across 11 suites (zero netw
 | **`src/test-brevo-welcome.ts`** | **31** | **Passed** | Welcome notification pipeline, template escaping, and non-blocking delivery. |
 | **`src/test-agent.ts`** | **72** | **Passed** | Sarvam AI tool calling, safety checks, multilingual emergency triage, and crons. |
 | **`src/test-assistant.ts`** | **99** | **Passed** | Doctor tools, confirmed booking/cancel/reschedule, expired/forged confirmations, slot taken guards, and VAD audio handling. |
+| **`src/test-dev-store.ts`** | **14** | **Passed** | Dev and mock persistence validation across runtime environments. |
+| **`src/test-voice-choice.ts`** | **13** | **Passed** | Multilingual speech synthesis selection and voice preference storage. |
+| **`src/test-chat-history.ts`** | **41** | **Passed** | Device-scoped chat storage, privacy limits, sign-out purge, and timestamp formatting. |
 | **`src/test-timezone.ts`** | **4** | **Passed** | Hospital timezone rules evaluated across UTC, Asia/Kolkata, America/Los_Angeles, Pacific/Auckland. |
 | **`src/test-scheduling.ts`** | **114** | **Passed** | Wave & stream recurrence, specific-date shifts, and timezone cross-checks. |
 | **`src/test-elastic.ts`** | **105** | **Passed** | Live OPD session expansion, shrinkage, slot calculation, and clinical conflict resolution. |
 | **`src/test-phase1-hardening.ts`** | **48** | **Passed** | Distributed rate limiting, environment validation, background sweep safety, and advisory locks. |
 | **`src/test-phase3-lifecycle.ts`** | **12** | **Passed** | Appointment state machine transitions, concurrency guards, and deterministic refund idempotency. |
+| **`src/test-checkin-queue.ts`** | **19** | **Passed** | Patient check-in idempotency, queue order, dynamic repositioning, wait time estimation, and consultation progression. |
 | **`tests/e2e/clinic.spec.ts`** | **10** | **Passed** | 10 Playwright E2E clinical journeys (registration, login, slot picker, voice UI, dashboard). |
-| **Total Test Suite** | **763 Passed** | **0 Failed** | **100% Deterministic Verification** |
+| **Total Test Suite** | **850 Passed** | **0 Failed** | **100% Deterministic Verification** |
 
 ---
 
