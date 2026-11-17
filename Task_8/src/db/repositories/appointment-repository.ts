@@ -335,7 +335,7 @@ export class AppointmentRepository implements IAppointmentRepository {
     id: string,
     status: AppointmentStatus,
     extra?: {
-      cancelledBy?: "PATIENT" | "DOCTOR" | "SYSTEM" | null;
+      cancelledBy?: "PATIENT" | "DOCTOR" | "SYSTEM" | "RECEPTIONIST" | null;
       cancelReason?: string | null;
       expectedStatus?: AppointmentStatus;
     }
@@ -376,7 +376,7 @@ export class AppointmentRepository implements IAppointmentRepository {
     newEndTime: string;
     newSessionId?: string | null;
     actorUserId: string;
-    actorRole: "PATIENT" | "DOCTOR";
+    actorRole: "PATIENT" | "DOCTOR" | "RECEPTIONIST";
   }): Promise<{ success: boolean; message: string; appointment?: AppointmentEntity }> {
     this.ctx.checkProductionDatabase();
     const db = this.ctx.getDb();
@@ -516,7 +516,7 @@ export class AppointmentRepository implements IAppointmentRepository {
       if (apptDateTime.getTime() - Date.now() < 60 * 60 * 1000) {
         return { success: false, message: "Appointments can only be rescheduled at least 1 hour in advance." };
       }
-    } else {
+    } else if (data.actorRole === "DOCTOR") {
       const d = mem.doctors.find((doc) => doc.userId === data.actorUserId);
       if (!d || d.id !== appt.doctorId) return { success: false, message: "Unauthorized." };
     }
@@ -1026,5 +1026,154 @@ export class AppointmentRepository implements IAppointmentRepository {
       .appointments.filter((a) => a.doctorId === doctorId && a.appointmentDate === date)
       .sort((a, b) => a.tokenNumber - b.tokenNumber)
       .map((a) => ({ ...a }));
+  }
+
+  public async markPatientUnavailable(
+    appointmentId: string,
+    doctorId?: string
+  ): Promise<{ success: boolean; error?: string; appointment?: AppointmentEntity }> {
+    this.ctx.checkProductionDatabase();
+    const db = this.ctx.getDb();
+
+    if (db) {
+      const conditions = [
+        eq(schema.appointments.id, appointmentId),
+        eq(schema.appointments.status, "CHECKED_IN"),
+      ];
+      if (doctorId) {
+        conditions.push(eq(schema.appointments.doctorId, doctorId));
+      }
+
+      const res = await db
+        .update(schema.appointments)
+        .set({
+          status: "BOOKED",
+          checkedInAt: null,
+          checkedInBy: null,
+        })
+        .where(and(...conditions))
+        .returning();
+
+      if (res.length > 0) {
+        return { success: true, appointment: res[0] as AppointmentEntity };
+      }
+
+      const existing = await this.getAppointmentById(appointmentId);
+      if (!existing) {
+        return { success: false, error: "Appointment not found." };
+      }
+      if (doctorId && existing.doctorId !== doctorId) {
+        return { success: false, error: "Forbidden: You can only update appointments for your own schedule." };
+      }
+      if (existing.status === "IN_CONSULTATION") {
+        return {
+          success: false,
+          error: "Cannot mark patient unavailable: Patient is currently in consultation with the doctor.",
+        };
+      }
+      if (existing.status === "COMPLETED") {
+        return {
+          success: false,
+          error: "Cannot mark patient unavailable: Consultation is already completed.",
+        };
+      }
+      if (existing.status !== "CHECKED_IN") {
+        return {
+          success: false,
+          error: `Cannot mark patient unavailable with status ${existing.status}. Only CHECKED_IN patients can be marked unavailable.`,
+        };
+      }
+      return { success: false, error: "Failed to mark patient unavailable." };
+    }
+
+    // In-memory store
+    const mem = this.ctx.getMem();
+    const existing = mem.appointments.find((a) => a.id === appointmentId);
+    if (!existing) {
+      return { success: false, error: "Appointment not found." };
+    }
+    if (doctorId && existing.doctorId !== doctorId) {
+      return { success: false, error: "Forbidden: You can only update appointments for your own schedule." };
+    }
+    if (existing.status === "IN_CONSULTATION") {
+      return {
+        success: false,
+        error: "Cannot mark patient unavailable: Patient is currently in consultation with the doctor.",
+      };
+    }
+    if (existing.status === "COMPLETED") {
+      return {
+        success: false,
+        error: "Cannot mark patient unavailable: Consultation is already completed.",
+      };
+    }
+    if (existing.status !== "CHECKED_IN") {
+      return {
+        success: false,
+        error: `Cannot mark patient unavailable with status ${existing.status}. Only CHECKED_IN patients can be marked unavailable.`,
+      };
+    }
+
+    existing.status = "BOOKED";
+    existing.checkedInAt = null;
+    existing.checkedInBy = null;
+    return { success: true, appointment: { ...existing } };
+  }
+
+  public async getAllAppointmentsForDate(
+    date: string
+  ): Promise<(AppointmentEntity & { patient: PatientEntity; doctor: DoctorEntity })[]> {
+    this.ctx.checkProductionDatabase();
+    const db = this.ctx.getDb();
+
+    if (db) {
+      const rows = await db
+        .select({
+          appointment: schema.appointments,
+          patient: schema.patients,
+          doctor: schema.doctors,
+        })
+        .from(schema.appointments)
+        .innerJoin(schema.patients, eq(schema.appointments.patientId, schema.patients.id))
+        .innerJoin(schema.doctors, eq(schema.appointments.doctorId, schema.doctors.id))
+        .where(eq(schema.appointments.appointmentDate, date))
+        .orderBy(schema.appointments.tokenNumber);
+
+      return rows.map((r) => ({
+        ...(r.appointment as AppointmentEntity),
+        patient: r.patient as PatientEntity,
+        doctor: r.doctor as DoctorEntity,
+      }));
+    }
+
+    const mem = this.ctx.getMem();
+    return mem.appointments
+      .filter((a) => a.appointmentDate === date)
+      .sort((a, b) => a.tokenNumber - b.tokenNumber)
+      .map((a) => {
+        const patient = mem.patients.find((p) => p.id === a.patientId) || {
+          id: a.patientId,
+          userId: "u-unknown",
+          firstName: "Unknown",
+          lastName: "Patient",
+          phone: "",
+        };
+        const doctor = mem.doctors.find((d) => d.id === a.doctorId) || {
+          id: a.doctorId,
+          userId: "u-unknown",
+          firstName: "Unknown",
+          lastName: "Doctor",
+          specialization: "General Medicine",
+          phone: "",
+          licenseNumber: "",
+          experienceYears: 0,
+          consultationFee: 500,
+        };
+        return {
+          ...a,
+          patient: { ...patient },
+          doctor: { ...doctor },
+        };
+      });
   }
 }

@@ -5,7 +5,7 @@ export interface UserEntity {
   id: string;
   email: string;
   passwordHash: string;
-  role: "PATIENT" | "DOCTOR";
+  role: "PATIENT" | "DOCTOR" | "RECEPTIONIST";
   isActive: boolean;
   createdAt: Date;
 }
@@ -92,10 +92,10 @@ export interface AppointmentEntity {
   tokenNumber: number;
   reason?: string | null;
   holdExpiresAt?: Date | null;
-  cancelledBy?: "PATIENT" | "DOCTOR" | "SYSTEM" | null;
+  cancelledBy?: "PATIENT" | "DOCTOR" | "SYSTEM" | "RECEPTIONIST" | null;
   cancelReason?: string | null;
   rescheduledAt?: Date | null;
-  rescheduledBy?: "PATIENT" | "DOCTOR" | null;
+  rescheduledBy?: "PATIENT" | "DOCTOR" | "RECEPTIONIST" | null;
   originalAppointmentDate?: string | null;
   originalStartTime?: string | null;
   originalEndTime?: string | null;

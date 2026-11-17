@@ -3,6 +3,7 @@ import * as schema from "./schema";
 import { hashPassword } from "@/lib/auth-crypto";
 import { RUBY_HALL_SPECIALISTS, specialistSessionId, getSeedDoctorPassword } from "./specialists-catalog";
 import { seedSpecialists } from "./seed-specialists";
+import { seedTask8DemoData } from "./demo/seed-task8";
 import { istDateString } from "@/lib/time";
 import { weekdayOfDate, type DayCode } from "@/lib/session-schedule";
 import type {
@@ -22,6 +23,7 @@ import {
   type MemoryStore,
   type RepositoryContext,
 } from "./repositories";
+export type MedrellaMemoryStore = MemoryStore;
 import type {
   UserEntity,
   PatientEntity,
@@ -222,6 +224,7 @@ export class MedrellaRepository
     });
 
     this.seedDemoPatients();
+    seedTask8DemoData(this.mem);
   }
 
   private seedDemoPatients() {
@@ -309,6 +312,8 @@ export class MedrellaRepository
   public async checkInAppointment(appointmentId: string, doctorId: string, checkedInBy: string, now?: Date, expectedDate?: string) { return this.appointmentRepo.checkInAppointment(appointmentId, doctorId, checkedInBy, now, expectedDate); }
   public async startConsultation(appointmentId: string, doctorId: string, now?: Date) { return this.appointmentRepo.startConsultation(appointmentId, doctorId, now); }
   public async getDoctorAppointmentsForDate(doctorId: string, date: string) { return this.appointmentRepo.getDoctorAppointmentsForDate(doctorId, date); }
+  public async markPatientUnavailable(appointmentId: string, doctorId?: string) { return this.appointmentRepo.markPatientUnavailable(appointmentId, doctorId); }
+  public async getAllAppointmentsForDate(date: string) { return this.appointmentRepo.getAllAppointmentsForDate(date); }
 
   // --- Billing & Payment Operations ---
   public async createPayment(data: Parameters<BillingRepository["createPayment"]>[0]) { return this.billingRepo.createPayment(data); }
