@@ -4,7 +4,7 @@
 
 ### Outpatient booking, payments and a multilingual voice AI assistant for Ruby Hall Clinic, Pune
 
-*Pearl Thoughts Full Stack Assessment · Tasks 1 to 7*
+*Pearl Thoughts Full Stack Assessment · Tasks 1 to 8*
 
 <a href="https://medrella-healthcare.vercel.app"><img src="https://img.shields.io/badge/LIVE_DEMO-medrella--healthcare.vercel.app-0875DF?style=for-the-badge&logo=vercel&logoColor=white" alt="Live demo" /></a>
 <a href="https://github.com/atharva1407-sys/Medrella_Healthcare"><img src="https://img.shields.io/badge/DEPLOYMENT_REPO-Medrella__Healthcare-181717?style=for-the-badge&logo=github&logoColor=white" alt="Deployment repository" /></a>
@@ -29,7 +29,7 @@ A hospital appointment platform built one task at a time. Patients find a doctor
 - 🤖 **AI that acts safely**: real backend actions, signed single-use confirmations, emergency messages routed to 112, client-side chat history.
 - 💳 **Real payment flow**: Razorpay checkout, 10-minute seat holds, signature checks, tiered refunds.
 - 📬 **Reliable emails**: transactional outbox with retries and a dead-letter dashboard.
-- ✅ **Tested**: 790+ automated checks, run in CI on every push.
+- ✅ **Tested**: 859+ automated checks, run in CI on every push.
 
 ## 📋 All tasks and their features
 
@@ -44,6 +44,7 @@ Each folder is a complete, separately runnable app. Every task builds on the one
 | [**5**](Task_5) | Email outbox | • Transactional outbox: emails never block a booking<br>• Brevo and Resend delivery with retries<br>• Confirmation and reminder emails, IST-accurate timing<br>• Medical details kept out of emails<br>• Admin dead-letter dashboard and one-click unsubscribe | 417 |
 | [**6**](Task_6) | AI assistant and elastic scheduling | • **Assistant for patients and doctors**: text or hands-free voice, 4 languages, interrupt and stop<br>• **Chat history**: saved in browser per user, reopen, delete, clear<br>• Patients: search doctors, book, reschedule, cancel, pay in chat, see prescriptions and refunds<br>• Doctors: schedule, stats, leaves, conflicts, next free slot, reschedule suggestions<br>• **Confirm before any change**, slot rechecked at confirm time<br>• Elastic sessions: stretch or shrink hours even when booked<br>• Doctor-written prescriptions, follow-up and reminder jobs | 794 |
 | [**7**](Task_7) | Patient check-in and queue management | • Doctor and staff patient check-in with atomic duplicate guards<br>• Dynamic OPD queue with contiguous positions (1..N) and permanent tokens<br>• Accurate wait time estimation based on consultation progress<br>• Clinical lifecycle: BOOKED → CHECKED_IN → IN_CONSULTATION → COMPLETED<br>• Real-time privacy-safe patient dashboard queue tracking | 840 |
+| [**8**](Task_8) | Receptionist console & queue unavailable/reschedule | • Dedicated Receptionist role with unified authorization (`canManageAppointment`)<br>• Multi-doctor front-desk console (`/reception`) with zero N+1 queries (`getAllAppointmentsForDate`)<br>• Atomic "Unavailable" action removing waiting patients and prompting reschedule<br>• Contiguous queue gap-closing without holes and tail re-entry on arrival<br>• Offline realistic OPD simulation data (`start-demo.bat`) · Next.js 16.4.6 patch | 859 |
 
 ## 🎬 2-minute demo (what to click)
 
@@ -63,7 +64,7 @@ Open the **[live app](https://medrella-healthcare.vercel.app)** and follow along
 ## 🏃 Run it locally
 
 ```bash
-cd Task_7                      # or Task_1 ... Task_6
+cd Task_8                      # or Task_1 ... Task_7
 npm install
 cp .env.example .env.local
 npm run dev                    # http://localhost:3000
@@ -76,7 +77,8 @@ npm test                       # all automated checks, no network needed
 
 | Repository | Purpose |
 |---|---|
-| **This repo** (`Pearl_Thoughts_Atharva-Mandlik`) | Task by task history, Tasks 1 to 7 |
+| **This repo** (`Pearl_Thoughts_Atharva-Mandlik`) | Task by task history, Tasks 1 to 8 |
+| [`Medrella_Healthcare`](https://github.com/atharva1407-sys/Medrella_Healthcare) | The production build deployed on Vercel, with CI and operations guides |
 | [`Medrella_Healthcare`](https://github.com/atharva1407-sys/Medrella_Healthcare) | The production build deployed on Vercel, with CI and operations guides |
 
 ---
