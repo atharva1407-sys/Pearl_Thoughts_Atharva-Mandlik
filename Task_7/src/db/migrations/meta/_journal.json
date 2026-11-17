@@ -57,6 +57,13 @@
       "when": 1794391373811,
       "tag": "0007_prescriptions",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794815361821,
+      "tag": "0008_perpetual_expediter",
+      "breakpoints": true
     }
   ]
 }
