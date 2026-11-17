@@ -262,7 +262,13 @@ function AvailabilityBadge({ slot, dates }: { slot: NextOpenSlot | undefined; da
 export default async function HomePage() {
   // Checking the signed-in user and loading the doctors are independent: run them together.
   const [user, { doctors, nextSlots, dates, failed }] = await Promise.all([getCurrentUser(), loadLandingData()]);
-  const dashboardHref = user ? (user.role === "DOCTOR" ? "/doctor/dashboard" : "/patient/dashboard") : null;
+  const dashboardHref = user
+    ? user.role === "DOCTOR"
+      ? "/doctor/dashboard"
+      : user.role === "RECEPTIONIST"
+      ? "/reception"
+      : "/patient/dashboard"
+    : null;
 
   // Founding specialists first, in the order of the landing page design; then everyone else, most experienced first.
   const catalogRank = (id: string) => {

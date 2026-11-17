@@ -35,7 +35,7 @@ type AuthPageProps = {
 
 export default function AuthPage({ mode }: AuthPageProps) {
   const isSignup = mode === "signup";
-  const [role, setRole] = useState<"PATIENT" | "DOCTOR">("PATIENT");
+  const [role, setRole] = useState<"PATIENT" | "DOCTOR" | "RECEPTIONIST">("PATIENT");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [agree, setAgree] = useState(false);
@@ -233,21 +233,21 @@ export default function AuthPage({ mode }: AuthPageProps) {
           </div>
 
           {/* Role Switcher Pill Bar */}
-          <div className="mb-4 p-1 bg-slate-100 rounded-xl border border-slate-200 grid grid-cols-2 gap-1">
+          <div className={`mb-4 p-1 bg-slate-100 rounded-xl border border-slate-200 grid ${isSignup ? "grid-cols-2" : "grid-cols-3"} gap-1`}>
             <Button variant="bare"
               type="button"
               onClick={() => {
                 setRole("PATIENT");
                 setError(null);
               }}
-              className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              className={`py-2 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ${
                 role === "PATIENT"
                   ? "bg-white text-blue-700 shadow-sm border border-slate-200/60"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
               <UserRound size={14} />
-              <span>Patient Portal</span>
+              <span>{isSignup ? "Patient Portal" : "Patient"}</span>
             </Button>
             <Button variant="bare"
               type="button"
@@ -255,15 +255,32 @@ export default function AuthPage({ mode }: AuthPageProps) {
                 setRole("DOCTOR");
                 setError(null);
               }}
-              className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              className={`py-2 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ${
                 role === "DOCTOR"
                   ? "bg-white text-blue-700 shadow-sm border border-slate-200/60"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
               <Stethoscope size={14} />
-              <span>Doctor Portal</span>
+              <span>{isSignup ? "Doctor Portal" : "Doctor"}</span>
             </Button>
+            {!isSignup && (
+              <Button variant="bare"
+                type="button"
+                onClick={() => {
+                  setRole("RECEPTIONIST");
+                  setError(null);
+                }}
+                className={`py-2 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ${
+                  role === "RECEPTIONIST"
+                    ? "bg-white text-blue-700 shadow-sm border border-slate-200/60"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <Briefcase size={14} />
+                <span>Reception</span>
+              </Button>
+            )}
           </div>
 
           {error && (
@@ -317,7 +334,13 @@ export default function AuthPage({ mode }: AuthPageProps) {
                 type="email"
                 required
                 autoComplete="email"
-                placeholder={role === "PATIENT" ? "patient@example.com" : "doctor@medrella.com"}
+                placeholder={
+                  role === "PATIENT"
+                    ? "patient@example.com"
+                    : role === "RECEPTIONIST"
+                    ? "reception@medrella.com"
+                    : "doctor@medrella.com"
+                }
                 aria-label="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -449,6 +472,10 @@ export default function AuthPage({ mode }: AuthPageProps) {
             </Button>
           </form>
 
+          {/* Front-desk accounts are created by clinic staff, never through public sign-up. */}
+          {!isSignup && role === "RECEPTIONIST" ? (
+            <p className="switch-auth">Front-desk accounts are created by clinic administrators.</p>
+          ) : (
           <p className="switch-auth">
             {isSignup ? "Already have an account?" : "Don't have an account?"}{" "}
             <Link
@@ -465,6 +492,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
               {isSignup ? "Login" : "Sign up"}
             </Link>
           </p>
+          )}
         </div>
 
         <footer className="auth-footer">

@@ -10,6 +10,7 @@ import {
   checkInAppointmentAction,
 } from "@/actions/appointments";
 import { RescheduleModal } from "@/components/reschedule-modal";
+import { UnavailableButton } from "@/app/queue/queue-action-buttons";
 
 import { Button } from "@/components/ui/button";
 
@@ -129,6 +130,17 @@ export function DoctorAppointmentActions({
               )}
               <span>Check In</span>
             </Button>
+          )}
+
+          {status === "CHECKED_IN" && (
+            <UnavailableButton
+              appointmentId={appointmentId}
+              patientName={patientName}
+              doctorId={doctorId}
+              doctorName={doctorName}
+              appointmentDate={appointmentDate}
+              startTime={startTime}
+            />
           )}
 
           <Button variant="default"

@@ -23,6 +23,9 @@ export default async function PaymentReceiptPage({ params }: ReceiptPageProps) {
   if (!user) {
     redirect("/login?message=Please sign in to view receipts.");
   }
+  if (user.role === "RECEPTIONIST") {
+    redirect("/reception");
+  }
 
   const payment = await dbRepo.getPaymentById(id);
   if (!payment) {

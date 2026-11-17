@@ -19,23 +19,25 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { UnavailableRescheduleProvider } from "@/components/unavailable-reschedule-provider";
 import {
   CheckInButton,
   StartConsultationButton,
   CompleteConsultationButton,
+  UnavailableButton,
 } from "./queue-action-buttons";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 interface QueuePageProps {
-  searchParams?: Promise<{ date?: string }>;
+  searchParams?: Promise<{ date?: string; doctorId?: string }>;
 }
 
 export default async function QueuePage({ searchParams }: QueuePageProps) {
   const user = await getCurrentUser();
-  if (!user || user.role !== "DOCTOR") {
-    redirect("/login?message=Only authorized medical staff can access the outpatient triage queue.");
+  if (!user || (user.role !== "DOCTOR" && user.role !== "RECEPTIONIST")) {
+    redirect("/login?message=Only authorized medical or front-desk staff can access the outpatient triage queue.");
   }
 
   const resolvedParams = searchParams ? await searchParams : {};
@@ -49,10 +51,22 @@ export default async function QueuePage({ searchParams }: QueuePageProps) {
       ? requestedDate
       : today;
 
+  let activeDoctorId = user.profileId;
+  let allDoctors: any[] = [];
+
+  if (user.role === "RECEPTIONIST") {
+    allDoctors = await dbRepo.getAllDoctors();
+    if (resolvedParams?.doctorId && allDoctors.some((d) => d.id === resolvedParams.doctorId)) {
+      activeDoctorId = resolvedParams.doctorId;
+    } else if (allDoctors.length > 0) {
+      activeDoctorId = allDoctors[0].id;
+    }
+  }
+
   const [doctor, doctorAppointments, availabilities] = await Promise.all([
-    dbRepo.getDoctorById(user.profileId),
-    dbRepo.getAppointmentsByDoctorId(user.profileId),
-    dbRepo.getAvailabilitiesByDoctorId(user.profileId),
+    dbRepo.getDoctorById(activeDoctorId),
+    dbRepo.getAppointmentsByDoctorId(activeDoctorId),
+    dbRepo.getAvailabilitiesByDoctorId(activeDoctorId),
   ]);
 
   // Use the session that actually runs on the viewed date, not just the doctor's first active one.
@@ -67,6 +81,7 @@ export default async function QueuePage({ searchParams }: QueuePageProps) {
   const isToday = targetDate === today;
 
   return (
+    <UnavailableRescheduleProvider>
     <div className="space-y-6">
       {isToday && <AutoRefresh intervalSeconds={20} />}
       {/* Queue Toolbar */}
@@ -96,7 +111,10 @@ export default async function QueuePage({ searchParams }: QueuePageProps) {
 
         <div className="flex items-center gap-3">
           {!isToday ? (
-            <Link href="/queue" className="btn text-xs inline-flex items-center gap-1.5">
+            <Link
+              href={user.role === "RECEPTIONIST" ? `/queue?doctorId=${activeDoctorId}` : "/queue"}
+              className="btn text-xs inline-flex items-center gap-1.5"
+            >
               <Calendar size={13} />
               <span>Back to Today</span>
             </Link>
@@ -105,12 +123,47 @@ export default async function QueuePage({ searchParams }: QueuePageProps) {
               <span className="live-dot" /> {queue.waiting.length} waiting · Live
             </Badge>
           )}
-          <Link href="/doctor/dashboard" className="btn text-xs inline-flex items-center gap-1">
-            <span>Doctor Agenda</span>
-            <ChevronRight size={13} />
-          </Link>
+          {user.role === "RECEPTIONIST" ? (
+            <Link href="/reception" className="btn text-xs inline-flex items-center gap-1">
+              <span>Reception Console</span>
+              <ChevronRight size={13} />
+            </Link>
+          ) : (
+            <Link href="/doctor/dashboard" className="btn text-xs inline-flex items-center gap-1">
+              <span>Doctor Agenda</span>
+              <ChevronRight size={13} />
+            </Link>
+          )}
         </div>
       </div>
+
+      {/* Doctor Switcher for Receptionist */}
+      {user.role === "RECEPTIONIST" && allDoctors.length > 1 && (
+        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex items-center gap-2 overflow-x-auto">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap pl-1">
+            Doctor:
+          </span>
+          {allDoctors.map((doc) => {
+            const isSelected = doc.id === activeDoctorId;
+            return (
+              <Link
+                key={doc.id}
+                href={`/queue?${new URLSearchParams({
+                  ...(targetDate !== today ? { date: targetDate } : {}),
+                  doctorId: doc.id,
+                })}`}
+                className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors whitespace-nowrap ${
+                  isSelected
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
+              >
+                Dr. {doc.firstName} {doc.lastName} ({doc.specialization})
+              </Link>
+            );
+          })}
+        </div>
+      )}
 
       {/* Metrics Row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -200,14 +253,22 @@ export default async function QueuePage({ searchParams }: QueuePageProps) {
             </div>
 
             <div className="flex items-center gap-2">
-              {queue.nowServing ? (
-                <CompleteConsultationButton appointmentId={queue.nowServing.id} />
-              ) : queue.waiting.length > 0 ? (
-                <StartConsultationButton
-                  appointmentId={queue.waiting[0].appointment.id}
-                  isNext={true}
-                />
-              ) : null}
+              {user.role === "DOCTOR" ? (
+                queue.nowServing ? (
+                  <CompleteConsultationButton appointmentId={queue.nowServing.id} />
+                ) : queue.waiting.length > 0 ? (
+                  <StartConsultationButton
+                    appointmentId={queue.waiting[0].appointment.id}
+                    isNext={true}
+                  />
+                ) : null
+              ) : (
+                queue.nowServing && (
+                  <Badge variant="blue" className="text-xs py-1 px-2.5">
+                    Consultation in Progress
+                  </Badge>
+                )
+              )}
             </div>
           </div>
         </div>
@@ -291,7 +352,7 @@ export default async function QueuePage({ searchParams }: QueuePageProps) {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3 self-end sm:self-center">
+                      <div className="flex items-center gap-2 self-end sm:self-center">
                         <div className="text-right">
                           <div className="text-[11px] font-semibold text-amber-700">
                             {item.estimatedWaitMinutes === 0
@@ -303,10 +364,21 @@ export default async function QueuePage({ searchParams }: QueuePageProps) {
                           </div>
                         </div>
 
-                        <StartConsultationButton
+                        <UnavailableButton
                           appointmentId={apt.id}
-                          isNext={isFirst && !queue.nowServing}
+                          patientName={`${patient.firstName} ${patient.lastName}`}
+                          doctorId={apt.doctorId}
+                          doctorName={doctor ? `${doctor.firstName} ${doctor.lastName}` : "Physician"}
+                          appointmentDate={apt.appointmentDate}
+                          startTime={apt.startTime}
                         />
+
+                        {user.role === "DOCTOR" && (
+                          <StartConsultationButton
+                            appointmentId={apt.id}
+                            isNext={isFirst && !queue.nowServing}
+                          />
+                        )}
                       </div>
                     </div>
                   );
@@ -387,5 +459,6 @@ export default async function QueuePage({ searchParams }: QueuePageProps) {
         </div>
       </div>
     </div>
+    </UnavailableRescheduleProvider>
   );
 }
