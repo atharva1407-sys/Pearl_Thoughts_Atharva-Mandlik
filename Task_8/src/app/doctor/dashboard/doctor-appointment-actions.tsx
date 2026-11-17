@@ -10,7 +10,8 @@ import {
   checkInAppointmentAction,
 } from "@/actions/appointments";
 import { RescheduleModal } from "@/components/reschedule-modal";
-import { UnavailableButton } from "@/app/queue/queue-action-buttons";
+import { UnavailableButton, StartConsultationButton } from "@/app/queue/queue-action-buttons";
+import type { QueueControls } from "@/domain/appointment-lifecycle";
 
 import { Button } from "@/components/ui/button";
 
@@ -24,6 +25,11 @@ interface DoctorAppointmentActionsProps {
   status?: string;
   checkedInAt?: Date | null;
   isToday?: boolean;
+  /**
+   * Which front-desk controls this doctor holds. The doctor always calls and completes; check-in, Unavailable and
+   * No-Show belong to the receptionist and only appear here while the doctor has none assigned.
+   */
+  controls: Pick<QueueControls, "canCheckIn" | "canMarkUnavailable" | "canMarkNoShow">;
 }
 
 export function DoctorAppointmentActions({
@@ -35,6 +41,7 @@ export function DoctorAppointmentActions({
   startTime,
   status,
   isToday,
+  controls,
 }: DoctorAppointmentActionsProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -114,7 +121,7 @@ export function DoctorAppointmentActions({
     <>
       <div className="flex flex-col items-end gap-1">
         <div className="flex flex-wrap items-center justify-end gap-1.5">
-          {status === "BOOKED" && isToday && (
+          {controls.canCheckIn && status === "BOOKED" && isToday && (
             <Button
               variant="outline"
               type="button"
@@ -132,7 +139,7 @@ export function DoctorAppointmentActions({
             </Button>
           )}
 
-          {status === "CHECKED_IN" && (
+          {controls.canMarkUnavailable && status === "CHECKED_IN" && (
             <UnavailableButton
               appointmentId={appointmentId}
               patientName={patientName}
@@ -143,50 +150,55 @@ export function DoctorAppointmentActions({
             />
           )}
 
-          <Button variant="default"
-            type="button"
-            onClick={handleComplete}
-            disabled={isPending}
-            className="text-xs py-1 px-2.5 inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
-            title="Mark Consultation Complete"
-          >
-            {isPending && actionType === "complete" ? (
-              <Loader2 size={13} className="animate-spin" />
-            ) : (
-              <Check size={13} />
-            )}
-            <span>{isPending && actionType === "complete" ? "Completing..." : "Done"}</span>
-          </Button>
+          {/* Doctor controls: call a checked-in patient in, then complete the consultation. */}
+          {status === "CHECKED_IN" && <StartConsultationButton appointmentId={appointmentId} />}
 
-          <Button variant="outline"
-            type="button"
-            onClick={() => setIsRescheduleOpen(true)}
-            disabled={isPending}
-            className="text-xs py-1 px-2 text-[#0875df] hover:bg-blue-50 inline-flex items-center gap-1 cursor-pointer disabled:opacity-60 border border-blue-200"
-            title="Reschedule to New Time Slot"
-          >
-            <CalendarClock size={13} />
-            <span>Reschedule</span>
-          </Button>
+          {status === "IN_CONSULTATION" && (
+            <Button variant="default"
+              type="button"
+              onClick={handleComplete}
+              disabled={isPending}
+              className="text-xs py-1 px-2.5 inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
+              title="Mark Consultation Complete"
+            >
+              {isPending && actionType === "complete" ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <Check size={13} />
+              )}
+              <span>{isPending && actionType === "complete" ? "Completing..." : "Complete"}</span>
+            </Button>
+          )}
 
-          <Button variant="outline"
-            type="button"
-            onClick={handleNoShow}
-            disabled={isPending || status === "CHECKED_IN" || status === "IN_CONSULTATION"}
-            className="text-xs py-1 px-2 text-amber-700 hover:bg-amber-50 inline-flex items-center gap-1 cursor-pointer disabled:opacity-60 border border-amber-200"
-            title={
-              status === "CHECKED_IN"
-                ? "Checked-in patient cannot be marked as No-Show. Cancel if needed."
-                : "Mark Patient as No-Show"
-            }
-          >
-            {isPending && actionType === "noshow" ? (
-              <Loader2 size={13} className="animate-spin" />
-            ) : (
-              <UserX size={13} />
-            )}
-            <span>No-Show</span>
-          </Button>
+          {status === "BOOKED" && (
+            <Button variant="outline"
+              type="button"
+              onClick={() => setIsRescheduleOpen(true)}
+              disabled={isPending}
+              className="text-xs py-1 px-2 text-[#0875df] hover:bg-blue-50 inline-flex items-center gap-1 cursor-pointer disabled:opacity-60 border border-blue-200"
+              title="Reschedule to New Time Slot"
+            >
+              <CalendarClock size={13} />
+              <span>Reschedule</span>
+            </Button>
+          )}
+
+          {controls.canMarkNoShow && status === "BOOKED" && (
+            <Button variant="outline"
+              type="button"
+              onClick={handleNoShow}
+              disabled={isPending}
+              className="text-xs py-1 px-2 text-amber-700 hover:bg-amber-50 inline-flex items-center gap-1 cursor-pointer disabled:opacity-60 border border-amber-200"
+              title="Mark Patient as No-Show"
+            >
+              {isPending && actionType === "noshow" ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <UserX size={13} />
+              )}
+              <span>No-Show</span>
+            </Button>
+          )}
 
           <Button variant="outline"
             type="button"

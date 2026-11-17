@@ -6,3 +6,4 @@ export * from "./doctor-repository";
 export * from "./appointment-repository";
 export * from "./billing-repository";
 export * from "./notification-repository";
+export * from "./receptionist-repository";

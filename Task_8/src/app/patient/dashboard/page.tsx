@@ -9,6 +9,7 @@ import { AssistantWidget } from "@/components/assistant/assistant-widget";
 import { istDateString, formatKolkataTimeShort } from "@/lib/time";
 import { computePatientQueueStatus, type PatientQueueStatus } from "@/lib/queue";
 import { sessionAppliesOnDate } from "@/lib/session-schedule";
+import { AutoRefresh } from "@/app/queue/auto-refresh";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -83,6 +84,8 @@ export default async function PatientDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Today's visit moves through check-in, the doctor's call and completion; keep this page current without F5. */}
+      {todayAppt && <AutoRefresh intervalSeconds={15} />}
       {/* Header */}
       <div className="page-heading">
         <div>

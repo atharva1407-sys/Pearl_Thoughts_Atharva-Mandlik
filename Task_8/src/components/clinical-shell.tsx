@@ -155,7 +155,7 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
   }
 
   const getBreadcrumb = () => {
-    if (pathname.startsWith("/reception")) return "Front Desk Reception Console";
+    if (pathname.startsWith("/reception")) return "Live Token Queue";
     if (pathname.startsWith("/queue")) return "Live Token Queue";
     if (pathname === "/doctors") return "Specialists Directory";
     if (pathname.startsWith("/doctors/")) return "Book Consultation";
@@ -164,6 +164,7 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
     if (pathname.startsWith("/patient/payments")) return "Payments & Receipts";
     if (pathname.startsWith("/patient/prescriptions")) return "Prescriptions";
     if (pathname.startsWith("/patient/dashboard")) return "Patient Portal";
+    if (pathname.startsWith("/doctor/reception-team")) return "Reception Team";
     if (pathname.startsWith("/doctor/dashboard")) return "Doctor Agenda";
     if (pathname.startsWith("/doctor/availability")) return "Weekly Shifts";
     if (pathname.startsWith("/settings")) return "Hospital Settings";
@@ -311,6 +312,15 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
               </Link>
 
               <Link
+                href="/doctor/reception-team"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname.startsWith("/doctor/reception-team") ? "active" : ""}`}
+              >
+                <Users size={17} />
+                <span>Reception Team</span>
+              </Link>
+
+              <Link
                 href="/doctors"
                 onClick={() => setSidebarOpen(false)}
                 className={`nav-item ${pathname === "/doctors" || pathname.startsWith("/doctors/") ? "active" : ""}`}
@@ -369,26 +379,8 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
                 onClick={() => setSidebarOpen(false)}
                 className={`nav-item ${pathname.startsWith("/reception") ? "active" : ""}`}
               >
-                <ClipboardList size={17} />
-                <span>Reception Console</span>
-              </Link>
-
-              <Link
-                href="/queue"
-                onClick={() => setSidebarOpen(false)}
-                className={`nav-item ${pathname.startsWith("/queue") ? "active" : ""}`}
-              >
                 <Clock3 size={17} />
                 <span>Live Queue</span>
-              </Link>
-
-              <Link
-                href="/doctors"
-                onClick={() => setSidebarOpen(false)}
-                className={`nav-item ${pathname === "/doctors" || pathname.startsWith("/doctors/") ? "active" : ""}`}
-              >
-                <Stethoscope size={17} />
-                <span>Specialists Directory</span>
               </Link>
             </nav>
           </>

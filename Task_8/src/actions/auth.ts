@@ -81,6 +81,10 @@ export async function loginAction(formData: FormData) {
       return { success: false, error: "Invalid email or password." };
     }
     role = rawRole;
+  } else if (user.role === "RECEPTIONIST") {
+    // Front-desk staff sign in only through the dedicated Receptionist portal, which always names the role.
+    await dbRepo.recordFailedLogin(email);
+    return { success: false, error: "Invalid email or password." };
   }
 
   const isPasswordValid = verifyPassword(password, user.passwordHash);
@@ -106,8 +110,10 @@ export async function loginAction(formData: FormData) {
     profileId = doctor.id;
     name = `Dr. ${doctor.firstName} ${doctor.lastName}`;
   } else {
-    profileId = user.id;
-    name = "Front Desk";
+    const receptionist = await dbRepo.getReceptionistByUserId(user.id);
+    if (!receptionist) return { success: false, error: "Invalid email or password." };
+    profileId = receptionist.id;
+    name = `${receptionist.firstName} ${receptionist.lastName}`;
   }
 
   const token = createSessionToken({

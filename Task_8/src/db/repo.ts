@@ -3,7 +3,6 @@ import * as schema from "./schema";
 import { hashPassword } from "@/lib/auth-crypto";
 import { RUBY_HALL_SPECIALISTS, specialistSessionId, getSeedDoctorPassword } from "./specialists-catalog";
 import { seedSpecialists } from "./seed-specialists";
-import { seedTask8DemoData } from "./demo/seed-task8";
 import { istDateString } from "@/lib/time";
 import { weekdayOfDate, type DayCode } from "@/lib/session-schedule";
 import type {
@@ -19,11 +18,11 @@ import {
   AppointmentRepository,
   BillingRepository,
   NotificationRepository,
+  ReceptionistRepository,
   buildSessionSlotGroups,
   type MemoryStore,
   type RepositoryContext,
 } from "./repositories";
-export type MedrellaMemoryStore = MemoryStore;
 import type {
   UserEntity,
   PatientEntity,
@@ -83,6 +82,8 @@ function createEmptyMemoryStore(): MemoryStore {
     notificationPreferences: [],
     agentEvents: [],
     prescriptions: [],
+    receptionists: [],
+    doctorReceptionists: [],
     inFlightNotificationClaims: new Set<string>(),
   };
 }
@@ -101,6 +102,7 @@ export class MedrellaRepository
   public appointmentRepo: AppointmentRepository;
   public billingRepo: BillingRepository;
   public notificationRepo: NotificationRepository;
+  public receptionistRepo: ReceptionistRepository;
 
   constructor() {
     // A dev server reloads modules whenever a file changes, and each reload used to build a NEW repository with an
@@ -110,6 +112,9 @@ export class MedrellaRepository
     // copy of this module. (It has no effect with a real database, which holds the data instead.)
     const shared = globalThis as { __medrellaMemStore?: MemoryStore; __medrellaMemSeeded?: boolean };
     this.mem = shared.__medrellaMemStore ??= createEmptyMemoryStore();
+    // A store created before the receptionist tables existed (dev hot reload) lacks these arrays.
+    this.mem.receptionists ??= [];
+    this.mem.doctorReceptionists ??= [];
 
     const ctx: RepositoryContext = {
       getDb: () => db,
@@ -122,6 +127,7 @@ export class MedrellaRepository
     this.appointmentRepo = new AppointmentRepository(ctx);
     this.billingRepo = new BillingRepository(ctx);
     this.notificationRepo = new NotificationRepository(ctx);
+    this.receptionistRepo = new ReceptionistRepository(ctx);
 
     if (
       !isPostgresConfigured() &&
@@ -177,6 +183,8 @@ export class MedrellaRepository
     this.mem.notificationPreferences = [];
     this.mem.agentEvents = [];
     this.mem.prescriptions = [];
+    this.mem.receptionists = [];
+    this.mem.doctorReceptionists = [];
     this.mem.inFlightNotificationClaims = new Set<string>();
 
     const defaultPasswordHash = hashPassword(getSeedDoctorPassword({ allowDevFallback: true }));
@@ -224,7 +232,6 @@ export class MedrellaRepository
     });
 
     this.seedDemoPatients();
-    seedTask8DemoData(this.mem);
   }
 
   private seedDemoPatients() {
@@ -315,6 +322,19 @@ export class MedrellaRepository
   public async markPatientUnavailable(appointmentId: string, doctorId?: string) { return this.appointmentRepo.markPatientUnavailable(appointmentId, doctorId); }
   public async getAllAppointmentsForDate(date: string) { return this.appointmentRepo.getAllAppointmentsForDate(date); }
 
+  // --- Front desk: receptionists and their doctor assignments ---
+  public async createReceptionistAccount(input: Parameters<ReceptionistRepository["createReceptionistAccount"]>[0]) { return this.receptionistRepo.createReceptionistAccount(input); }
+  public async getReceptionistById(id: string) { return this.receptionistRepo.getReceptionistById(id); }
+  public async getReceptionistByUserId(userId: string) { return this.receptionistRepo.getReceptionistByUserId(userId); }
+  public async getReceptionistByEmail(email: string) { return this.receptionistRepo.getReceptionistByEmail(email); }
+  public async assignReceptionist(doctorId: string, receptionistId: string) { return this.receptionistRepo.assignReceptionist(doctorId, receptionistId); }
+  public async revokeReceptionist(doctorId: string, receptionistId: string) { return this.receptionistRepo.revokeReceptionist(doctorId, receptionistId); }
+  public async getReceptionistsForDoctor(doctorId: string) { return this.receptionistRepo.getReceptionistsForDoctor(doctorId); }
+  public async doctorHasReceptionist(doctorId: string) { return this.receptionistRepo.doctorHasReceptionist(doctorId); }
+  public async getAssignedDoctorIds(receptionistId: string) { return this.receptionistRepo.getAssignedDoctorIds(receptionistId); }
+  public async getAssignedDoctors(receptionistId: string) { return this.receptionistRepo.getAssignedDoctors(receptionistId); }
+  public async updateUserPasswordHash(userId: string, passwordHash: string) { return this.receptionistRepo.updateUserPasswordHash(userId, passwordHash); }
+
   // --- Billing & Payment Operations ---
   public async createPayment(data: Parameters<BillingRepository["createPayment"]>[0]) { return this.billingRepo.createPayment(data); }
   public async getPaymentById(id: string) { return this.billingRepo.getPaymentById(id); }
@@ -365,6 +385,8 @@ export class MedrellaRepository
     this.checkProductionDatabase();
     if (db) {
       await db.delete(schema.notifications);
+      await db.delete(schema.doctorReceptionists);
+      await db.delete(schema.receptionists);
       await db.delete(schema.refunds);
       await db.delete(schema.paymentEvents);
       await db.delete(schema.payments);
@@ -388,6 +410,8 @@ export class MedrellaRepository
     this.mem.notifications = [];
     this.mem.agentEvents = [];
     this.mem.prescriptions = [];
+    this.mem.receptionists = [];
+    this.mem.doctorReceptionists = [];
   }
 }
 

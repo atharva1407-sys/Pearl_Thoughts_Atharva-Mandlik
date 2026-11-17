@@ -23,6 +23,10 @@ export default async function DoctorsPage({
     const returnTo = specialization ? `/doctors?specialization=${encodeURIComponent(specialization)}` : "/doctors";
     redirect(`/login?redirectTo=${encodeURIComponent(returnTo)}`);
   }
+  // Booking is a patient task; front-desk staff work from their queue.
+  if (user.role === "RECEPTIONIST") {
+    redirect("/reception");
+  }
   // Filter pills come from the specialties of doctors actually registered, so a new department appears automatically.
   const allSpecializations = [
     "All",
