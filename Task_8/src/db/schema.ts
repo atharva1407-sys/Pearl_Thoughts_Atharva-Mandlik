@@ -272,6 +272,39 @@ export const prescriptions = pgTable(
   ]
 );
 
+/** Front-desk staff profile. One per RECEPTIONIST user; created by a doctor from the doctor portal. */
+export const receptionists = pgTable(
+  "receptionists",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    firstName: text("first_name").notNull(),
+    lastName: text("last_name").notNull(),
+    phone: text("phone").notNull(),
+    /** The doctor who created the account; only that doctor may reset its password. */
+    createdByDoctorId: text("created_by_doctor_id").references(() => doctors.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("receptionists_user_unique").on(table.userId)]
+);
+
+/** Which receptionists may work which doctor's queue. A receptionist sees and acts on assigned doctors only. */
+export const doctorReceptionists = pgTable(
+  "doctor_receptionists",
+  {
+    id: text("id").primaryKey(),
+    doctorId: text("doctor_id").notNull().references(() => doctors.id, { onDelete: "cascade" }),
+    receptionistId: text("receptionist_id").notNull().references(() => receptionists.id, { onDelete: "cascade" }),
+    assignedAt: timestamp("assigned_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("doctor_receptionists_unique").on(table.doctorId, table.receptionistId),
+    index("doctor_receptionists_receptionist_idx").on(table.receptionistId),
+  ]
+);
+
+export type Receptionist = typeof receptionists.$inferSelect;
+export type DoctorReceptionist = typeof doctorReceptionists.$inferSelect;
 export type Prescription = typeof prescriptions.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Patient = typeof patients.$inferSelect;

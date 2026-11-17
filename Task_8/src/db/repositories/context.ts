@@ -13,6 +13,8 @@ import type {
   NotificationPreferencesEntity,
   AgentEventEntity,
   PrescriptionEntity,
+  ReceptionistEntity,
+  DoctorReceptionistEntity,
 } from "./types";
 
 export interface MemoryStore {
@@ -30,6 +32,8 @@ export interface MemoryStore {
   notificationPreferences: NotificationPreferencesEntity[];
   agentEvents: AgentEventEntity[];
   prescriptions: PrescriptionEntity[];
+  receptionists: ReceptionistEntity[];
+  doctorReceptionists: DoctorReceptionistEntity[];
   inFlightNotificationClaims: Set<string>;
 }
 
@@ -58,6 +62,8 @@ export class DefaultRepositoryContext implements RepositoryContext {
       notificationPreferences: [],
       agentEvents: [],
       prescriptions: [],
+      receptionists: [],
+      doctorReceptionists: [],
       inFlightNotificationClaims: new Set<string>(),
     };
   }

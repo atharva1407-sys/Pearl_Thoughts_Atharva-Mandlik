@@ -61,7 +61,7 @@ export async function Navbar() {
                 href="/reception"
                 className="text-xs font-semibold px-2.5 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-500 transition-colors"
               >
-                Reception Console
+                Live Queue
               </Link>
             )}
             <Link

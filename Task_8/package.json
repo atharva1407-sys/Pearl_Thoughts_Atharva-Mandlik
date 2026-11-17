@@ -19,6 +19,7 @@
     "db:migrate-0006": "tsx src/db/apply-0006.ts",
     "db:migrate-0007": "tsx src/db/apply-0007.ts",
     "db:migrate-0008": "tsx src/db/apply-0008.ts",
+    "db:migrate-0009": "tsx src/db/apply-0009.ts",
     "db:clear-test": "tsx src/db/clear-test-data.ts",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/db/seed.ts"

@@ -1,6 +1,6 @@
 <div align="center">
 
-# Task 8: Receptionist Front-Desk Console & Queue Unavailable/Reschedule
+# Task 8: Doctor-Assigned Receptionists & Queue Unavailable/Reschedule
 
 <p align="center">
   <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js_16.4.6-000000?style=flat-square&logo=nextdotjs&logoColor=white" alt="Next.js" /></a>
@@ -11,52 +11,57 @@
 
 </div>
 
-Full-stack outpatient clinical management platform featuring **Receptionist Front-Desk Console**, **Queue Unavailable & Reschedule Workflow**, **Dynamic OPD Queue Management**, **Patient Check-in**, and **Conversational Healthcare Agent** for **Pearl Thoughts (Task 8)**.
+Full-stack outpatient clinical management platform featuring **Doctor-Assigned Receptionists**, **Receptionist Live Queue**, **Queue Unavailable & Reschedule Workflow**, **Dynamic OPD Queue Management**, **Patient Check-in**, and **Conversational Healthcare Agent** for **Pearl Thoughts (Task 8)**.
 
 ---
 
 ## 💎 Task 8 Core Innovations
 
 > [!NOTE]
-> ### 👩‍💼 Receptionist Role & Unified Authorization (`src/domain/appointment-lifecycle.ts`)
-> **Dedicated Clinical Staff Role** · Supports `"RECEPTIONIST"` role without database schema enum friction. 
-> - **Authentication**: 3rd "Reception" tab on the `/login` screen (public self-signup restricted to patients/doctors).
-> - **Navigation Shell**: Streamlined staff navbar and clinical sidebar with Reception Console and Live Queue links (prescription creation, patient payment checkout, and doctor schedule editing hidden).
-> - **Centralized Authorization (`canManageAppointment`)**: Strict permissions engine across roles. Receptionists can check in same-day patients, mark waiting patients unavailable, reschedule, cancel, mark no-show (after slot start), and view queues across all doctors. Receptionists are strictly forbidden from starting (`CALL`) or completing consultations.
-> - **Attribution**: Check-in and actions distinguish staff attribution (`"Reception: <name>"` vs `"Dr. <name>"`).
+> ### 👩‍💼 Doctor-assigned receptionists with a clean role split
+> **Doctor** = clinical decisions. **Receptionist** = front desk. Each role sees only the controls it owns, and the server enforces the same rule, so a hidden button cannot be used by calling the action directly.
+>
+> | Control | Doctor | Receptionist |
+> |---|:---:|:---:|
+> | Call patient in / Complete consultation | ✅ | hidden |
+> | Check In / Unavailable (then reschedule) / No-Show | hidden while a receptionist is assigned | ✅ |
+> | Cancel / Reschedule | ✅ (own agenda) | ✅ |
+>
+> - **Solo-doctor fallback**: a doctor with no receptionist keeps the front-desk controls, so nobody is ever stuck.
+> - **Complete requires Call**: only a patient who is *in consultation* can be completed (check-in → call → complete).
+> - **Authorization** lives in one place: `canManageAppointment` + `getQueueControls` (`src/domain/appointment-lifecycle.ts`), loaded with the clinic facts it needs by `src/domain/appointment-access.ts`.
 
 > [!TIP]
-> ### 🖥️ Front-Desk Console (`/reception`)
-> **Unified OPD Control Center** · View and manage today's appointments across **all doctors** in a single operational console.
-> - **Zero N+1 Queries**: Single query `getAllAppointmentsForDate` joins appointments, patients, and doctors in one SQL query on PostgreSQL (and one in-memory filter/map).
-> - **Doctor Filter Chips**: Real-time status chips per specialist with waiting counts, unarrived counts, and "Serving #X" badges.
-> - **Search & Filter**: Instant filtering across patient name, phone number, and permanent token numbers.
-> - **Per-Row Quick Actions**: Same-day Check In, Unavailable (with auto-reschedule), Reschedule, Cancel (with refund calculation preview), and No-Show.
-> - **Live Synchronization**: Auto-refreshes every 20 seconds.
+> ### 🖥️ `/reception`: the doctor's Live Queue, scoped to the assigned doctor(s)
+> The receptionist's page is the **same shared queue view** as the doctor's `/queue` (`src/app/queue/queue-view.tsx`), so the two always look and behave alike.
+> - A receptionist sees **only doctors who assigned them**; asking for any other doctor falls back to their first assignment. With no assignment they see a "not assigned yet" screen.
+> - Assigned to several doctors → a doctor switcher appears.
+> - Check In and Unavailable on the queue; Reschedule / No-Show / Cancel on patients who have not arrived.
+> - Auto-refresh every 20 s; the **patient dashboard also refreshes** (15 s) so check-in, "now serving", "your turn" and completion reach the patient without F5.
 
 > [!IMPORTANT]
-> ### 🔄 "Unavailable" Action & Continuous Queue Gap Closing (`src/actions/appointments.ts`, `src/lib/queue.ts`)
-> **Dynamic Waiting Room Triage** · When a checked-in patient leaves the waiting room or misses their turn:
-> - **Atomic CAS Transition**: Transitions `CHECKED_IN -> BOOKED`, clearing `checkedInAt` and `checkedInBy` while permanently retaining original token numbers.
-> - **Contiguous Re-indexing**: Patient is immediately removed from the active waiting queue; all patients behind close up contiguous `1..N` positions with zero gaps.
-> - **Immediate Reschedule Trigger**: Prompts the front-desk staff with `RescheduleModal` to move the patient to another available slot.
-> - **Graceful Cancellation / Later Return**: If modal closed without picking a slot, the patient safely remains under "Not Yet Arrived" with Check In and Reschedule buttons intact. If they return later, re-check-in automatically moves them to the tail of the waiting line.
-> - **Preserved Financial State**: Rescheduled visits maintain payment integrity without duplicate charges or fees.
+> ### 🧑‍⚕️ Reception Team (`/doctor/reception-team`)
+> Doctors manage their own front desk: **create** a receptionist account (name, email, phone, starting password), **assign an existing** receptionist by email, **remove** one (access ends on their next request) and **reset the password** of an account they created. Data lives in two new tables, `receptionists` and `doctor_receptionists` (**migration `0009`**, see below).
 
 > [!NOTE]
-> ### 🚀 Offline Demo Environment & Walkthrough (`start-demo.bat`, `DEMO_RECEPTIONIST.md`)
-> **Ready-to-Test Realistic OPD Simulation** · Gated under `DEMO_DATA=true`.
-> - 1 Receptionist account (`reception.demo@medrella.demo`, password via `DEMO_RECEPTION_PASSWORD`).
-> - 2 Demo doctors (General Medicine, Cardiology) with full 08:00 - 22:00 daily OPD sessions.
-> - Realistic mid-day appointment queue relative to current server time: Completed, In Consultation, 3 Waiting out of order, Cancelled, No-Show, Not Arrived (including 1 whose slot has already started), and upcoming bookings.
-> - Zero hard-coded credentials; passwords read securely from environment variables.
+> ### 🔐 Receptionist login: a separate portal
+> The normal login shows **Patient / Doctor** only. A **Receptionist** button beside **Need help?** opens the same page showing only the receptionist sign-in (`/login?portal=reception`), with no tabs and no Sign up. A receptionist cannot sign in through the patient/doctor form, and vice versa.
+
+> [!IMPORTANT]
+> ### 🔄 "Unavailable" action (`src/actions/appointments.ts`, `src/lib/queue.ts`)
+> When a checked-in patient is not there when called:
+> - **Atomic transition** `CHECKED_IN → BOOKED` (check-in cleared, token kept); the queue closes the gap with no holes.
+> - The **Reschedule dialog opens immediately** (hosted by `UnavailableRescheduleProvider`, so it survives the page refresh). Closing it without a slot leaves the patient under *Not Yet Arrived*; coming back and checking in again puts them at the **end** of the queue.
+> - Payment stays attached to the same appointment.
 
 ---
 
 ## 🔒 Security & Framework Updates
 
 - **Next.js Security Patch**: Upgraded from `16.4.3` to `16.4.6` along with `eslint-config-next@16.4.6`.
-- **Reschedule Authorization Hardening**: Enforces `canManageAppointment(user, appointment, "RESCHEDULE")` on the server action, preventing unauthorized patients from tampering with others' bookings.
+- **Reschedule Authorization Hardening**: reschedule, cancel, check-in, Unavailable and No-Show are all gated server-side by the assignment-aware rules, so one patient (or a receptionist not assigned to that doctor) cannot touch another's booking.
+- **Receptionist data scoping**: `/reception` and every action load the receptionist's assigned doctors from the database on each request; removing an assignment cuts access immediately.
+- **Database migration `0009_receptionist_assignments`**: adds `receptionists` and `doctor_receptionists`. Apply it to the database **before** deploying this code (`npm run db:migrate-0009`); the `role` column needs no change (it is plain text).
 - **Cross-Role Notification Routing**: When receptionists or doctors reschedule or cancel an appointment, notifications and calendar reminders are routed to the patient's verified email and user record rather than the staff actor.
 
 ---
@@ -66,7 +71,7 @@ Full-stack outpatient clinical management platform featuring **Receptionist Fron
 The platform includes a dedicated Task 8 test suite (`src/test-receptionist-queue.ts`) integrated into `npm test`:
 
 ```bash
-# Run all 16 test suites (859 total tests)
+# Run every test suite
 npm test
 
 # Run Task 8 verification tests directly
@@ -81,11 +86,25 @@ npm run build
 
 ---
 
-## 🏃 Running the Demo
-
-See [DEMO_RECEPTIONIST.md](./DEMO_RECEPTIONIST.md) for complete step-by-step instructions.
+## 🏃 Running it locally
 
 ```cmd
 cd Task_8
-start-demo.bat
+copy .env.example .env.local
 ```
+
+In `.env.local` set `DATABASE_URL="disabled"` (in-memory data, no database), `USE_MOCK_PAYMENTS="true"`, `ENABLE_SEED_DATA="true"` and a `SEED_DOCTOR_PASSWORD` (8+ characters), then:
+
+```cmd
+npm run dev
+```
+
+Open http://localhost:3000. The built-in Ruby Hall doctors (for example `ananya.sharma@medrella.com` and `rohan.mehta@medrella.com`) are created at start-up with that password. There is no pre-made receptionist or queue data:
+
+1. Register a patient at `/signup` and book a visit for today.
+2. Sign in as a doctor, open **Reception Team** and **create** a receptionist (name, email, phone, starting password).
+3. Sign in through the **Receptionist** button on the login page. You land on `/reception`.
+4. Receptionist: **Check In** the patient. Doctor: **Call**, then **Complete**. Try **Unavailable** on a waiting patient.
+5. A doctor with no receptionist keeps the check-in controls (solo-doctor fallback).
+
+Restarting `npm run dev` clears all in-memory data.

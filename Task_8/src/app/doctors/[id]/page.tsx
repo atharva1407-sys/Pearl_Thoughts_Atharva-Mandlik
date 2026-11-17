@@ -34,6 +34,10 @@ export default async function DoctorProfilePage({
   if (!currentUser) {
     redirect(`/login?redirectTo=/doctors/${doctor.id}`);
   }
+  // Booking is a patient task; front-desk staff work from their queue.
+  if (currentUser.role === "RECEPTIONIST") {
+    redirect("/reception");
+  }
   const isLoggedIn = Boolean(currentUser);
   // Weekly days (each listed once, in week order), monthly dates and upcoming one-off dates.
   const scheduleSummary = summarizeSchedule(availabilities, toLocalDateString(new Date()));
