@@ -3,7 +3,7 @@ import crypto from "crypto";
 import * as schema from "../schema";
 import { occupiesSeatSql, appointmentOccupiesSeat } from "@/lib/seat-occupancy";
 import { sessionCapacity, sessionAppliesOnDate } from "@/lib/session-schedule";
-import { buildInstantFromKolkataTime } from "@/lib/time";
+import { buildInstantFromKolkataTime, formatKolkataHHMM } from "@/lib/time";
 import type { RepositoryContext } from "./context";
 import type { IAppointmentRepository } from "./interfaces";
 import type {
@@ -337,6 +337,7 @@ export class AppointmentRepository implements IAppointmentRepository {
     extra?: {
       cancelledBy?: "PATIENT" | "DOCTOR" | "SYSTEM" | null;
       cancelReason?: string | null;
+      expectedStatus?: AppointmentStatus;
     }
   ): Promise<boolean> {
     this.ctx.checkProductionDatabase();
@@ -347,10 +348,11 @@ export class AppointmentRepository implements IAppointmentRepository {
       if (extra?.cancelReason !== undefined) updateValues.cancelReason = extra.cancelReason;
 
       // If cancelling, prevent duplicate cancellations by asserting current status != CANCELLED
-      const whereCondition =
-        status === "CANCELLED"
-          ? and(eq(schema.appointments.id, id), sql`${schema.appointments.status} != 'CANCELLED'`)
-          : eq(schema.appointments.id, id);
+      const whereCondition = and(
+        eq(schema.appointments.id, id),
+        status === "CANCELLED" ? sql`${schema.appointments.status} != 'CANCELLED'` : undefined,
+        extra?.expectedStatus ? eq(schema.appointments.status, extra.expectedStatus) : undefined
+      );
 
       const res = await db.update(schema.appointments).set(updateValues).where(whereCondition);
       return ((res as any).rowCount ?? 1) > 0;
@@ -359,6 +361,7 @@ export class AppointmentRepository implements IAppointmentRepository {
     const apt = this.ctx.getMem().appointments.find((a) => a.id === id);
     if (!apt) return false;
     if (status === "CANCELLED" && apt.status === "CANCELLED") return false;
+    if (extra?.expectedStatus && apt.status !== extra.expectedStatus) return false;
 
     apt.status = status;
     if (extra?.cancelledBy !== undefined) apt.cancelledBy = extra.cancelledBy;
@@ -792,5 +795,236 @@ export class AppointmentRepository implements IAppointmentRepository {
     return this.ctx.getMem().appointments.filter(
       (a) => a.appointmentDate >= fromDate && a.appointmentDate <= toDate && statuses.includes(a.status)
     );
+  }
+
+  public async checkInAppointment(
+    appointmentId: string,
+    doctorId: string,
+    checkedInBy: string,
+    now?: Date,
+    expectedDate?: string
+  ): Promise<{ success: boolean; error?: string; appointment?: AppointmentEntity }> {
+    this.ctx.checkProductionDatabase();
+    const db = this.ctx.getDb();
+    const checkInTime = now ?? new Date();
+    const wrongDateError = "Only same-day appointments can be checked in.";
+
+    if (db) {
+      // Atomic guard: status = 'BOOKED' AND checked_in_at IS NULL AND doctor_id = doctorId
+      // (and, when the caller names a date, appointment_date = expectedDate)
+      const res = await db
+        .update(schema.appointments)
+        .set({
+          status: "CHECKED_IN",
+          checkedInAt: checkInTime,
+          checkedInBy: checkedInBy,
+        })
+        .where(
+          and(
+            eq(schema.appointments.id, appointmentId),
+            eq(schema.appointments.doctorId, doctorId),
+            eq(schema.appointments.status, "BOOKED"),
+            sql`${schema.appointments.checkedInAt} IS NULL`,
+            expectedDate ? eq(schema.appointments.appointmentDate, expectedDate) : undefined
+          )
+        )
+        .returning();
+
+      if (res.length > 0) {
+        return { success: true, appointment: res[0] as AppointmentEntity };
+      }
+
+      // If no row was updated, diagnose the cause
+      const existing = await this.getAppointmentById(appointmentId);
+      if (!existing) {
+        return { success: false, error: "Appointment not found." };
+      }
+      if (existing.doctorId !== doctorId) {
+        return { success: false, error: "Forbidden: You can only check in patients assigned to your schedule." };
+      }
+      if (expectedDate && existing.appointmentDate !== expectedDate) {
+        return { success: false, error: wrongDateError };
+      }
+      if (existing.checkedInAt || existing.status === "CHECKED_IN") {
+        const timeStr = existing.checkedInAt ? formatKolkataHHMM(existing.checkedInAt) : "earlier";
+        return {
+          success: false,
+          error: `Patient is already checked in at ${timeStr}`,
+          appointment: existing,
+        };
+      }
+      if (existing.status !== "BOOKED") {
+        return {
+          success: false,
+          error: `Cannot check in appointment with status ${existing.status}. Only BOOKED appointments can be checked in.`,
+        };
+      }
+      return { success: false, error: "Failed to check in patient." };
+    }
+
+    // In-Memory store
+    const mem = this.ctx.getMem();
+    const existing = mem.appointments.find((a) => a.id === appointmentId);
+    if (!existing) {
+      return { success: false, error: "Appointment not found." };
+    }
+    if (existing.doctorId !== doctorId) {
+      return { success: false, error: "Forbidden: You can only check in patients assigned to your schedule." };
+    }
+    if (expectedDate && existing.appointmentDate !== expectedDate) {
+      return { success: false, error: wrongDateError };
+    }
+    if (existing.checkedInAt || existing.status === "CHECKED_IN") {
+      const timeStr = existing.checkedInAt ? formatKolkataHHMM(existing.checkedInAt) : "earlier";
+      return {
+        success: false,
+        error: `Patient is already checked in at ${timeStr}`,
+        appointment: { ...existing },
+      };
+    }
+    if (existing.status !== "BOOKED") {
+      return {
+        success: false,
+        error: `Cannot check in appointment with status ${existing.status}. Only BOOKED appointments can be checked in.`,
+      };
+    }
+
+    existing.status = "CHECKED_IN";
+    existing.checkedInAt = checkInTime;
+    existing.checkedInBy = checkedInBy;
+    return { success: true, appointment: { ...existing } };
+  }
+
+  public async startConsultation(
+    appointmentId: string,
+    doctorId: string,
+    now?: Date
+  ): Promise<{ success: boolean; error?: string; appointment?: AppointmentEntity }> {
+    this.ctx.checkProductionDatabase();
+    const db = this.ctx.getDb();
+    const consultTime = now ?? new Date();
+
+    if (db) {
+      return await db.transaction(async (tx) => {
+        const [appt] = await tx
+          .select()
+          .from(schema.appointments)
+          .where(eq(schema.appointments.id, appointmentId))
+          .limit(1);
+
+        if (!appt) {
+          return { success: false, error: "Appointment not found." };
+        }
+        if (appt.doctorId !== doctorId) {
+          return { success: false, error: "Forbidden: You can only start consultations for your own schedule." };
+        }
+        if (appt.status !== "CHECKED_IN") {
+          return {
+            success: false,
+            error: `Cannot start consultation. Patient must be checked in first (current status: ${appt.status}).`,
+          };
+        }
+
+        // Serialize concurrent starts for the same doctor and date: the lock is held until this
+        // transaction commits, so a second request waits and then sees the first one's IN_CONSULTATION row.
+        await tx.execute(
+          sql`SELECT pg_advisory_xact_lock(hashtext(${`start-consultation:${doctorId}:${appt.appointmentDate}`}))`
+        );
+
+        const active = await tx
+          .select()
+          .from(schema.appointments)
+          .where(
+            and(
+              eq(schema.appointments.doctorId, doctorId),
+              eq(schema.appointments.appointmentDate, appt.appointmentDate),
+              eq(schema.appointments.status, "IN_CONSULTATION"),
+              sql`${schema.appointments.id} != ${appointmentId}`
+            )
+          )
+          .limit(1);
+
+        if (active.length > 0) {
+          return { success: false, error: "Another consultation is currently in progress." };
+        }
+
+        const [updated] = await tx
+          .update(schema.appointments)
+          .set({
+            status: "IN_CONSULTATION",
+            consultationStartedAt: consultTime,
+          })
+          .where(
+            and(
+              eq(schema.appointments.id, appointmentId),
+              // A cancellation or completion that committed after the read above must not be overwritten.
+              eq(schema.appointments.status, "CHECKED_IN")
+            )
+          )
+          .returning();
+
+        if (!updated) {
+          return {
+            success: false,
+            error: "Cannot start consultation. The appointment status changed; refresh and try again.",
+          };
+        }
+
+        return { success: true, appointment: updated as AppointmentEntity };
+      });
+    }
+
+    const mem = this.ctx.getMem();
+    const appt = mem.appointments.find((a) => a.id === appointmentId);
+    if (!appt) {
+      return { success: false, error: "Appointment not found." };
+    }
+    if (appt.doctorId !== doctorId) {
+      return { success: false, error: "Forbidden: You can only start consultations for your own schedule." };
+    }
+    if (appt.status !== "CHECKED_IN") {
+      return {
+        success: false,
+        error: `Cannot start consultation. Patient must be checked in first (current status: ${appt.status}).`,
+      };
+    }
+
+    const busy = mem.appointments.find(
+      (a) =>
+        a.doctorId === doctorId &&
+        a.appointmentDate === appt.appointmentDate &&
+        a.status === "IN_CONSULTATION" &&
+        a.id !== appointmentId
+    );
+    if (busy) {
+      return { success: false, error: "Another consultation is currently in progress." };
+    }
+
+    appt.status = "IN_CONSULTATION";
+    appt.consultationStartedAt = consultTime;
+    return { success: true, appointment: { ...appt } };
+  }
+
+  public async getDoctorAppointmentsForDate(doctorId: string, date: string): Promise<AppointmentEntity[]> {
+    this.ctx.checkProductionDatabase();
+    const db = this.ctx.getDb();
+    if (db) {
+      const rows = await db
+        .select()
+        .from(schema.appointments)
+        .where(
+          and(
+            eq(schema.appointments.doctorId, doctorId),
+            eq(schema.appointments.appointmentDate, date)
+          )
+        )
+        .orderBy(schema.appointments.tokenNumber);
+      return rows as AppointmentEntity[];
+    }
+    return this.ctx
+      .getMem()
+      .appointments.filter((a) => a.doctorId === doctorId && a.appointmentDate === date)
+      .sort((a, b) => a.tokenNumber - b.tokenNumber)
+      .map((a) => ({ ...a }));
   }
 }

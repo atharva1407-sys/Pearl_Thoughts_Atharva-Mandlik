@@ -6,6 +6,9 @@ import { dbRepo } from "@/db/repo";
 import { formatDate } from "@/lib/utils";
 import { formatPaise } from "@/lib/payments";
 import { AssistantWidget } from "@/components/assistant/assistant-widget";
+import { istDateString, formatKolkataTimeShort } from "@/lib/time";
+import { computePatientQueueStatus, type PatientQueueStatus } from "@/lib/queue";
+import { sessionAppliesOnDate } from "@/lib/session-schedule";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -43,8 +46,36 @@ export default async function PatientDashboard() {
   ]);
   const paymentByApptId = new Map(payments.map((p) => [p.appointmentId, p]));
 
-  const upcoming = appointments.filter((a) => a.status === "BOOKED");
-  const past = appointments.filter((a) => a.status !== "BOOKED");
+  const today = istDateString(new Date());
+  const upcoming = appointments.filter(
+    (a) => a.status === "BOOKED" || a.status === "CHECKED_IN" || a.status === "IN_CONSULTATION"
+  );
+  const past = appointments.filter(
+    (a) => a.status !== "BOOKED" && a.status !== "CHECKED_IN" && a.status !== "IN_CONSULTATION"
+  );
+
+  // Compute live queue statuses for today's active appointments
+  const queueStatusByApptId = new Map<string, PatientQueueStatus>();
+  for (const apt of upcoming) {
+    if (apt.appointmentDate === today) {
+      const [docAppts, docSessions] = await Promise.all([
+        dbRepo.getDoctorAppointmentsForDate(apt.doctorId, today),
+        dbRepo.getAvailabilitiesByDoctorId(apt.doctorId),
+      ]);
+      // Prefer the session this appointment was booked into, then any session running today.
+      const session =
+        docSessions.find((s) => s.id === apt.sessionId) ?? docSessions.find((s) => sessionAppliesOnDate(s, today));
+      const qStatus = computePatientQueueStatus(docAppts, apt.id, {
+        targetDate: today,
+        slotDurationMinutes: session?.slotDurationMinutes,
+      });
+      queueStatusByApptId.set(apt.id, qStatus);
+    }
+  }
+
+  // Find primary visit for today
+  const todayAppt = upcoming.find((a) => a.appointmentDate === today);
+  const todayQueue = todayAppt ? queueStatusByApptId.get(todayAppt.id) : undefined;
 
   return (
     <div className="space-y-6">
@@ -120,6 +151,68 @@ export default async function PatientDashboard() {
         </Card>
       </div>
 
+      {/* Today's Live OPD Queue Status Banner */}
+      {todayAppt && todayQueue && (
+        <Card className="border-blue-200 bg-linear-to-r from-blue-50/70 via-white to-white p-5 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Badge variant={todayQueue.isInConsultation ? "blue" : todayQueue.isCheckedIn ? "green" : "amber"}>
+                  {todayQueue.isInConsultation
+                    ? "In Consultation with Doctor"
+                    : todayQueue.isCheckedIn
+                    ? "Checked In · In Waiting Room"
+                    : "Today's Visit · Not Checked In"}
+                </Badge>
+                <span className="text-xs text-slate-500 font-mono">
+                  {todayAppt.startTime} – {todayAppt.endTime}
+                </span>
+              </div>
+
+              <h2 className="text-base font-bold text-slate-900">
+                Dr. {todayAppt.doctor.firstName} {todayAppt.doctor.lastName} ({todayAppt.doctor.specialization})
+              </h2>
+
+              <div className="text-xs text-slate-600">
+                {todayQueue.isInConsultation ? (
+                  <span className="font-semibold text-blue-700">
+                    You are currently inside the consultation room.
+                  </span>
+                ) : todayQueue.isCheckedIn ? (
+                  <div className="space-y-1">
+                    <p className="font-medium text-slate-800">
+                      Checked in at {todayAppt.checkedInAt ? formatKolkataTimeShort(todayAppt.checkedInAt) : "today"} — You are{" "}
+                      <span className="font-bold text-amber-700">#{todayQueue.queuePosition} in line</span>
+                    </p>
+                    <p className="text-[11px] text-slate-500 font-mono">
+                      {todayQueue.nowServingToken
+                        ? `Now serving Token #${todayQueue.nowServingToken} · `
+                        : "Consultation room ready · "}
+                      Your Token #{todayAppt.tokenNumber} ·{" "}
+                      {todayQueue.patientsAhead === 0
+                        ? "You are next in line!"
+                        : `${todayQueue.patientsAhead} patient${todayQueue.patientsAhead === 1 ? "" : "s"} ahead of you`}
+                      {todayQueue.estimatedWaitMinutes !== null && ` · Est. wait: ~${todayQueue.estimatedWaitMinutes}m`}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-slate-600">
+                    Not checked in — please check in at the hospital reception upon arrival.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 self-start sm:self-center">
+              <div className="flex flex-col items-center justify-center w-16 h-16 rounded-xl bg-white border border-blue-200 shadow-xs">
+                <span className="text-[10px] uppercase font-bold text-slate-400">Your Token</span>
+                <span className="text-xl font-black text-blue-800">#{todayAppt.tokenNumber}</span>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Upcoming Appointments Card */}
       <Card className="space-y-4">
         <div className="card-head">
@@ -157,6 +250,8 @@ export default async function PatientDashboard() {
               <TableBody>
                   {upcoming.map((apt) => {
                     const pmt = paymentByApptId.get(apt.id);
+                    const qStatus = queueStatusByApptId.get(apt.id);
+                    const isToday = apt.appointmentDate === today;
                     return (
                       <TableRow key={apt.id}>
                         <TableCell>
@@ -204,7 +299,24 @@ export default async function PatientDashboard() {
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col gap-1 items-start">
-                            <Badge variant="green">Confirmed</Badge>
+                            {apt.status === "IN_CONSULTATION" ? (
+                              <Badge variant="blue">In Consultation</Badge>
+                            ) : apt.status === "CHECKED_IN" ? (
+                              <>
+                                <Badge variant="green">
+                                  Checked In ({apt.checkedInAt ? formatKolkataTimeShort(apt.checkedInAt) : "Yes"})
+                                </Badge>
+                                {qStatus?.queuePosition && (
+                                  <span className="text-[10px] text-amber-700 font-bold block">
+                                    Position #{qStatus.queuePosition}
+                                  </span>
+                                )}
+                              </>
+                            ) : isToday ? (
+                              <Badge variant="gray">Not Checked In</Badge>
+                            ) : (
+                              <Badge variant="green">Confirmed</Badge>
+                            )}
                             {pmt && pmt.status === "PAID" && (
                               <Badge variant="sky" className="text-[10px] py-0 px-1.5">
                                 Paid (rzp_test)

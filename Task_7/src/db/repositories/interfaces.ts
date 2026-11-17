@@ -113,6 +113,8 @@ export interface IAppointmentRepository {
   updateAppointmentStatus(id: string, status: AppointmentStatus, extra?: {
     cancelledBy?: "PATIENT" | "DOCTOR" | "SYSTEM" | null;
     cancelReason?: string | null;
+    /** Only apply the change if the appointment is still in this status (atomic compare-and-set). */
+    expectedStatus?: AppointmentStatus;
   }): Promise<boolean>;
   rescheduleAppointment(data: {
     appointmentId: string;
@@ -150,6 +152,22 @@ export interface IAppointmentRepository {
     fromDate: string,
     toDate: string,
     statuses: AppointmentStatus[]
+  ): Promise<AppointmentEntity[]>;
+  checkInAppointment(
+    appointmentId: string,
+    doctorId: string,
+    checkedInBy: string,
+    now?: Date,
+    expectedDate?: string
+  ): Promise<{ success: boolean; error?: string; appointment?: AppointmentEntity }>;
+  startConsultation(
+    appointmentId: string,
+    doctorId: string,
+    now?: Date
+  ): Promise<{ success: boolean; error?: string; appointment?: AppointmentEntity }>;
+  getDoctorAppointmentsForDate(
+    doctorId: string,
+    date: string
   ): Promise<AppointmentEntity[]>;
 }
 

@@ -2,15 +2,17 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, X, Loader2, CalendarClock, UserX } from "lucide-react";
+import { Check, X, Loader2, CalendarClock, UserX, UserCheck } from "lucide-react";
 import {
   completeAppointmentAction,
   cancelAppointmentAction,
-  markNoShowAction
+  markNoShowAction,
+  checkInAppointmentAction,
 } from "@/actions/appointments";
 import { RescheduleModal } from "@/components/reschedule-modal";
 
 import { Button } from "@/components/ui/button";
+
 interface DoctorAppointmentActionsProps {
   appointmentId: string;
   patientName: string;
@@ -18,6 +20,9 @@ interface DoctorAppointmentActionsProps {
   doctorName: string;
   appointmentDate: string;
   startTime: string;
+  status?: string;
+  checkedInAt?: Date | null;
+  isToday?: boolean;
 }
 
 export function DoctorAppointmentActions({
@@ -27,12 +32,29 @@ export function DoctorAppointmentActions({
   doctorName,
   appointmentDate,
   startTime,
+  status,
+  isToday,
 }: DoctorAppointmentActionsProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [actionType, setActionType] = useState<"complete" | "cancel" | "noshow" | null>(null);
+  const [actionType, setActionType] = useState<"complete" | "cancel" | "noshow" | "checkin" | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isRescheduleOpen, setIsRescheduleOpen] = useState(false);
+
+  const handleCheckIn = () => {
+    setErrorMessage(null);
+    setActionType("checkin");
+
+    startTransition(async () => {
+      const res = await checkInAppointmentAction(appointmentId);
+      if (res.success) {
+        router.refresh();
+      } else {
+        setErrorMessage(res.error || "Failed to check in patient.");
+      }
+      setActionType(null);
+    });
+  };
 
   const handleComplete = () => {
     setErrorMessage(null);
@@ -91,6 +113,24 @@ export function DoctorAppointmentActions({
     <>
       <div className="flex flex-col items-end gap-1">
         <div className="flex flex-wrap items-center justify-end gap-1.5">
+          {status === "BOOKED" && isToday && (
+            <Button
+              variant="outline"
+              type="button"
+              onClick={handleCheckIn}
+              disabled={isPending}
+              className="text-xs py-1 px-2.5 text-emerald-700 hover:bg-emerald-50 border border-emerald-300 inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
+              title="Check in patient for today's OPD consultation"
+            >
+              {isPending && actionType === "checkin" ? (
+                <Loader2 size={13} className="animate-spin text-emerald-600" />
+              ) : (
+                <UserCheck size={13} />
+              )}
+              <span>Check In</span>
+            </Button>
+          )}
+
           <Button variant="default"
             type="button"
             onClick={handleComplete}
@@ -120,9 +160,13 @@ export function DoctorAppointmentActions({
           <Button variant="outline"
             type="button"
             onClick={handleNoShow}
-            disabled={isPending}
+            disabled={isPending || status === "CHECKED_IN" || status === "IN_CONSULTATION"}
             className="text-xs py-1 px-2 text-amber-700 hover:bg-amber-50 inline-flex items-center gap-1 cursor-pointer disabled:opacity-60 border border-amber-200"
-            title="Mark Patient as No-Show"
+            title={
+              status === "CHECKED_IN"
+                ? "Checked-in patient cannot be marked as No-Show. Cancel if needed."
+                : "Mark Patient as No-Show"
+            }
           >
             {isPending && actionType === "noshow" ? (
               <Loader2 size={13} className="animate-spin" />
