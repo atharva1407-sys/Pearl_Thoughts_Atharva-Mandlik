@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Medrella Healthcare — Clinical User Journeys", () => {
-  const testEmail = `patient_e2e_${Date.now()}@medrella.demo`;
+  const testEmail = `patient_e2e_${Date.now()}@medrella.com`;
   const testPassword = "SecurePassword123!";
 
   test("1. Landing page displays branding, specialists, and active doctor slots", async ({ page }) => {

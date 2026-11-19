@@ -33,7 +33,7 @@ A session that is "one slot for the whole session" and is only **extended** keep
 | Server action | `updateSessionAction` takes `bookingResolution`, saves the hours, then applies MOVE or CANCEL, using the existing doctor cancellation action for CANCEL and the repository reschedule for MOVE. The patient (not the doctor) receives the emails. The success message reports what happened. |
 | Doctor form | Live preview of added and removed slots; an amber panel listing the affected patients with the three options (Move is preselected); errors shown inside the dialog. |
 | Pre-check | Before the doctor chooses, the repository does a dry run (`previewRelocation` / `planRelocations`) against the schedule as it *would* be, and the dialog says how many affected patients could be moved and how many would find every slot full. |
-| Demo data | `GET /api/dev/seed-elastic-demo` creates a doctor and a 9:00–11:00 session (two slots, 5 seats each) with ten patients who have booked every seat. It only runs in local in-memory mode (no database configured) and refuses in production or with a real database. |
+| Test verification | `src/test-elastic.ts` builds fully-booked Wave sessions in-memory and verifies that elastic expansion and shrink logic gracefully relocate, cancel, or retain affected appointments with zero data loss. |
 | Database | **No migration.** No schema change. |
 | Tests | `src/test-elastic.ts`: 105 checks, including the full-capacity scenarios (expand, empty shrink, shrink with MOVE / CANCEL / KEEP, too few free seats so some stay booked, ending earlier, every slot booked then shrink, and the dry-run pre-check), chained into `npm test`. |
 
