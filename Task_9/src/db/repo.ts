@@ -19,6 +19,7 @@ import {
   BillingRepository,
   NotificationRepository,
   ReceptionistRepository,
+  MedicalHistoryRepository,
   buildSessionSlotGroups,
   type MemoryStore,
   type RepositoryContext,
@@ -84,6 +85,9 @@ function createEmptyMemoryStore(): MemoryStore {
     prescriptions: [],
     receptionists: [],
     doctorReceptionists: [],
+    medicalProfiles: [],
+    medicalHistoryLog: [],
+    visitRecords: [],
     inFlightNotificationClaims: new Set<string>(),
   };
 }
@@ -103,6 +107,7 @@ export class MedrellaRepository
   public billingRepo: BillingRepository;
   public notificationRepo: NotificationRepository;
   public receptionistRepo: ReceptionistRepository;
+  public medicalHistoryRepo: MedicalHistoryRepository;
 
   constructor() {
     // A dev server reloads modules whenever a file changes, and each reload used to build a NEW repository with an
@@ -115,6 +120,10 @@ export class MedrellaRepository
     // A store created before the receptionist tables existed (dev hot reload) lacks these arrays.
     this.mem.receptionists ??= [];
     this.mem.doctorReceptionists ??= [];
+    // Same for the medical-history arrays added in Task 9.
+    this.mem.medicalProfiles ??= [];
+    this.mem.medicalHistoryLog ??= [];
+    this.mem.visitRecords ??= [];
 
     const ctx: RepositoryContext = {
       getDb: () => db,
@@ -128,6 +137,7 @@ export class MedrellaRepository
     this.billingRepo = new BillingRepository(ctx);
     this.notificationRepo = new NotificationRepository(ctx);
     this.receptionistRepo = new ReceptionistRepository(ctx);
+    this.medicalHistoryRepo = new MedicalHistoryRepository(ctx);
 
     if (
       !isPostgresConfigured() &&
@@ -185,6 +195,9 @@ export class MedrellaRepository
     this.mem.prescriptions = [];
     this.mem.receptionists = [];
     this.mem.doctorReceptionists = [];
+    this.mem.medicalProfiles = [];
+    this.mem.medicalHistoryLog = [];
+    this.mem.visitRecords = [];
     this.mem.inFlightNotificationClaims = new Set<string>();
 
     const defaultPasswordHash = hashPassword(getSeedDoctorPassword({ allowDevFallback: true }));
@@ -301,6 +314,14 @@ export class MedrellaRepository
   public async getAssignedDoctors(receptionistId: string) { return this.receptionistRepo.getAssignedDoctors(receptionistId); }
   public async updateUserPasswordHash(userId: string, passwordHash: string) { return this.receptionistRepo.updateUserPasswordHash(userId, passwordHash); }
 
+  // --- Medical history & visit records (Task 9) ---
+  public async getMedicalProfile(patientId: string) { return this.medicalHistoryRepo.getMedicalProfile(patientId); }
+  public async saveMedicalProfile(input: Parameters<MedicalHistoryRepository["saveMedicalProfile"]>[0]) { return this.medicalHistoryRepo.saveMedicalProfile(input); }
+  public async getMedicalHistoryLog(patientId: string, limit?: number) { return this.medicalHistoryRepo.getMedicalHistoryLog(patientId, limit); }
+  public async upsertVisitRecord(input: Parameters<MedicalHistoryRepository["upsertVisitRecord"]>[0]) { return this.medicalHistoryRepo.upsertVisitRecord(input); }
+  public async getVisitRecordsByPatientId(patientId: string) { return this.medicalHistoryRepo.getVisitRecordsByPatientId(patientId); }
+  public async doctorHasTreatedPatient(doctorId: string, patientId: string) { return this.medicalHistoryRepo.doctorHasTreatedPatient(doctorId, patientId); }
+
   // --- Billing & Payment Operations ---
   public async createPayment(data: Parameters<BillingRepository["createPayment"]>[0]) { return this.billingRepo.createPayment(data); }
   public async getPaymentById(id: string) { return this.billingRepo.getPaymentById(id); }
@@ -378,6 +399,9 @@ export class MedrellaRepository
     this.mem.prescriptions = [];
     this.mem.receptionists = [];
     this.mem.doctorReceptionists = [];
+    this.mem.medicalProfiles = [];
+    this.mem.medicalHistoryLog = [];
+    this.mem.visitRecords = [];
   }
 }
 
