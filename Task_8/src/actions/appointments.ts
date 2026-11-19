@@ -24,7 +24,7 @@ import {
 } from "@/lib/notifications";
 import { runInBackground } from "@/lib/background";
 import { checkRateLimitFor } from "@/lib/rate-limiter";
-import { AppointmentLifecycle, DomainError } from "@/domain/appointment-lifecycle";
+import { AppointmentLifecycle, DomainError, canManageAppointment } from "@/domain/appointment-lifecycle";
 
 /** The patient record that a signed-in user pays and books as (doctors may book as themselves). */
 async function resolvePayingPatientId(user: { role: string; profileId: string; userId: string }): Promise<string | undefined> {
@@ -535,7 +535,7 @@ export async function getRefundPreviewAction(appointmentId: string) {
     .reduce((sum, r) => sum + r.amountPaise, 0);
 
   const preview = computeRefund({
-    cancelledBy: user.role === "DOCTOR" ? "DOCTOR" : "PATIENT",
+    cancelledBy: user.role === "DOCTOR" ? "DOCTOR" : user.role === "RECEPTIONIST" ? "RECEPTIONIST" : "PATIENT",
     appointmentDate: appointment.appointmentDate,
     startTime: appointment.startTime,
     amountPaidPaise: payment.amountPaise,
@@ -581,6 +581,13 @@ export async function rescheduleAppointmentAction(formData: FormData) {
     return { success: false, error: "Appointment record not found." };
   }
 
+  if (!canManageAppointment(user, appointment, "RESCHEDULE")) {
+    return {
+      success: false,
+      error: "Forbidden: You do not have permission to reschedule this appointment.",
+    };
+  }
+
   try {
     AppointmentLifecycle.assertValidTransition(appointment.status, "BOOKED");
     if (appointment.status !== "BOOKED") {
@@ -611,40 +618,45 @@ export async function rescheduleAppointmentAction(formData: FormData) {
 
   const doctor = await dbRepo.getDoctorById(appointment.doctorId);
   const patient = await dbRepo.getPatientById(appointment.patientId);
+  const patientUser = patient ? await dbRepo.getUserById(patient.userId) : undefined;
+  const recipientEmail = patientUser?.email || (user.role === "PATIENT" ? user.email : "");
+  const recipientUserId = patientUser?.id || (user.role === "PATIENT" ? user.userId : appointment.patientId);
   const patientName = patient ? `${patient.firstName} ${patient.lastName}` : "Patient";
 
   // Re-schedule reminders for the new date and time
-  if (doctor) {
+  if (doctor && recipientEmail) {
     await updateRescheduledReminders(
       dbRepo,
       result.appointment,
-      user.email,
-      user.userId,
+      recipientEmail,
+      recipientUserId,
       patientName,
       doctor
     );
   }
 
-  // Queue reschedule notification
-  await createNotification(dbRepo, {
-    userId: user.userId,
-    appointmentId: result.appointment.id,
-    channel: "EMAIL",
-    template: "APPOINTMENT_RESCHEDULED",
-    recipient: user.email,
-    payload: {
-      patientName,
-      doctorName: doctor ? `${doctor.firstName} ${doctor.lastName}` : "Doctor",
-      specialization: doctor?.specialization || "Specialist",
-      newAppointmentDate: result.appointment.appointmentDate,
-      newStartTime: result.appointment.startTime,
-      newEndTime: result.appointment.endTime,
-      newTokenNumber: result.appointment.tokenNumber,
-      previousDate: appointment.appointmentDate,
-      previousTime: appointment.startTime,
-    },
-    dedupeKey: `reschedule-${result.appointment.id}-${result.appointment.appointmentDate}-${result.appointment.startTime}`,
-  });
+  // Queue reschedule notification to patient
+  if (recipientEmail) {
+    await createNotification(dbRepo, {
+      userId: recipientUserId,
+      appointmentId: result.appointment.id,
+      channel: "EMAIL",
+      template: "APPOINTMENT_RESCHEDULED",
+      recipient: recipientEmail,
+      payload: {
+        patientName,
+        doctorName: doctor ? `${doctor.firstName} ${doctor.lastName}` : "Doctor",
+        specialization: doctor?.specialization || "Specialist",
+        newAppointmentDate: result.appointment.appointmentDate,
+        newStartTime: result.appointment.startTime,
+        newEndTime: result.appointment.endTime,
+        newTokenNumber: result.appointment.tokenNumber,
+        previousDate: appointment.appointmentDate,
+        previousTime: appointment.startTime,
+      },
+      dedupeKey: `reschedule-${result.appointment.id}-${result.appointment.appointmentDate}-${result.appointment.startTime}`,
+    });
+  }
 
   runInBackground(async () => {
     await processDueNotifications(dbRepo);
@@ -654,6 +666,7 @@ export async function rescheduleAppointmentAction(formData: FormData) {
   revalidatePath("/patient/dashboard");
   revalidatePath("/doctor/dashboard");
   revalidatePath("/queue");
+  revalidatePath("/reception");
   revalidatePath("/reports");
 
   return {
@@ -674,7 +687,7 @@ export async function cancelAppointmentAction(appointmentId: string) {
   try {
     assessment = await AppointmentLifecycle.assessCancellation(
       appointmentId,
-      user.role === "DOCTOR" ? "DOCTOR" : "PATIENT"
+      user.role === "DOCTOR" ? "DOCTOR" : user.role === "RECEPTIONIST" ? "RECEPTIONIST" : "PATIENT"
     );
   } catch (err: any) {
     return { success: false, error: err.message || "Appointment not found." };
@@ -685,10 +698,7 @@ export async function cancelAppointmentAction(appointmentId: string) {
   }
 
   const appointment = assessment.appointment;
-  const isPatientOwner = user.role === "PATIENT" && appointment.patientId === user.profileId;
-  const isDoctorOwner = user.role === "DOCTOR" && appointment.doctorId === user.profileId;
-
-  if (!isPatientOwner && !isDoctorOwner) {
+  if (!canManageAppointment(user, appointment, "CANCEL")) {
     return {
       success: false,
       error: "Forbidden: You do not have permission to cancel this appointment.",
@@ -721,6 +731,7 @@ export async function cancelAppointmentAction(appointmentId: string) {
     await cancelAppointmentReminders(dbRepo, appointmentId);
     revalidatePath("/patient/dashboard");
     revalidatePath(`/doctors/${appointment.doctorId}`);
+    revalidatePath("/reception");
     return { success: true, message: "Appointment booking cancelled." };
   }
 
@@ -752,7 +763,7 @@ export async function cancelAppointmentAction(appointmentId: string) {
       .reduce((sum, r) => sum + r.amountPaise, 0);
 
     refundCalc = computeRefund({
-      cancelledBy: user.role === "DOCTOR" ? "DOCTOR" : "PATIENT",
+      cancelledBy: user.role === "DOCTOR" ? "DOCTOR" : user.role === "RECEPTIONIST" ? "RECEPTIONIST" : "PATIENT",
       appointmentDate: appointment.appointmentDate,
       startTime: appointment.startTime,
       amountPaidPaise: payment.amountPaise,
@@ -805,7 +816,8 @@ export async function cancelAppointmentAction(appointmentId: string) {
   const doctorRecord = await dbRepo.getDoctorById(appointment.doctorId);
   if (patientRecord && patientUser) {
     const isDoc = user.role === "DOCTOR";
-    const cancelTemplate = isDoc ? "APPOINTMENT_CANCELLED_BY_DOCTOR" : "APPOINTMENT_CANCELLED";
+    const isRecep = user.role === "RECEPTIONIST";
+    const cancelTemplate = isDoc || isRecep ? "APPOINTMENT_CANCELLED_BY_DOCTOR" : "APPOINTMENT_CANCELLED";
     await createNotification(dbRepo, {
       userId: patientUser.id,
       appointmentId: appointment.id,
@@ -817,7 +829,11 @@ export async function cancelAppointmentAction(appointmentId: string) {
         doctorName: doctorRecord ? `${doctorRecord.firstName} ${doctorRecord.lastName}` : "your doctor",
         appointmentDate: appointment.appointmentDate,
         startTime: appointment.startTime,
-        reason: isDoc ? "Cancelled by doctor / clinical schedule update" : undefined,
+        reason: isDoc
+          ? "Cancelled by doctor / clinical schedule update"
+          : isRecep
+          ? "Cancelled by clinic front desk"
+          : undefined,
         refundAmountFormatted:
           refundForEmail && refundForEmail.status !== "FAILED" ? formatPaise(refundForEmail.amountPaise) : undefined,
       },
@@ -833,6 +849,7 @@ export async function cancelAppointmentAction(appointmentId: string) {
   revalidatePath("/patient/payments");
   revalidatePath("/doctor/dashboard");
   revalidatePath("/queue");
+  revalidatePath("/reception");
   revalidatePath("/reports");
 
   return {
@@ -843,8 +860,8 @@ export async function cancelAppointmentAction(appointmentId: string) {
 
 export async function checkInAppointmentAction(appointmentId: string) {
   const user = await getCurrentUser();
-  if (!user || user.role !== "DOCTOR") {
-    return { success: false, error: "Unauthorized: Only doctors or clinical staff can check in patients." };
+  if (!user || (user.role !== "DOCTOR" && user.role !== "RECEPTIONIST")) {
+    return { success: false, error: "Unauthorized: Only doctors or front-desk receptionists can check in patients." };
   }
 
   const appointment = await dbRepo.getAppointmentById(appointmentId);
@@ -852,10 +869,12 @@ export async function checkInAppointmentAction(appointmentId: string) {
     return { success: false, error: "Appointment not found." };
   }
 
-  if (appointment.doctorId !== user.profileId) {
+  if (!canManageAppointment(user, appointment, "CHECK_IN")) {
     return {
       success: false,
-      error: "Forbidden: You can only check in patients assigned to your own schedule.",
+      error: user.role === "DOCTOR"
+        ? "Forbidden: You can only check in patients assigned to your own schedule."
+        : "Forbidden: You do not have permission to check in this appointment.",
     };
   }
 
@@ -882,15 +901,21 @@ export async function checkInAppointmentAction(appointmentId: string) {
     };
   }
 
-  const doctor = await dbRepo.getDoctorById(user.profileId);
-  const checkedInBy = doctor ? `Dr. ${doctor.firstName} ${doctor.lastName}` : user.name || user.email;
+  let checkedInBy: string;
+  if (user.role === "RECEPTIONIST") {
+    checkedInBy = `Reception: ${user.name || "Front Desk"}`;
+  } else {
+    const doctor = await dbRepo.getDoctorById(user.profileId);
+    checkedInBy = doctor ? `Dr. ${doctor.firstName} ${doctor.lastName}` : (user.name || user.email);
+  }
 
-  const result = await dbRepo.checkInAppointment(appointmentId, user.profileId, checkedInBy, undefined, today);
+  const result = await dbRepo.checkInAppointment(appointmentId, appointment.doctorId, checkedInBy, undefined, today);
   if (!result.success) {
     return { success: false, error: result.error || "Failed to check in patient." };
   }
 
   revalidatePath("/queue");
+  revalidatePath("/reception");
   revalidatePath("/doctor/dashboard");
   revalidatePath("/patient/dashboard");
   return { success: true, message: "Patient successfully checked in." };
@@ -907,7 +932,7 @@ export async function startConsultationAction(appointmentId: string) {
     return { success: false, error: "Appointment not found." };
   }
 
-  if (appointment.doctorId !== user.profileId) {
+  if (!canManageAppointment(user, appointment, "CALL")) {
     return {
       success: false,
       error: "Forbidden: You can only start consultations for your own schedule.",
@@ -927,6 +952,7 @@ export async function startConsultationAction(appointmentId: string) {
   }
 
   revalidatePath("/queue");
+  revalidatePath("/reception");
   revalidatePath("/doctor/dashboard");
   revalidatePath("/patient/dashboard");
   return { success: true, message: "Consultation started." };
@@ -943,7 +969,7 @@ export async function completeAppointmentAction(appointmentId: string) {
     return { success: false, error: "Appointment not found." };
   }
 
-  if (appointment.doctorId !== user.profileId) {
+  if (!canManageAppointment(user, appointment, "COMPLETE")) {
     return {
       success: false,
       error: "Forbidden: You can only complete consultations assigned to your own schedule.",
@@ -984,14 +1010,15 @@ export async function completeAppointmentAction(appointmentId: string) {
   revalidatePath("/doctor/dashboard");
   revalidatePath("/patient/dashboard");
   revalidatePath("/queue");
+  revalidatePath("/reception");
   revalidatePath("/reports");
   return { success: true, message: "Appointment marked as completed." };
 }
 
 export async function markNoShowAction(appointmentId: string) {
   const user = await getCurrentUser();
-  if (!user || user.role !== "DOCTOR") {
-    return { success: false, error: "Unauthorized: Only doctors can mark appointments as No-Show." };
+  if (!user || (user.role !== "DOCTOR" && user.role !== "RECEPTIONIST")) {
+    return { success: false, error: "Unauthorized: Only doctors or front-desk receptionists can mark appointments as No-Show." };
   }
 
   const appointment = await dbRepo.getAppointmentById(appointmentId);
@@ -999,10 +1026,12 @@ export async function markNoShowAction(appointmentId: string) {
     return { success: false, error: "Appointment not found." };
   }
 
-  if (appointment.doctorId !== user.profileId) {
+  if (!canManageAppointment(user, appointment, "NO_SHOW")) {
     return {
       success: false,
-      error: "Forbidden: You can only update appointments assigned to your own schedule.",
+      error: user.role === "DOCTOR"
+        ? "Forbidden: You can only update appointments assigned to your own schedule."
+        : "Forbidden: You do not have permission to mark this appointment as No-Show.",
     };
   }
 
@@ -1041,7 +1070,73 @@ export async function markNoShowAction(appointmentId: string) {
   revalidatePath("/doctor/dashboard");
   revalidatePath("/patient/dashboard");
   revalidatePath("/queue");
+  revalidatePath("/reception");
   revalidatePath("/reports");
   return { success: true, message: "Appointment marked as No-Show." };
+}
+
+export async function markPatientUnavailableAction(appointmentId: string) {
+  const user = await getCurrentUser();
+  if (!user || (user.role !== "DOCTOR" && user.role !== "RECEPTIONIST")) {
+    return { success: false, error: "Unauthorized: Only doctors and front-desk receptionists can mark patients as unavailable." };
+  }
+
+  if (typeof appointmentId !== "string" || !appointmentId) {
+    return { success: false, error: "Missing appointment ID." };
+  }
+
+  const appointment = await dbRepo.getAppointmentById(appointmentId);
+  if (!appointment) {
+    return { success: false, error: "Appointment not found." };
+  }
+
+  if (!canManageAppointment(user, appointment, "UNAVAILABLE")) {
+    return {
+      success: false,
+      error: user.role === "DOCTOR"
+        ? "Forbidden: You can only manage appointments assigned to your own schedule."
+        : "Forbidden: You do not have permission to manage this appointment.",
+    };
+  }
+
+  if (appointment.status === "IN_CONSULTATION") {
+    return {
+      success: false,
+      error: "Cannot mark unavailable: Patient is already in consultation with the doctor.",
+    };
+  }
+
+  if (appointment.status === "COMPLETED") {
+    return {
+      success: false,
+      error: "Cannot mark unavailable: Appointment has already been completed.",
+    };
+  }
+
+  if (appointment.status !== "CHECKED_IN") {
+    return {
+      success: false,
+      error: `Cannot mark unavailable: Patient status is ${appointment.status}. Only checked-in patients in the waiting queue can be marked unavailable.`,
+    };
+  }
+
+  const doctorScope = user.role === "DOCTOR" ? user.profileId : undefined;
+  const result = await dbRepo.markPatientUnavailable(appointmentId, doctorScope);
+
+  if (!result.success) {
+    return { success: false, error: result.error || "Failed to mark patient unavailable." };
+  }
+
+  revalidatePath("/", "layout");
+  revalidatePath("/queue");
+  revalidatePath("/reception");
+  revalidatePath("/doctor/dashboard");
+  revalidatePath("/patient/dashboard");
+
+  return {
+    success: true,
+    message: "Patient marked as unavailable and returned to Not Yet Arrived.",
+    appointment: result.appointment,
+  };
 }
 

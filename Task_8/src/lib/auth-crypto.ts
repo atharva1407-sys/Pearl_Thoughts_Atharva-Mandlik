@@ -84,7 +84,7 @@ function getSessionSecret(): string {
 export interface SessionPayload {
   userId: string;
   email: string;
-  role: "PATIENT" | "DOCTOR";
+  role: "PATIENT" | "DOCTOR" | "RECEPTIONIST";
   profileId: string;
   name: string;
   exp: number;

@@ -16,7 +16,7 @@ import { buildInstantFromKolkataTime } from "./time";
 export interface ComputeRefundInput {
   appointmentDate: string; // YYYY-MM-DD
   startTime: string; // HH:mm
-  cancelledBy: "PATIENT" | "DOCTOR" | "SYSTEM";
+  cancelledBy: "PATIENT" | "DOCTOR" | "SYSTEM" | "RECEPTIONIST";
   amountPaidPaise: number;
   alreadyRefundedPaise?: number;
   now?: Date;
@@ -51,8 +51,8 @@ export function computeRefund(input: ComputeRefundInput): ComputeRefundResult {
     };
   }
 
-  // Doctor or System cancellations are always 100% refunded
-  if (cancelledBy === "DOCTOR" || cancelledBy === "SYSTEM") {
+  // Doctor, Receptionist, or System cancellations are always 100% refunded
+  if (cancelledBy === "DOCTOR" || cancelledBy === "SYSTEM" || cancelledBy === "RECEPTIONIST") {
     return {
       eligible: true,
       refundPercentage: 100,

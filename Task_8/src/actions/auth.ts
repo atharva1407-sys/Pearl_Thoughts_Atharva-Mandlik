@@ -74,8 +74,8 @@ export async function loginAction(formData: FormData) {
     return { success: false, error: "Invalid email or password." };
   }
 
-  let role: "PATIENT" | "DOCTOR" = user.role;
-  if (rawRole === "PATIENT" || rawRole === "DOCTOR") {
+  let role: "PATIENT" | "DOCTOR" | "RECEPTIONIST" = user.role;
+  if (rawRole === "PATIENT" || rawRole === "DOCTOR" || rawRole === "RECEPTIONIST") {
     if (user.role !== rawRole) {
       await dbRepo.recordFailedLogin(email);
       return { success: false, error: "Invalid email or password." };
@@ -100,11 +100,14 @@ export async function loginAction(formData: FormData) {
     if (!patient) return { success: false, error: "Invalid email or password." };
     profileId = patient.id;
     name = `${patient.firstName} ${patient.lastName}`;
-  } else {
+  } else if (role === "DOCTOR") {
     const doctor = await dbRepo.getDoctorByUserId(user.id);
     if (!doctor) return { success: false, error: "Invalid email or password." };
     profileId = doctor.id;
     name = `Dr. ${doctor.firstName} ${doctor.lastName}`;
+  } else {
+    profileId = user.id;
+    name = "Front Desk";
   }
 
   const token = createSessionToken({
@@ -121,7 +124,9 @@ export async function loginAction(formData: FormData) {
 
   // Determine safe redirect destination
   const safeRedirect = sanitizeRedirect(rawRedirect);
-  const redirectPath = safeRedirect || (role === "PATIENT" ? "/patient/dashboard" : "/doctor/dashboard");
+  const defaultRedirect =
+    role === "PATIENT" ? "/patient/dashboard" : role === "RECEPTIONIST" ? "/reception" : "/doctor/dashboard";
+  const redirectPath = safeRedirect || defaultRedirect;
 
   return { success: true, redirectPath };
 }
