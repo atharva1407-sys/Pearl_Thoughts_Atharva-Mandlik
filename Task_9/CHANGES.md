@@ -1,3 +1,23 @@
+# Task 9 — Patient Medical History & Visit History
+
+Built on the complete Task 8 application. Patients and treating doctors can keep a medical profile with a full update history, and every patient's visits are listed chronologically with their details.
+
+| Area | Change |
+|---|---|
+| **Medical profile** | One per patient: blood group, height, weight, allergies (severity, reaction), existing conditions (active / managed / resolved), current medications, past surgeries, family history, notes. |
+| **Who may view / update** | The patient (own record) and a doctor with a real booking (BOOKED, CHECKED_IN, IN_CONSULTATION or COMPLETED) with that patient. Receptionists never. Enforced server-side in `getPatientRecordAccess` (`src/domain/patient-record.ts`) from the session and bookings, never from browser input; an unrelated patient id looks like "not found". |
+| **Update history** | `patient_medical_history_log`: who (patient or doctor), when, optional reason, and each changed field as before → after. Written in the same transaction as the profile. An unchanged save writes nothing. |
+| **Stale edits** | The save carries the version the editor saw (`expectedVersion`); a different stored version is refused as a conflict (row locked with `FOR UPDATE` in Postgres) and the form offers "Reload latest". |
+| **Visit details** | `visit_records`: diagnosis, symptoms, notes, follow-up, one per completed appointment, written only by the treating doctor for their own completed visits. The patient can read it. |
+| **Doctor pages** | `/doctor/patients` (My Patients, search by name or phone) and `/doctor/patients/[patientId]` (profile, upcoming appointments, all previous visits across the clinic, update history). Patient names on the doctor dashboard link to the record; completed visits link to "Visit details". |
+| **Patient pages** | `/patient/history`: profile, chronological visit history (newest first), update history. Patient dashboard now shows **Upcoming** (soonest first), **Completed Consultations** (with diagnosis and prescription) and **Cancelled & Missed** separately. |
+| **Navigation** | "Medical History" (patient) and "My Patients" (doctor) in the sidebar. |
+| **Data & migration** | New tables `patient_medical_profiles`, `patient_medical_history_log`, `visit_records`; migration `0010_patient_medical_history` (+ `npm run db:migrate-0010`). **Apply before deploying.** Account deletion removes them (cascade in Postgres, explicit in the in-memory store). |
+| **Code layout** | Pure rules in `src/domain/medical-history.ts`; loaders and access in `src/domain/patient-record.ts`; persistence in `src/db/repositories/medical-history-repository.ts`; thin server actions in `src/actions/medical-history.ts`; UI in `src/components/medical/`. |
+| **Verification** | `src/test-medical-history.ts` (22 checks) is part of `npm test`; the full suite and `next build` pass. The flow was also exercised in a browser: patient adds allergy, books and completes a visit, doctor updates the record and adds visit details, patient sees both. |
+
+---
+
 # Task 8 — Doctor-Assigned Receptionists & Queue Unavailable/Reschedule Workflow
 
 Adds a front-desk workflow for Ruby Hall Clinic, Pune. Doctors keep the clinical decisions (Call, Complete); receptionists handle arrivals (Check In, Unavailable, No-Show) for the doctors who assigned them. A doctor with no receptionist keeps the front-desk controls.

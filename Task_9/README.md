@@ -1,6 +1,6 @@
 <div align="center">
 
-# Task 8: Doctor-Assigned Receptionists & Queue Unavailable/Reschedule
+# Task 9: Patient Medical History & Visit History
 
 <p align="center">
   <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js_16.4.6-000000?style=flat-square&logo=nextdotjs&logoColor=white" alt="Next.js" /></a>
@@ -11,11 +11,34 @@
 
 </div>
 
-Full-stack outpatient clinical management platform featuring **Doctor-Assigned Receptionists**, **Receptionist Live Queue**, **Queue Unavailable & Reschedule Workflow**, **Dynamic OPD Queue Management**, **Patient Check-in**, and **Conversational Healthcare Agent** for **Pearl Thoughts (Task 8)**.
+Full-stack outpatient clinical management platform featuring **Patient Medical History**, **Visit History**, **Doctor-Assigned Receptionists**, **Dynamic OPD Queue Management**, **Patient Check-in**, and **Conversational Healthcare Agent** for **Pearl Thoughts (Task 9)**. This folder is the complete Task 8 application plus the features below.
 
 ---
 
-## 💎 Task 8 Core Innovations
+## 🩺 Task 9: Patient Medical History & Visit History
+
+> [!IMPORTANT]
+> ### 📋 Medical history (allergies, conditions, key details)
+> One **medical profile per patient**: blood group, height, weight, **allergies** (with severity and reaction), **existing conditions** (active / managed / resolved), current medications, past surgeries, family history and notes.
+> - **Who can view and update it**: the patient themselves, and a **doctor who has (or had) a real booking with that patient**. Receptionists never see clinical data. The server decides this from the session and the bookings (`src/domain/patient-record.ts`), never from anything the browser sends.
+> - **Update history**: every change writes an entry saying **who** changed it (patient or doctor), **when**, an optional **reason**, and exactly **which fields** changed (before → after). Nothing is overwritten without a trace. Saving without changing anything writes nothing.
+> - **No lost updates**: each save carries the version the editor was looking at; if someone else saved in between, the save is refused with "Reload latest" instead of overwriting.
+
+> [!NOTE]
+> ### 🗓️ Visit history
+> - **Patient**: `/patient/history` shows the medical profile, every previous visit as a chronological list (newest first) and the update history.
+> - **Doctor**: `/doctor/patients` lists *My Patients* (search by name or phone); `/doctor/patients/[patientId]` is the full record: profile, upcoming appointments, and every previous visit **across the clinic** with date, doctor, consultation status, reason, check-in/consultation times, diagnosis, notes, follow-up advice and prescription. Patient names on the doctor dashboard link straight to it.
+> - **Visit details**: after completing a consultation the treating doctor records **diagnosis, symptoms, notes and follow-up** (only for their own completed visits). One record per appointment; editing replaces it. The patient can read it.
+
+> [!TIP]
+> ### 🧑‍💻 Patient dashboard
+> Appointments are now shown in **separate sections**: *Upcoming* (soonest first), *Completed Consultations* (newest first, with diagnosis and prescription) and *Cancelled & Missed*. A **Medical History** button and sidebar link lead to the full record.
+
+**Data & migration.** Three new tables: `patient_medical_profiles`, `patient_medical_history_log`, `visit_records` (**migration `0010_patient_medical_history`**). Apply it to the database **before** deploying this code: `npm run db:migrate-0010`. Postgres and the in-memory store behave the same.
+
+---
+
+## 💎 Carried over from Task 8
 
 > [!NOTE]
 > ### 👩‍💼 Doctor-assigned receptionists with a clean role split
@@ -68,14 +91,14 @@ Full-stack outpatient clinical management platform featuring **Doctor-Assigned R
 
 ## 🧪 Verification & Test Suite
 
-The platform includes a dedicated Task 8 test suite (`src/test-receptionist-queue.ts`) integrated into `npm test`:
+The platform includes a dedicated Task 9 test suite (`src/test-medical-history.ts`, 22 checks) integrated into `npm test`. It covers profile diffs, the access rules (patient / treating doctor / unrelated doctor / receptionist), versioned saves and the update history, stale-edit refusal, input validation, visit-record upserts, the upcoming / completed / other split and ordering, and account-deletion cleanup.
 
 ```bash
 # Run every test suite
 npm test
 
-# Run Task 8 verification tests directly
-npx tsx src/test-receptionist-queue.ts
+# Run Task 9 verification tests directly
+npx tsx src/test-medical-history.ts
 
 # Run ESLint
 npm run lint
@@ -89,7 +112,7 @@ npm run build
 ## 🏃 Running it locally
 
 ```cmd
-cd Task_8
+cd Task_9
 copy .env.example .env.local
 ```
 
@@ -106,5 +129,7 @@ Open http://localhost:3000. The built-in Ruby Hall doctors (for example `ananya.
 3. Sign in through the **Receptionist** button on the login page. You land on `/reception`.
 4. Receptionist: **Check In** the patient. Doctor: **Call**, then **Complete**. Try **Unavailable** on a waiting patient.
 5. A doctor with no receptionist keeps the check-in controls (solo-doctor fallback).
+
+To try Task 9: as the patient open **Medical History** and add an allergy; as the doctor (after completing the visit) open **My Patients → Open record**, update the medical information and use **Add visit details**; back as the patient, see the diagnosis on the dashboard and the full update history on **Medical History**.
 
 Restarting `npm run dev` clears all in-memory data.
