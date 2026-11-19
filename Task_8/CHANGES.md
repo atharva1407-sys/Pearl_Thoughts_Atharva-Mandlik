@@ -1,3 +1,20 @@
+# Task 8 — Receptionist Front-Desk Console & Queue Unavailable/Reschedule Workflow
+
+Adds a dedicated receptionist workflow for Ruby Hall Clinic, Pune: a multi-doctor front-desk management console, same-day check-in, an atomic "Unavailable" action that removes waiting patients and prompts rescheduling while dynamically closing waiting queue gaps, and comprehensive offline demo data.
+
+| Feature Area | Details |
+|---|---|
+| **Role & Auth** | Added plain-text role `"RECEPTIONIST"` in TypeScript without database enum migrations. Login screen adds a 3rd "Reception" tab. Public registration remains limited to patients/doctors. Receptionists redirect to `/reception` on login. |
+| **Central Authorization** | Domain helper `canManageAppointment` regulates permissions across roles. Receptionists can check in (same-day), mark unavailable, reschedule, cancel, mark no-show (after slot start), and view queues for all doctors. Receptionists cannot start (`CALL`) or complete consultations. |
+| **Front-Desk Console** | Single operational dashboard at `/reception` listing today's appointments across all doctors. Zero N+1 queries via `getAllAppointmentsForDate` which joins patients and doctors in a single SQL query. Includes doctor filter chips, search (name, phone, token), status pills, and 20s auto-refresh. |
+| **Unavailable Action** | Atomic CAS transition `CHECKED_IN -> BOOKED` on appointment (`markPatientUnavailableAction`). Clears `checkedInAt` and `checkedInBy` while preserving the permanent `tokenNumber`. The patient is removed from the active waiting queue; remaining waiting queue positions close up contiguously (`1..N` with zero gaps). Automatically triggers `RescheduleModal` to choose another slot with the same doctor. If closed without picking a slot, the patient remains under "Not Yet Arrived". Re-check-in places patient at the queue tail based on new check-in timestamp. |
+| **Reschedule Hardening** | Enforces `canManageAppointment(user, appointment, "RESCHEDULE")` so patients cannot tamper with others' bookings. Notifications and reminder schedules for staff-initiated reschedules route strictly to the patient's email. |
+| **Offline Demo Data** | Gated under `DEMO_DATA=true`. Generates a receptionist account (`reception.demo@medrella.demo`), 2 doctors (General Medicine and Cardiology) with full 08:00-22:00 daily sessions, and a realistic mid-day queue relative to current time (completed, in consultation, 3 waiting out of order, cancelled, no-show, not arrived with slot passed, and upcoming bookings). |
+| **Security Update** | Next.js updated to `16.4.6` and `eslint-config-next` to `16.4.6`. |
+| **Verification** | `src/test-receptionist-queue.ts` (15 checks) added to `npm test` (859 total tests passing). |
+
+---
+
 # Elastic Scheduling — stretch or shrink a session, even when it is fully booked (built into Task 6)
 
 A doctor can change the start or end time of an existing OPD session at any time, **including when appointments are already booked**. The slots follow the new hours. Editing is never switched off because bookings exist: if a change affects booked patients, the doctor says what happens to them, and nothing is saved until they do.

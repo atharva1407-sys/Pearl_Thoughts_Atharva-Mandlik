@@ -24,7 +24,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 interface SettingsClientProps {
   isProduction: boolean;
-  userRole: "PATIENT" | "DOCTOR";
+  userRole: "PATIENT" | "DOCTOR" | "RECEPTIONIST";
   userEmail?: string;
   initialPreferences: NotificationPreferencesEntity;
 }

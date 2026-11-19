@@ -2,6 +2,7 @@ import { dbRepo, type AppointmentEntity, type AppointmentStatus } from "@/db/rep
 import { checkRequestedSlot, hasAppointmentStarted, type SlotCheck } from "@/lib/booking-rules";
 import { computeRefund, type ComputeRefundResult } from "@/lib/refund-policy";
 import { formatPaise } from "@/lib/payments";
+import { istDateString } from "@/lib/time";
 
 export class DomainError extends Error {
   constructor(public code: string, message: string) {
@@ -17,10 +18,75 @@ export interface CancellationAssessment {
   reason?: string;
 }
 
+export type ManageAppointmentAction =
+  | "CHECK_IN"
+  | "UNAVAILABLE"
+  | "RESCHEDULE"
+  | "CANCEL"
+  | "NO_SHOW"
+  | "CALL"
+  | "COMPLETE"
+  | "VIEW_QUEUE";
+
+/**
+ * Unified authorization helper for managing appointments across all clinical roles:
+ * - Receptionist: check in (same-day), mark unavailable, reschedule, cancel, mark no-show, view queue for any doctor.
+ *   Cannot start or complete consultations (CALL, COMPLETE).
+ * - Doctor: can perform all actions on appointments assigned to their own schedule only.
+ * - Patient: can only CANCEL or RESCHEDULE their own appointments.
+ */
+export function canManageAppointment(
+  user: { role: "PATIENT" | "DOCTOR" | "RECEPTIONIST"; profileId: string; userId?: string } | null,
+  appointment: { doctorId: string; patientId: string; appointmentDate: string },
+  action?: ManageAppointmentAction,
+  now: Date = new Date()
+): boolean {
+  if (!user) return false;
+
+  const targetAction = action ?? "RESCHEDULE";
+
+  if (user.role === "RECEPTIONIST") {
+    // Receptionist can check in, mark unavailable, reschedule, cancel, mark no-show, view queue
+    if (targetAction === "CHECK_IN") {
+      const today = istDateString(now);
+      return appointment.appointmentDate === today;
+    }
+    if (
+      targetAction === "UNAVAILABLE" ||
+      targetAction === "RESCHEDULE" ||
+      targetAction === "CANCEL" ||
+      targetAction === "NO_SHOW" ||
+      targetAction === "VIEW_QUEUE"
+    ) {
+      return true;
+    }
+    // Strictly forbidden: starting or completing consultations
+    return false;
+  }
+
+  if (user.role === "DOCTOR") {
+    // Doctor can only manage their own patients
+    if (appointment.doctorId !== user.profileId) return false;
+    if (targetAction === "CHECK_IN") {
+      const today = istDateString(now);
+      return appointment.appointmentDate === today;
+    }
+    return true;
+  }
+
+  if (user.role === "PATIENT") {
+    // Patient can only CANCEL and RESCHEDULE their own appointments
+    if (appointment.patientId !== user.profileId) return false;
+    return targetAction === "CANCEL" || targetAction === "RESCHEDULE";
+  }
+
+  return false;
+}
+
 const VALID_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
   PENDING_PAYMENT: ["BOOKED", "EXPIRED", "CANCELLED"],
   BOOKED: ["CHECKED_IN", "IN_CONSULTATION", "COMPLETED", "NO_SHOW", "CANCELLED", "BOOKED"],
-  CHECKED_IN: ["IN_CONSULTATION", "COMPLETED", "CANCELLED", "CHECKED_IN"],
+  CHECKED_IN: ["IN_CONSULTATION", "COMPLETED", "CANCELLED", "BOOKED", "CHECKED_IN"],
   IN_CONSULTATION: ["COMPLETED", "CANCELLED", "IN_CONSULTATION"],
   COMPLETED: [],
   CANCELLED: [],
@@ -33,6 +99,8 @@ const VALID_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
  * lifecycle state machine, refund rules, validation, and notification side-effects.
  */
 export class AppointmentLifecycle {
+  static canManageAppointment = canManageAppointment;
+
   /**
    * Validates whether a state transition is legal in the clinical lifecycle.
    */
@@ -54,11 +122,23 @@ export class AppointmentLifecycle {
   }
 
   /**
+   * Asserts that an appointment can be marked unavailable (must be currently CHECKED_IN).
+   */
+  static assertCanMarkUnavailable(appointment: { status: AppointmentStatus }): void {
+    if (appointment.status !== "CHECKED_IN") {
+      throw new DomainError(
+        "INVALID_STATUS",
+        `Cannot mark patient unavailable. Patient status is ${appointment.status}. Only CHECKED_IN patients can be marked unavailable.`
+      );
+    }
+  }
+
+  /**
    * Assesses whether an appointment can be cancelled and calculates refund eligibility.
    */
   static async assessCancellation(
     appointmentId: string,
-    cancelledBy: "PATIENT" | "DOCTOR",
+    cancelledBy: "PATIENT" | "DOCTOR" | "RECEPTIONIST",
     now: Date = new Date()
   ): Promise<CancellationAssessment> {
     const appointment = await dbRepo.getAppointmentById(appointmentId);

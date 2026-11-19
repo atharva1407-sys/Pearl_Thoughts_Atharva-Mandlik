@@ -111,7 +111,7 @@ export interface IAppointmentRepository {
     tokenNumber?: number;
   }): Promise<{ success: boolean; message: string; appointment?: AppointmentEntity }>;
   updateAppointmentStatus(id: string, status: AppointmentStatus, extra?: {
-    cancelledBy?: "PATIENT" | "DOCTOR" | "SYSTEM" | null;
+    cancelledBy?: "PATIENT" | "DOCTOR" | "SYSTEM" | "RECEPTIONIST" | null;
     cancelReason?: string | null;
     /** Only apply the change if the appointment is still in this status (atomic compare-and-set). */
     expectedStatus?: AppointmentStatus;
@@ -123,8 +123,8 @@ export interface IAppointmentRepository {
     newEndTime: string;
     newSessionId?: string | null;
     actorUserId?: string;
-    actorRole?: "PATIENT" | "DOCTOR";
-    rescheduledBy?: "PATIENT" | "DOCTOR";
+    actorRole?: "PATIENT" | "DOCTOR" | "RECEPTIONIST";
+    rescheduledBy?: "PATIENT" | "DOCTOR" | "RECEPTIONIST";
     reason?: string | null;
   }): Promise<{ success: boolean; message: string; appointment?: AppointmentEntity }>;
   findActiveHoldsForPatient(
@@ -169,6 +169,13 @@ export interface IAppointmentRepository {
     doctorId: string,
     date: string
   ): Promise<AppointmentEntity[]>;
+  markPatientUnavailable(
+    appointmentId: string,
+    doctorId?: string
+  ): Promise<{ success: boolean; error?: string; appointment?: AppointmentEntity }>;
+  getAllAppointmentsForDate(
+    date: string
+  ): Promise<(AppointmentEntity & { patient: PatientEntity; doctor: DoctorEntity })[]>;
 }
 
 export interface IBillingRepository {
