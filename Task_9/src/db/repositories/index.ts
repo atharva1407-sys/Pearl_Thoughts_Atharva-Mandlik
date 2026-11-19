@@ -7,3 +7,4 @@ export * from "./appointment-repository";
 export * from "./billing-repository";
 export * from "./notification-repository";
 export * from "./receptionist-repository";
+export * from "./medical-history-repository";

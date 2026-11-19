@@ -1,5 +1,6 @@
 import { pgTable, text, timestamp, integer, boolean, uniqueIndex, index, jsonb } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+import type { MedicalAllergy, MedicalCondition, MedicalProfileChange } from "./repositories/types";
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
@@ -303,6 +304,80 @@ export const doctorReceptionists = pgTable(
   ]
 );
 
+/**
+ * A patient's standing medical profile (allergies, existing conditions, ...). One row per patient, edited in place;
+ * every edit also writes a `patient_medical_history_log` row so earlier versions are never lost.
+ */
+export const patientMedicalProfiles = pgTable(
+  "patient_medical_profiles",
+  {
+    id: text("id").primaryKey(),
+    patientId: text("patient_id").notNull().references(() => patients.id, { onDelete: "cascade" }),
+    bloodGroup: text("blood_group"),
+    heightCm: integer("height_cm"),
+    weightKg: integer("weight_kg"),
+    allergies: jsonb("allergies").notNull().$type<MedicalAllergy[]>().default(sql`'[]'::jsonb`),
+    conditions: jsonb("conditions").notNull().$type<MedicalCondition[]>().default(sql`'[]'::jsonb`),
+    currentMedications: text("current_medications"),
+    pastSurgeries: text("past_surgeries"),
+    familyHistory: text("family_history"),
+    notes: text("notes"),
+    /** Bumped on every saved change; also used to refuse an edit made from a stale copy of the form. */
+    version: integer("version").notNull().default(1),
+    updatedByUserId: text("updated_by_user_id"),
+    updatedByRole: text("updated_by_role").$type<"PATIENT" | "DOCTOR">(),
+    updatedByName: text("updated_by_name"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("patient_medical_profiles_patient_unique").on(table.patientId)]
+);
+
+/** Append-only audit trail: who changed what in a patient's medical profile, and when. */
+export const patientMedicalHistoryLog = pgTable(
+  "patient_medical_history_log",
+  {
+    id: text("id").primaryKey(),
+    patientId: text("patient_id").notNull().references(() => patients.id, { onDelete: "cascade" }),
+    version: integer("version").notNull(),
+    changes: jsonb("changes").notNull().$type<MedicalProfileChange[]>(),
+    changeNote: text("change_note"),
+    // Deliberately no foreign key: the trail must survive the editor's account.
+    changedByUserId: text("changed_by_user_id").notNull(),
+    changedByRole: text("changed_by_role").notNull().$type<"PATIENT" | "DOCTOR">(),
+    changedByName: text("changed_by_name").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("patient_medical_history_log_version_unique").on(table.patientId, table.version),
+    index("patient_medical_history_log_patient_idx").on(table.patientId, table.createdAt),
+  ]
+);
+
+/** What the treating doctor found at one completed visit. One record per appointment. */
+export const visitRecords = pgTable(
+  "visit_records",
+  {
+    id: text("id").primaryKey(),
+    appointmentId: text("appointment_id").notNull().references(() => appointments.id, { onDelete: "cascade" }),
+    doctorId: text("doctor_id").notNull().references(() => doctors.id, { onDelete: "cascade" }),
+    patientId: text("patient_id").notNull().references(() => patients.id, { onDelete: "cascade" }),
+    diagnosis: text("diagnosis").notNull(),
+    symptoms: text("symptoms"),
+    notes: text("notes"),
+    followUp: text("follow_up"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("visit_records_appointment_unique").on(table.appointmentId),
+    index("visit_records_patient_idx").on(table.patientId),
+  ]
+);
+
+export type PatientMedicalProfile = typeof patientMedicalProfiles.$inferSelect;
+export type PatientMedicalHistoryLogRow = typeof patientMedicalHistoryLog.$inferSelect;
+export type VisitRecord = typeof visitRecords.$inferSelect;
 export type Receptionist = typeof receptionists.$inferSelect;
 export type DoctorReceptionist = typeof doctorReceptionists.$inferSelect;
 export type Prescription = typeof prescriptions.$inferSelect;

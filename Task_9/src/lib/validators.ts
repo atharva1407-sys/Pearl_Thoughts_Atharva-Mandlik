@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BLOOD_GROUPS, ALLERGY_SEVERITIES, CONDITION_STATUSES } from "@/domain/medical-history";
 
 export const loginSchema = z.object({
   email: z.string().email("Invalid email format"),
@@ -99,4 +100,84 @@ export const prescriptionSchema = z.object({
     .min(1, "Add at least one medicine")
     .max(12, "A prescription can list at most 12 medicines"),
   notes: z.string().trim().max(600, "Notes are too long").optional(),
+});
+
+// ---------- Medical history & visit records (Task 9) ----------
+
+const optionalText = (label: string, max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max, `${label} is too long (at most ${max} characters)`)
+    .nullish()
+    .transform((v) => (v ? v : null));
+
+const optionalWholeNumber = (label: string, min: number, max: number) =>
+  z
+    .number({ invalid_type_error: `${label} must be a number` })
+    .int(`${label} must be a whole number`)
+    .min(min, `${label} must be at least ${min}`)
+    .max(max, `${label} must be at most ${max}`)
+    .nullish()
+    .transform((v) => v ?? null);
+
+const hasUniqueNames = (items: { name: string }[]) =>
+  new Set(items.map((i) => i.name.trim().toLowerCase())).size === items.length;
+
+export const medicalProfileDataSchema = z.object({
+  bloodGroup: z
+    .union([z.enum(BLOOD_GROUPS), z.literal("")])
+    .nullish()
+    .transform((v) => v || null),
+  heightCm: optionalWholeNumber("Height", 30, 260),
+  weightKg: optionalWholeNumber("Weight", 1, 500),
+  allergies: z
+    .array(
+      z.object({
+        name: rxText("Allergy name", 80),
+        severity: z.enum(ALLERGY_SEVERITIES),
+        reaction: z
+          .string()
+          .trim()
+          .max(120, "Reaction is too long (at most 120 characters)")
+          .nullish()
+          .transform((v) => v || undefined),
+      })
+    )
+    .max(30, "At most 30 allergies can be listed")
+    .refine(hasUniqueNames, "Each allergy can be listed only once"),
+  conditions: z
+    .array(
+      z.object({
+        name: rxText("Condition name", 80),
+        status: z.enum(CONDITION_STATUSES),
+        notes: z
+          .string()
+          .trim()
+          .max(120, "Condition note is too long (at most 120 characters)")
+          .nullish()
+          .transform((v) => v || undefined),
+      })
+    )
+    .max(30, "At most 30 conditions can be listed")
+    .refine(hasUniqueNames, "Each condition can be listed only once"),
+  currentMedications: optionalText("Current medications", 800),
+  pastSurgeries: optionalText("Past surgeries", 800),
+  familyHistory: optionalText("Family history", 800),
+  notes: optionalText("Notes", 1000),
+});
+
+export const saveMedicalProfileSchema = z.object({
+  patientId: z.string().min(1, "Patient is required"),
+  expectedVersion: z.number().int().min(0),
+  changeNote: optionalText("Reason for the change", 200),
+  data: medicalProfileDataSchema,
+});
+
+export const visitRecordSchema = z.object({
+  appointmentId: z.string().min(1, "Appointment is required"),
+  diagnosis: rxText("Diagnosis", 200),
+  symptoms: optionalText("Symptoms", 600),
+  notes: optionalText("Consultation notes", 1500),
+  followUp: optionalText("Follow-up advice", 400),
 });
