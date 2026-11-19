@@ -15,6 +15,9 @@ import type {
   PrescriptionEntity,
   ReceptionistEntity,
   DoctorReceptionistEntity,
+  MedicalProfileEntity,
+  MedicalHistoryLogEntity,
+  VisitRecordEntity,
 } from "./types";
 
 export interface MemoryStore {
@@ -34,6 +37,9 @@ export interface MemoryStore {
   prescriptions: PrescriptionEntity[];
   receptionists: ReceptionistEntity[];
   doctorReceptionists: DoctorReceptionistEntity[];
+  medicalProfiles: MedicalProfileEntity[];
+  medicalHistoryLog: MedicalHistoryLogEntity[];
+  visitRecords: VisitRecordEntity[];
   inFlightNotificationClaims: Set<string>;
 }
 
@@ -64,6 +70,9 @@ export class DefaultRepositoryContext implements RepositoryContext {
       prescriptions: [],
       receptionists: [],
       doctorReceptionists: [],
+      medicalProfiles: [],
+      medicalHistoryLog: [],
+      visitRecords: [],
       inFlightNotificationClaims: new Set<string>(),
     };
   }
