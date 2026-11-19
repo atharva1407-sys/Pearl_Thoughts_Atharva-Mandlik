@@ -204,6 +204,16 @@ export class UserRepository implements IUserRepository {
       mem.patients = mem.patients.filter((p) => p.id !== patient.id);
     }
 
+    // Front-desk profile and assignments (the database removes these through ON DELETE CASCADE).
+    if (doctor) {
+      mem.doctorReceptionists = mem.doctorReceptionists.filter((a) => a.doctorId !== doctor.id);
+    }
+    const receptionist = mem.receptionists.find((r) => r.userId === userId);
+    if (receptionist) {
+      mem.doctorReceptionists = mem.doctorReceptionists.filter((a) => a.receptionistId !== receptionist.id);
+      mem.receptionists = mem.receptionists.filter((r) => r.id !== receptionist.id);
+    }
+
     mem.users = mem.users.filter((u) => u.id !== userId);
     return true;
   }

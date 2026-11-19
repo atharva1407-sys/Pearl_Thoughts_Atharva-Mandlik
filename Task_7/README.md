@@ -154,9 +154,9 @@ npm test                  # Runs 840 automated tests across 15 suites (zero netw
 
 ## 📚 Operational Runbooks & Documentation
 
-- [🚀 Production Deployment Guide](PRODUCTION_DEPLOYMENT_GUIDE.md)
-- [🔐 Environment Variables Specification](ENVIRONMENT_VARIABLES.md)
-- [🗄️ Database Migration Guide](DATABASE_MIGRATION_GUIDE.md)
-- [🧪 Testing Guide](TESTING_GUIDE.md)
-- [📋 Release Notes (v2.0.0)](RELEASE_NOTES.md)
-- [🛡️ Production Readiness Report](PRODUCTION_READINESS_REPORT.md)
+- [🚀 Production Deployment Guide](../docs/PRODUCTION_DEPLOYMENT_GUIDE.md)
+- [🔐 Environment Variables Specification](../docs/ENVIRONMENT_VARIABLES.md)
+- [🗄️ Database Migration Guide](../docs/DATABASE_MIGRATION_GUIDE.md)
+- [🧪 Testing Guide](../docs/TESTING_GUIDE.md)
+- [📋 Release Notes (v2.0.0)](../docs/RELEASE_NOTES.md)
+- [🛡️ Production Readiness Report](../docs/PRODUCTION_READINESS_REPORT.md)

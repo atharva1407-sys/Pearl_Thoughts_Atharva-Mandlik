@@ -56,8 +56,16 @@ export async function Navbar() {
 
         {user ? (
           <div className="flex items-center gap-2">
+            {user.role === "RECEPTIONIST" && (
+              <Link
+                href="/reception"
+                className="text-xs font-semibold px-2.5 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-500 transition-colors"
+              >
+                Live Queue
+              </Link>
+            )}
             <Link
-              href={user.role === "PATIENT" ? "/patient/dashboard" : "/doctor/dashboard"}
+              href={user.role === "PATIENT" ? "/patient/dashboard" : user.role === "RECEPTIONIST" ? "/reception" : "/doctor/dashboard"}
               className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-200 hover:text-white hover:border-zinc-700 transition-colors flex items-center gap-1.5"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>

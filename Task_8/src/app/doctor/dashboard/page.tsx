@@ -8,6 +8,7 @@ import { dbRepo, toLocalDateString } from "@/db/repo";
 import { formatKolkataHHMM } from "@/lib/time";
 import { summarizeSchedule } from "@/lib/session-schedule";
 import { formatDate } from "@/lib/utils";
+import { getQueueControls } from "@/domain/appointment-lifecycle";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -26,17 +27,22 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { UnavailableRescheduleProvider } from "@/components/unavailable-reschedule-provider";
+
 export default async function DoctorDashboard() {
   const user = await getCurrentUser();
   if (!user || user.role !== "DOCTOR") {
     redirect("/login?message=Please sign in to access the doctor dashboard.");
   }
 
-  const [doctor, appointments, availabilities] = await Promise.all([
+  const [doctor, appointments, availabilities, receptionTeam] = await Promise.all([
     dbRepo.getDoctorById(user.profileId),
     dbRepo.getAppointmentsByDoctorId(user.profileId),
     dbRepo.getAvailabilitiesByDoctorId(user.profileId),
+    dbRepo.getReceptionistsForDoctor(user.profileId),
   ]);
+  // Check-in, Unavailable and No-Show belong to the receptionist; they show here only while none is assigned.
+  const controls = getQueueControls("DOCTOR", receptionTeam.length > 0);
 
   const today = toLocalDateString(new Date());
   const activeShifts = availabilities.filter((a) => a.isActive);
@@ -46,6 +52,7 @@ export default async function DoctorDashboard() {
   const completedBookings = appointments.filter((a) => a.status === "COMPLETED");
 
   return (
+    <UnavailableRescheduleProvider>
     <div className="space-y-6">
       {/* Page Heading */}
       <div className="page-heading">
@@ -64,6 +71,10 @@ export default async function DoctorDashboard() {
           <Link href="/queue" className="btn">
             <Clock3 size={15} />
             <span>Live Queue</span>
+          </Link>
+          <Link href="/doctor/reception-team" className="btn">
+            <Users size={15} />
+            <span>Reception Team{receptionTeam.length > 0 ? ` (${receptionTeam.length})` : ""}</span>
           </Link>
         </div>
       </div>
@@ -213,6 +224,7 @@ export default async function DoctorDashboard() {
                           status={apt.status}
                           checkedInAt={apt.checkedInAt}
                           isToday={isToday}
+                          controls={controls}
                         />
                       </TableCell>
                     </TableRow>
@@ -274,5 +286,6 @@ export default async function DoctorDashboard() {
         configured={Boolean(process.env.SARVAM_API_KEY?.trim())}
       />
     </div>
+    </UnavailableRescheduleProvider>
   );
 }

@@ -24,7 +24,8 @@ import {
 } from "@/lib/notifications";
 import { runInBackground } from "@/lib/background";
 import { checkRateLimitFor } from "@/lib/rate-limiter";
-import { AppointmentLifecycle, DomainError, canManageAppointment } from "@/domain/appointment-lifecycle";
+import { AppointmentLifecycle, DomainError } from "@/domain/appointment-lifecycle";
+import { isAllowedToManage } from "@/domain/appointment-access";
 
 /** The patient record that a signed-in user pays and books as (doctors may book as themselves). */
 async function resolvePayingPatientId(user: { role: string; profileId: string; userId: string }): Promise<string | undefined> {
@@ -42,6 +43,17 @@ function describeRefund(refund: RefundEntity): string {
   return ` Refund of ${amount} initiated. It is not complete yet and usually reaches your account in 5-7 business days.`;
 }
 
+/** Why a role was refused, in words the person at the desk can act on. */
+function denialMessage(role: "PATIENT" | "DOCTOR" | "RECEPTIONIST", action: "CHECK_IN" | "UNAVAILABLE" | "NO_SHOW" | "MANAGE"): string {
+  if (role === "RECEPTIONIST") {
+    return "Forbidden: you are not assigned to this doctor. Ask the doctor to add you to their reception team.";
+  }
+  if (role === "DOCTOR" && action !== "MANAGE") {
+    return "Forbidden: check-in, Unavailable and No-Show are handled by your receptionist while one is assigned to you.";
+  }
+  return "Forbidden: you do not have permission to manage this appointment.";
+}
+
 /**
  * Initiates an appointment booking:
  * - If doctor consultation fee is 0: books directly as BOOKED.
@@ -52,6 +64,10 @@ export async function createBookingHoldAction(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) {
     return { success: false, error: "You must be signed in to book an appointment." };
+  }
+  // A front-desk account has no patient record: booking as one would hold a seat for a person who does not exist.
+  if (user.role === "RECEPTIONIST") {
+    return { success: false, error: "Front-desk accounts cannot book appointments. Patients book for themselves." };
   }
 
   const rateLimit = await checkRateLimitFor("APPOINTMENT_BOOKING", user.userId);
@@ -581,7 +597,7 @@ export async function rescheduleAppointmentAction(formData: FormData) {
     return { success: false, error: "Appointment record not found." };
   }
 
-  if (!canManageAppointment(user, appointment, "RESCHEDULE")) {
+  if (!(await isAllowedToManage(user, appointment, "RESCHEDULE"))) {
     return {
       success: false,
       error: "Forbidden: You do not have permission to reschedule this appointment.",
@@ -698,7 +714,7 @@ export async function cancelAppointmentAction(appointmentId: string) {
   }
 
   const appointment = assessment.appointment;
-  if (!canManageAppointment(user, appointment, "CANCEL")) {
+  if (!(await isAllowedToManage(user, appointment, "CANCEL"))) {
     return {
       success: false,
       error: "Forbidden: You do not have permission to cancel this appointment.",
@@ -869,13 +885,8 @@ export async function checkInAppointmentAction(appointmentId: string) {
     return { success: false, error: "Appointment not found." };
   }
 
-  if (!canManageAppointment(user, appointment, "CHECK_IN")) {
-    return {
-      success: false,
-      error: user.role === "DOCTOR"
-        ? "Forbidden: You can only check in patients assigned to your own schedule."
-        : "Forbidden: You do not have permission to check in this appointment.",
-    };
+  if (!(await isAllowedToManage(user, appointment, "CHECK_IN"))) {
+    return { success: false, error: denialMessage(user.role, "CHECK_IN") };
   }
 
   const today = istDateString(new Date());
@@ -932,7 +943,7 @@ export async function startConsultationAction(appointmentId: string) {
     return { success: false, error: "Appointment not found." };
   }
 
-  if (!canManageAppointment(user, appointment, "CALL")) {
+  if (!(await isAllowedToManage(user, appointment, "CALL"))) {
     return {
       success: false,
       error: "Forbidden: You can only start consultations for your own schedule.",
@@ -969,17 +980,11 @@ export async function completeAppointmentAction(appointmentId: string) {
     return { success: false, error: "Appointment not found." };
   }
 
-  if (!canManageAppointment(user, appointment, "COMPLETE")) {
+  if (!(await isAllowedToManage(user, appointment, "COMPLETE"))) {
     return {
       success: false,
       error: "Forbidden: You can only complete consultations assigned to your own schedule.",
     };
-  }
-
-  try {
-    AppointmentLifecycle.assertValidTransition(appointment.status, "COMPLETED");
-  } catch (err: any) {
-    return { success: false, error: err.message };
   }
 
   if (appointment.status === "COMPLETED") {
@@ -989,14 +994,14 @@ export async function completeAppointmentAction(appointmentId: string) {
     };
   }
 
-  if (
-    appointment.status !== "IN_CONSULTATION" &&
-    appointment.status !== "CHECKED_IN" &&
-    !hasAppointmentStarted(appointment)
-  ) {
+  // The flow is Check In (front desk) -> Call (doctor) -> Complete (doctor): only a patient who was called in can finish.
+  if (appointment.status !== "IN_CONSULTATION") {
     return {
       success: false,
-      error: "Cannot mark an appointment as completed before its scheduled start time.",
+      error:
+        appointment.status === "CHECKED_IN"
+          ? "Call the patient into consultation first; only a patient in consultation can be completed."
+          : `Cannot complete an appointment with status ${appointment.status}. The patient must be checked in and called first.`,
     };
   }
 
@@ -1026,13 +1031,8 @@ export async function markNoShowAction(appointmentId: string) {
     return { success: false, error: "Appointment not found." };
   }
 
-  if (!canManageAppointment(user, appointment, "NO_SHOW")) {
-    return {
-      success: false,
-      error: user.role === "DOCTOR"
-        ? "Forbidden: You can only update appointments assigned to your own schedule."
-        : "Forbidden: You do not have permission to mark this appointment as No-Show.",
-    };
+  if (!(await isAllowedToManage(user, appointment, "NO_SHOW"))) {
+    return { success: false, error: denialMessage(user.role, "NO_SHOW") };
   }
 
   if (appointment.status === "CHECKED_IN" || appointment.status === "IN_CONSULTATION") {
@@ -1090,13 +1090,8 @@ export async function markPatientUnavailableAction(appointmentId: string) {
     return { success: false, error: "Appointment not found." };
   }
 
-  if (!canManageAppointment(user, appointment, "UNAVAILABLE")) {
-    return {
-      success: false,
-      error: user.role === "DOCTOR"
-        ? "Forbidden: You can only manage appointments assigned to your own schedule."
-        : "Forbidden: You do not have permission to manage this appointment.",
-    };
+  if (!(await isAllowedToManage(user, appointment, "UNAVAILABLE"))) {
+    return { success: false, error: denialMessage(user.role, "UNAVAILABLE") };
   }
 
   if (appointment.status === "IN_CONSULTATION") {
@@ -1120,8 +1115,8 @@ export async function markPatientUnavailableAction(appointmentId: string) {
     };
   }
 
-  const doctorScope = user.role === "DOCTOR" ? user.profileId : undefined;
-  const result = await dbRepo.markPatientUnavailable(appointmentId, doctorScope);
+  // Scope the atomic update to the appointment's own doctor, whoever is acting.
+  const result = await dbRepo.markPatientUnavailable(appointmentId, appointment.doctorId);
 
   if (!result.success) {
     return { success: false, error: result.error || "Failed to mark patient unavailable." };

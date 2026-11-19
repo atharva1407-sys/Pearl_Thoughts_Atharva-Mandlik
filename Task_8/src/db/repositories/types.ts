@@ -21,6 +21,29 @@ export interface PatientEntity {
   address?: string | null;
 }
 
+export interface ReceptionistEntity {
+  id: string;
+  userId: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  /** Doctor who created the account (the only one allowed to reset its password). */
+  createdByDoctorId?: string | null;
+  createdAt?: Date;
+}
+
+export interface DoctorReceptionistEntity {
+  id: string;
+  doctorId: string;
+  receptionistId: string;
+  assignedAt: Date;
+}
+
+/** A receptionist as shown to a doctor: profile plus login email. */
+export interface ReceptionistWithEmail extends ReceptionistEntity {
+  email: string;
+}
+
 export interface DoctorEntity {
   id: string;
   userId: string;

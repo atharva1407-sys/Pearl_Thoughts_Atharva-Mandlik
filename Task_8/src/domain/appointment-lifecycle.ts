@@ -28,54 +28,92 @@ export type ManageAppointmentAction =
   | "COMPLETE"
   | "VIEW_QUEUE";
 
+/** Facts about the clinic that the permission rules need; loaded from the database by the caller. */
+export interface ManageContext {
+  /** Doctors this receptionist is assigned to. A receptionist is denied for every other doctor. */
+  assignedDoctorIds?: readonly string[];
+  /**
+   * Whether the appointment's doctor has at least one assigned receptionist.
+   * Only `false` lets the doctor do front-desk work themselves (so a solo doctor is never stuck).
+   */
+  doctorHasReceptionist?: boolean;
+}
+
+type SessionUser = { role: "PATIENT" | "DOCTOR" | "RECEPTIONIST"; profileId: string; userId?: string };
+
+/** The queue controls a role sees, so pages can hide what the role cannot use. */
+export interface QueueControls {
+  canCall: boolean;
+  canComplete: boolean;
+  canCheckIn: boolean;
+  canMarkUnavailable: boolean;
+  canMarkNoShow: boolean;
+}
+
 /**
- * Unified authorization helper for managing appointments across all clinical roles:
- * - Receptionist: check in (same-day), mark unavailable, reschedule, cancel, mark no-show, view queue for any doctor.
- *   Cannot start or complete consultations (CALL, COMPLETE).
- * - Doctor: can perform all actions on appointments assigned to their own schedule only.
- * - Patient: can only CANCEL or RESCHEDULE their own appointments.
+ * Role split for the live queue:
+ *  - Doctor: Call and Complete.
+ *  - Receptionist (assigned to that doctor): Check In, Unavailable (then reschedule) and No-Show.
+ *  - A doctor with NO receptionist gets the front-desk controls too, so a solo doctor is never stuck.
+ * The same rule feeds the server-side checks below, so a hidden button cannot be used by calling the action directly.
+ */
+export function getQueueControls(
+  role: "PATIENT" | "DOCTOR" | "RECEPTIONIST",
+  doctorHasReceptionist: boolean
+): QueueControls {
+  if (role === "DOCTOR") {
+    const frontDesk = !doctorHasReceptionist;
+    return {
+      canCall: true,
+      canComplete: true,
+      canCheckIn: frontDesk,
+      canMarkUnavailable: frontDesk,
+      canMarkNoShow: frontDesk,
+    };
+  }
+  if (role === "RECEPTIONIST") {
+    return { canCall: false, canComplete: false, canCheckIn: true, canMarkUnavailable: true, canMarkNoShow: true };
+  }
+  return { canCall: false, canComplete: false, canCheckIn: false, canMarkUnavailable: false, canMarkNoShow: false };
+}
+
+/**
+ * Unified authorization helper for managing appointments (deny by default):
+ * - Receptionist: Check In (same day), Unavailable, No-Show, Cancel, Reschedule and View Queue, ONLY for doctors they are
+ *   assigned to (`ctx.assignedDoctorIds`). Never Call or Complete.
+ * - Doctor: own appointments only. Call, Complete, Cancel, Reschedule and View Queue always; Check In, Unavailable and
+ *   No-Show only while the doctor has no receptionist (`ctx.doctorHasReceptionist === false`).
+ * - Patient: Cancel or Reschedule their own appointments only.
  */
 export function canManageAppointment(
-  user: { role: "PATIENT" | "DOCTOR" | "RECEPTIONIST"; profileId: string; userId?: string } | null,
+  user: SessionUser | null,
   appointment: { doctorId: string; patientId: string; appointmentDate: string },
   action?: ManageAppointmentAction,
-  now: Date = new Date()
+  now: Date = new Date(),
+  ctx: ManageContext = {}
 ): boolean {
   if (!user) return false;
 
   const targetAction = action ?? "RESCHEDULE";
+  const isToday = () => appointment.appointmentDate === istDateString(now);
 
   if (user.role === "RECEPTIONIST") {
-    // Receptionist can check in, mark unavailable, reschedule, cancel, mark no-show, view queue
-    if (targetAction === "CHECK_IN") {
-      const today = istDateString(now);
-      return appointment.appointmentDate === today;
-    }
-    if (
-      targetAction === "UNAVAILABLE" ||
-      targetAction === "RESCHEDULE" ||
-      targetAction === "CANCEL" ||
-      targetAction === "NO_SHOW" ||
-      targetAction === "VIEW_QUEUE"
-    ) {
-      return true;
-    }
-    // Strictly forbidden: starting or completing consultations
-    return false;
+    if (targetAction === "CALL" || targetAction === "COMPLETE") return false;
+    if (!ctx.assignedDoctorIds?.includes(appointment.doctorId)) return false;
+    if (targetAction === "CHECK_IN") return isToday();
+    return true;
   }
 
   if (user.role === "DOCTOR") {
-    // Doctor can only manage their own patients
     if (appointment.doctorId !== user.profileId) return false;
-    if (targetAction === "CHECK_IN") {
-      const today = istDateString(now);
-      return appointment.appointmentDate === today;
+    if (targetAction === "CHECK_IN" || targetAction === "UNAVAILABLE" || targetAction === "NO_SHOW") {
+      if (ctx.doctorHasReceptionist !== false) return false;
+      return targetAction === "CHECK_IN" ? isToday() : true;
     }
     return true;
   }
 
   if (user.role === "PATIENT") {
-    // Patient can only CANCEL and RESCHEDULE their own appointments
     if (appointment.patientId !== user.profileId) return false;
     return targetAction === "CANCEL" || targetAction === "RESCHEDULE";
   }

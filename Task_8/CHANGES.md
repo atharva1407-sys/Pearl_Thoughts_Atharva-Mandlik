@@ -1,17 +1,20 @@
-# Task 8 — Receptionist Front-Desk Console & Queue Unavailable/Reschedule Workflow
+# Task 8 — Doctor-Assigned Receptionists & Queue Unavailable/Reschedule Workflow
 
-Adds a dedicated receptionist workflow for Ruby Hall Clinic, Pune: a multi-doctor front-desk management console, same-day check-in, an atomic "Unavailable" action that removes waiting patients and prompts rescheduling while dynamically closing waiting queue gaps, and comprehensive offline demo data.
+Adds a front-desk workflow for Ruby Hall Clinic, Pune. Doctors keep the clinical decisions (Call, Complete); receptionists handle arrivals (Check In, Unavailable, No-Show) for the doctors who assigned them. A doctor with no receptionist keeps the front-desk controls.
 
-| Feature Area | Details |
+| Area | Change |
 |---|---|
-| **Role & Auth** | Added plain-text role `"RECEPTIONIST"` in TypeScript without database enum migrations. Login screen adds a 3rd "Reception" tab. Public registration remains limited to patients/doctors. Receptionists redirect to `/reception` on login. |
-| **Central Authorization** | Domain helper `canManageAppointment` regulates permissions across roles. Receptionists can check in (same-day), mark unavailable, reschedule, cancel, mark no-show (after slot start), and view queues for all doctors. Receptionists cannot start (`CALL`) or complete consultations. |
-| **Front-Desk Console** | Single operational dashboard at `/reception` listing today's appointments across all doctors. Zero N+1 queries via `getAllAppointmentsForDate` which joins patients and doctors in a single SQL query. Includes doctor filter chips, search (name, phone, token), status pills, and 20s auto-refresh. |
-| **Unavailable Action** | Atomic CAS transition `CHECKED_IN -> BOOKED` on appointment (`markPatientUnavailableAction`). Clears `checkedInAt` and `checkedInBy` while preserving the permanent `tokenNumber`. The patient is removed from the active waiting queue; remaining waiting queue positions close up contiguously (`1..N` with zero gaps). Automatically triggers `RescheduleModal` to choose another slot with the same doctor. If closed without picking a slot, the patient remains under "Not Yet Arrived". Re-check-in places patient at the queue tail based on new check-in timestamp. |
-| **Reschedule Hardening** | Enforces `canManageAppointment(user, appointment, "RESCHEDULE")` so patients cannot tamper with others' bookings. Notifications and reminder schedules for staff-initiated reschedules route strictly to the patient's email. |
-| **Offline Demo Data** | Gated under `DEMO_DATA=true`. Generates a receptionist account (`reception.demo@medrella.demo`), 2 doctors (General Medicine and Cardiology) with full 08:00-22:00 daily sessions, and a realistic mid-day queue relative to current time (completed, in consultation, 3 waiting out of order, cancelled, no-show, not arrived with slot passed, and upcoming bookings). |
-| **Security Update** | Next.js updated to `16.4.6` and `eslint-config-next` to `16.4.6`. |
-| **Verification** | `src/test-receptionist-queue.ts` (15 checks) added to `npm test` (859 total tests passing). |
+| **Role & Auth** | Plain-text role `"RECEPTIONIST"` (no enum migration). A **Receptionist** button beside "Need help?" opens `/login?portal=reception`, the same login page showing only the receptionist sign-in. The Reception tab is gone from the normal login. A receptionist cannot sign in through the patient/doctor form. |
+| **Role split & authorization** | `canManageAppointment` is assignment-aware and deny-by-default; `getQueueControls` decides which buttons render. Doctor: Call, Complete, Cancel, Reschedule. Receptionist (assigned doctors only): Check In, Unavailable, No-Show, Cancel, Reschedule, view queue; never Call/Complete. Doctor with no receptionist also gets Check In, Unavailable, No-Show. Enforced in every server action via `isAllowedToManage`. |
+| **Complete requires Call** | `completeAppointmentAction` now accepts only `IN_CONSULTATION` patients (previously a never-called patient could be completed once the slot time passed). |
+| **`/reception`** | The doctor's Live Queue (shared `QueueView`, also used by `/queue`) scoped to the receptionist's assigned doctors, with a switcher when assigned to several and a "not assigned yet" screen when none. The earlier multi-doctor console was removed. `/queue` redirects receptionists to `/reception`; `/reception` redirects doctors to `/queue`. |
+| **Reception Team** | `/doctor/reception-team`: create a receptionist account, assign an existing one by email, remove, reset password (creator only). Domain logic in `src/domain/reception-team.ts`, thin actions in `src/actions/reception-team.ts`. |
+| **Data & migration** | New tables `receptionists` and `doctor_receptionists`; migration `0009_receptionist_assignments` (+ `npm run db:migrate-0009`). Apply before deploying. |
+| **Unavailable → reschedule** | Atomic `CHECKED_IN → BOOKED`; the reschedule dialog is hosted by `UnavailableRescheduleProvider` so it survives the refresh the action triggers. Closing it leaves the patient under *Not Yet Arrived*. |
+| **Patient reflection** | The patient dashboard auto-refreshes (15 s) while the patient has a visit today, so check-in, now-serving, their turn and completion appear without reloading. |
+| **Receptionist UX hardening** | Receptionists are redirected away from `/patient/*`; the header badge, profile link, landing-page Dashboard link and Book Appointment button are role-aware. |
+| **Security & framework** | Next.js 16.4.6; reschedule ownership enforced; reschedule and cancel emails go to the patient. |
+| **Verification** | `src/test-receptionist-queue.ts` (25 checks) is part of `npm test`. |
 
 ---
 

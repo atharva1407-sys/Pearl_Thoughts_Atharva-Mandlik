@@ -18,6 +18,9 @@ export default async function PatientPaymentsPage() {
   if (!user) {
     redirect("/login?message=Please sign in to view payment history.");
   }
+  if (user.role === "RECEPTIONIST") {
+    redirect("/reception");
+  }
 
   const patientId =
     user.role === "DOCTOR" ? ((await dbRepo.getPatientByUserId(user.userId))?.id ?? user.profileId) : user.profileId;
