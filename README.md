@@ -29,7 +29,7 @@ A hospital appointment platform built one task at a time. Patients find a doctor
 - 🤖 **AI that acts safely**: real backend actions, signed single-use confirmations, emergency messages routed to 112, client-side chat history.
 - 💳 **Real payment flow**: Razorpay checkout, 10-minute seat holds, signature checks, tiered refunds.
 - 📬 **Reliable emails**: transactional outbox with retries and a dead-letter dashboard.
-- ✅ **Tested**: 859+ automated checks, run in CI on every push.
+- ✅ **Tested**: 890+ automated checks, run in CI on every push.
 
 ## 📋 All tasks and their features
 
@@ -45,6 +45,7 @@ Each folder is a complete, separately runnable app. Every task builds on the one
 | [**6**](Task_6) | AI assistant and elastic scheduling | • **Assistant for patients and doctors**: text or hands-free voice, 4 languages, interrupt and stop<br>• **Chat history**: saved in browser per user, reopen, delete, clear<br>• Patients: search doctors, book, reschedule, cancel, pay in chat, see prescriptions and refunds<br>• Doctors: schedule, stats, leaves, conflicts, next free slot, reschedule suggestions<br>• **Confirm before any change**, slot rechecked at confirm time<br>• Elastic sessions: stretch or shrink hours even when booked<br>• Doctor-written prescriptions, follow-up and reminder jobs | 794 |
 | [**7**](Task_7) | Patient check-in and queue management | • Doctor and staff patient check-in with atomic duplicate guards<br>• Dynamic OPD queue with contiguous positions (1..N) and permanent tokens<br>• Accurate wait time estimation based on consultation progress<br>• Clinical lifecycle: BOOKED → CHECKED_IN → IN_CONSULTATION → COMPLETED<br>• Real-time privacy-safe patient dashboard queue tracking | 840 |
 | [**8**](Task_8) | Doctor-assigned receptionists & queue unavailable/reschedule | • Receptionist portal: a Receptionist button on the login page opens a receptionist-only sign-in<br>• Role split: doctor calls & completes, receptionist checks in, marks unavailable and handles no-shows<br>• Doctors assign receptionists from a Reception Team page; each sees only the queue of the doctors who assigned them<br>• `/reception` is the doctor's Live Queue scoped to the assigned doctor<br>• Unavailable removes a waiting patient, closes the queue gap and opens reschedule<br>• Migration 0009 · Next.js 16.4.6 | 869 |
+| [**9**](Task_9) | Patient medical history & visit history | • Medical profile per patient: allergies with severity, existing conditions, blood group, medications, surgeries, family history<br>• Patient and treating doctor can update it; every change is kept in an update history (who, when, what changed)<br>• Chronological visit history with doctor, status and visit details (diagnosis, notes, follow-up, prescription)<br>• Doctor "My Patients" list and full patient record<br>• Patient dashboard shows upcoming, completed and cancelled appointments separately<br>• Migration 0010 | 891 |
 
 ## 🎬 2-minute demo (what to click)
 

@@ -1,0 +1,76 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1793129041122,
+      "tag": "0000_lazy_bruce_banner",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793209337695,
+      "tag": "0001_happy_bill_hollister",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793210369923,
+      "tag": "0002_short_the_twelve",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793302460444,
+      "tag": "0003_narrow_doctor_octopus",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793360000000,
+      "tag": "0004_careful_night_nurse",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793607783512,
+      "tag": "0005_agent_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793791751767,
+      "tag": "0006_scheduling_dates",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794391373811,
+      "tag": "0007_prescriptions",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794815361821,
+      "tag": "0008_perpetual_expediter",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794935228195,
+      "tag": "0009_receptionist_assignments",
+      "breakpoints": true
+    }
+  ]
+}
