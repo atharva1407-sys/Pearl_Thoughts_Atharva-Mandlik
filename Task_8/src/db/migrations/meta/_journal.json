@@ -64,6 +64,13 @@
       "when": 1794815361821,
       "tag": "0008_perpetual_expediter",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794935228195,
+      "tag": "0009_receptionist_assignments",
+      "breakpoints": true
     }
   ]
 }

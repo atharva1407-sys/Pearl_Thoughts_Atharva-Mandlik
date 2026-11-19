@@ -13,6 +13,7 @@ export const revalidate = 0;
 export default async function PatientPrescriptionsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login?message=Please sign in to view your prescriptions.");
+  if (user.role === "RECEPTIONIST") redirect("/reception");
 
   // A signed-in patient only ever sees their own prescriptions.
   // A patient's id is already in the session; only a doctor viewing their own patient record needs a lookup.

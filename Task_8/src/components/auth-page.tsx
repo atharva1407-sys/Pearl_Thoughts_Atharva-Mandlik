@@ -31,11 +31,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 type AuthPageProps = {
   mode: "login" | "signup";
+  /** `reception` shows the same login page with only the receptionist sign-in (reached from the Receptionist button). */
+  portal?: "reception";
 };
 
-export default function AuthPage({ mode }: AuthPageProps) {
+export default function AuthPage({ mode, portal }: AuthPageProps) {
   const isSignup = mode === "signup";
-  const [role, setRole] = useState<"PATIENT" | "DOCTOR">("PATIENT");
+  const isReceptionPortal = !isSignup && portal === "reception";
+  const [role, setRole] = useState<"PATIENT" | "DOCTOR" | "RECEPTIONIST">(
+    isReceptionPortal ? "RECEPTIONIST" : "PATIENT"
+  );
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [agree, setAgree] = useState(false);
@@ -216,23 +221,40 @@ export default function AuthPage({ mode }: AuthPageProps) {
             </span>
           </Link>
 
-          <a className="help-link" href="mailto:support@medrella.com">
-            <Headset size={16} /> <span className="help-link-text">Need help?</span>
-          </a>
+          <div className="flex items-center gap-2 ml-auto">
+            {!isSignup &&
+              (isReceptionPortal ? (
+                <Link href="/login" className="help-link" aria-label="Back to patient and doctor login">
+                  <UserRound size={16} /> <span className="help-link-text">Patient / Doctor</span>
+                </Link>
+              ) : (
+                <Link href="/login?portal=reception" className="help-link" aria-label="Receptionist login">
+                  <Briefcase size={16} /> <span className="help-link-text">Receptionist</span>
+                </Link>
+              ))}
+            <a className="help-link" href="mailto:support@medrella.com">
+              <Headset size={16} /> <span className="help-link-text">Need help?</span>
+            </a>
+          </div>
         </div>
 
         <div className={`auth-card ${isSignup ? "signup-card" : ""}`}>
           <div className="form-heading">
-            <div className="form-kicker">{isSignup ? "GET STARTED" : "WELCOME BACK"}</div>
-            <h2>{isSignup ? "Create Account" : "Login"}</h2>
+            <div className="form-kicker">
+              {isSignup ? "GET STARTED" : isReceptionPortal ? "FRONT DESK" : "WELCOME BACK"}
+            </div>
+            <h2>{isSignup ? "Create Account" : isReceptionPortal ? "Receptionist Login" : "Login"}</h2>
             <p>
               {isSignup
                 ? "Join Medrella and be part of a smarter healthcare experience."
+                : isReceptionPortal
+                ? "Sign in to manage check-in and the waiting queue for the doctors you work with."
                 : "Welcome back! Please sign in to continue to Medrella."}
             </p>
           </div>
 
           {/* Role Switcher Pill Bar */}
+          {!isReceptionPortal && (
           <div className="mb-4 p-1 bg-slate-100 rounded-xl border border-slate-200 grid grid-cols-2 gap-1">
             <Button variant="bare"
               type="button"
@@ -240,14 +262,14 @@ export default function AuthPage({ mode }: AuthPageProps) {
                 setRole("PATIENT");
                 setError(null);
               }}
-              className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              className={`py-2 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ${
                 role === "PATIENT"
                   ? "bg-white text-blue-700 shadow-sm border border-slate-200/60"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
               <UserRound size={14} />
-              <span>Patient Portal</span>
+              <span>{isSignup ? "Patient Portal" : "Patient"}</span>
             </Button>
             <Button variant="bare"
               type="button"
@@ -255,16 +277,17 @@ export default function AuthPage({ mode }: AuthPageProps) {
                 setRole("DOCTOR");
                 setError(null);
               }}
-              className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              className={`py-2 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ${
                 role === "DOCTOR"
                   ? "bg-white text-blue-700 shadow-sm border border-slate-200/60"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
               <Stethoscope size={14} />
-              <span>Doctor Portal</span>
+              <span>{isSignup ? "Doctor Portal" : "Doctor"}</span>
             </Button>
           </div>
+          )}
 
           {error && (
             <div className="form-notice error mb-3" role="alert">
@@ -317,7 +340,13 @@ export default function AuthPage({ mode }: AuthPageProps) {
                 type="email"
                 required
                 autoComplete="email"
-                placeholder={role === "PATIENT" ? "patient@example.com" : "doctor@medrella.com"}
+                placeholder={
+                  role === "PATIENT"
+                    ? "patient@example.com"
+                    : role === "RECEPTIONIST"
+                    ? "reception@medrella.com"
+                    : "doctor@medrella.com"
+                }
                 aria-label="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -396,7 +425,11 @@ export default function AuthPage({ mode }: AuthPageProps) {
                   type="button"
                   className="text-button"
                   onClick={() =>
-                    setNotice("Password assistance: please visit Ruby Hall hospital reception (+91 20 6645 5100) for credentials assistance.")
+                    setNotice(
+                      isReceptionPortal
+                        ? "Password reset: ask the doctor you work with to reset it from their Reception Team page."
+                        : "Password assistance: please visit Ruby Hall hospital reception (+91 20 6645 5100) for credentials assistance."
+                    )
                   }
                 >
                   Forgot password?
@@ -449,6 +482,13 @@ export default function AuthPage({ mode }: AuthPageProps) {
             </Button>
           </form>
 
+          {/* Front-desk accounts are created by clinic staff, never through public sign-up. */}
+          {isReceptionPortal ? (
+            <p className="switch-auth">
+              Front-desk accounts are created by your doctor.{" "}
+              <Link href="/login">Patient or doctor login</Link>
+            </p>
+          ) : (
           <p className="switch-auth">
             {isSignup ? "Already have an account?" : "Don't have an account?"}{" "}
             <Link
@@ -465,6 +505,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
               {isSignup ? "Login" : "Sign up"}
             </Link>
           </p>
+          )}
         </div>
 
         <footer className="auth-footer">
