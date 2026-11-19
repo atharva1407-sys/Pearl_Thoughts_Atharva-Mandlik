@@ -10,6 +10,7 @@ import { istDateString, formatKolkataTimeShort } from "@/lib/time";
 import { computePatientQueueStatus, type PatientQueueStatus } from "@/lib/queue";
 import { sessionAppliesOnDate } from "@/lib/session-schedule";
 import { AutoRefresh } from "@/app/queue/auto-refresh";
+import { splitVisits, VISIT_STATUS_LABEL } from "@/domain/medical-history";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -24,6 +25,8 @@ import {
   CreditCard,
   FileText,
   XCircle,
+  FileHeart,
+  Pill,
 } from "lucide-react";
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -43,21 +46,21 @@ export default async function PatientDashboard() {
   const patientId =
     user.role === "DOCTOR" ? ((await dbRepo.getPatientByUserId(user.userId))?.id ?? user.profileId) : user.profileId;
 
-  // These three do not depend on each other, so fetch them together instead of one after another.
-  const [patient, appointments, payments] = await Promise.all([
+  // These do not depend on each other, so fetch them together instead of one after another.
+  const [patient, appointments, payments, visitRecords, prescriptions] = await Promise.all([
     patientId ? dbRepo.getPatientById(patientId) : Promise.resolve(undefined),
     patientId ? dbRepo.getAppointmentsByPatientId(patientId) : Promise.resolve([]),
     patientId ? dbRepo.getPaymentsByPatientId(patientId) : Promise.resolve([]),
+    patientId ? dbRepo.getVisitRecordsByPatientId(patientId) : Promise.resolve([]),
+    patientId ? dbRepo.getPrescriptionsByPatientId(patientId) : Promise.resolve([]),
   ]);
   const paymentByApptId = new Map(payments.map((p) => [p.appointmentId, p]));
+  const recordByApptId = new Map(visitRecords.map((r) => [r.appointmentId, r]));
+  const prescriptionByApptId = new Map(prescriptions.map((rx) => [rx.appointmentId, rx]));
 
   const today = istDateString(new Date());
-  const upcoming = appointments.filter(
-    (a) => a.status === "BOOKED" || a.status === "CHECKED_IN" || a.status === "IN_CONSULTATION"
-  );
-  const past = appointments.filter(
-    (a) => a.status !== "BOOKED" && a.status !== "CHECKED_IN" && a.status !== "IN_CONSULTATION"
-  );
+  // Upcoming (soonest first), completed consultations (newest first), and cancelled / missed ones, kept apart.
+  const { upcoming, completed, other } = splitVisits(appointments);
 
   // Compute live queue statuses for today's active appointments
   const queueStatusByApptId = new Map<string, PatientQueueStatus>();
@@ -94,6 +97,10 @@ export default async function PatientDashboard() {
           <p>Manage your upcoming hospital consultations and clinical records at Ruby Hall, Pune.</p>
         </div>
         <div className="heading-actions flex items-center gap-2">
+          <Link href="/patient/history" className="btn text-xs inline-flex items-center gap-1.5">
+            <FileHeart size={14} />
+            <span>Medical History</span>
+          </Link>
           <Link href="/patient/payments" className="btn text-xs inline-flex items-center gap-1.5">
             <CreditCard size={14} />
             <span>Payments & Receipts</span>
@@ -128,7 +135,7 @@ export default async function PatientDashboard() {
             </span>
             <Badge variant="green">Completed</Badge>
           </div>
-          <div className="stat-value">{past.filter((a) => a.status === "COMPLETED").length}</div>
+          <div className="stat-value">{completed.length}</div>
           <div className="stat-label">Past Consultations</div>
           <div className="stat-note">Medical history recorded</div>
         </Card>
@@ -349,13 +356,87 @@ export default async function PatientDashboard() {
         )}
       </Card>
 
-      {/* Past Appointments Card */}
-      {past.length > 0 && (
+      {/* Completed Appointments Card */}
+      <Card className="space-y-4">
+        <div className="card-head">
+          <div>
+            <h2>Completed Consultations</h2>
+            <p>
+              {completed.length} completed visit{completed.length === 1 ? "" : "s"}, newest first
+            </p>
+          </div>
+          <Link href="/patient/history" className="btn text-xs">
+            Full medical history
+          </Link>
+        </div>
+
+        {completed.length === 0 ? (
+          <div className="py-8 text-center text-xs text-slate-500 border border-dashed border-slate-200 rounded-lg bg-slate-50">
+            Your completed consultations will appear here.
+          </div>
+        ) : (
+          <div className="table-wrap">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Specialist</TableHead>
+                  <TableHead>Reason</TableHead>
+                  <TableHead>Diagnosis</TableHead>
+                  <TableHead>Prescription</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {completed.map((apt) => {
+                  const record = recordByApptId.get(apt.id);
+                  const rx = prescriptionByApptId.get(apt.id);
+                  return (
+                    <TableRow key={apt.id}>
+                      <TableCell>
+                        <b>{formatDate(apt.appointmentDate)}</b>
+                        <small>{apt.startTime} – {apt.endTime}</small>
+                      </TableCell>
+                      <TableCell>Dr. {apt.doctor.firstName} {apt.doctor.lastName} ({apt.doctor.specialization})</TableCell>
+                      <TableCell>{apt.reason}</TableCell>
+                      <TableCell>
+                        {record ? (
+                          <Link href={`/patient/history#visit-${apt.id}`} className="text-blue-600 hover:underline font-medium">
+                            {record.diagnosis}
+                          </Link>
+                        ) : (
+                          <span className="text-slate-400 text-xs">Not recorded yet</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {rx ? (
+                          <Link href="/patient/prescriptions" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
+                            <Pill size={12} />
+                            <span>{rx.medicines.length} medicine{rx.medicines.length === 1 ? "" : "s"}</span>
+                          </Link>
+                        ) : (
+                          <span className="text-slate-400 text-xs">None</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="green">{VISIT_STATUS_LABEL[apt.status]}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </Card>
+
+      {/* Cancelled / missed appointments */}
+      {other.length > 0 && (
         <Card className="space-y-4">
           <div className="card-head">
             <div>
-              <h2>Past Consultation History</h2>
-              <p>{past.length} previous visit records</p>
+              <h2>Cancelled &amp; Missed</h2>
+              <p>{other.length} appointment{other.length === 1 ? "" : "s"} that did not take place</p>
             </div>
           </div>
 
@@ -370,7 +451,7 @@ export default async function PatientDashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {past.map((apt) => (
+                {other.map((apt) => (
                   <TableRow key={apt.id}>
                     <TableCell>
                       <b>{formatDate(apt.appointmentDate)}</b>
@@ -379,9 +460,9 @@ export default async function PatientDashboard() {
                     <TableCell>Dr. {apt.doctor.firstName} {apt.doctor.lastName} ({apt.doctor.specialization})</TableCell>
                     <TableCell>{apt.reason}</TableCell>
                     <TableCell>
-                      <span className={`badge ${apt.status === "COMPLETED" ? "blue" : "red"}`}>
-                        {apt.status}
-                      </span>
+                      <Badge variant={apt.status === "CANCELLED" ? "red" : apt.status === "NO_SHOW" ? "amber" : "gray"}>
+                        {VISIT_STATUS_LABEL[apt.status]}
+                      </Badge>
                     </TableCell>
                   </TableRow>
                 ))}
