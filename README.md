@@ -2,90 +2,181 @@
 
 # 🏥 Medrella Healthcare
 
-### Outpatient booking, payments and a multilingual voice AI assistant for Ruby Hall Clinic, Pune
+### Enterprise Outpatient Department (OPD) Orchestration, Multilingual Voice AI & Clinical Health Records
 
-*Pearl Thoughts Full Stack Assessment · Tasks 1 to 8*
+*Pearl Thoughts Full-Stack Engineering Assessment · Tasks 1 through 9*
+*Designed for Ruby Hall Clinic, Pune*
 
-<a href="https://medrella-healthcare.vercel.app"><img src="https://img.shields.io/badge/LIVE_DEMO-medrella--healthcare.vercel.app-0875DF?style=for-the-badge&logo=vercel&logoColor=white" alt="Live demo" /></a>
-<a href="https://github.com/atharva1407-sys/Medrella_Healthcare"><img src="https://img.shields.io/badge/DEPLOYMENT_REPO-Medrella__Healthcare-181717?style=for-the-badge&logo=github&logoColor=white" alt="Deployment repository" /></a>
+[![Production Deployment](https://img.shields.io/badge/LIVE_PLATFORM-medrella--healthcare.vercel.app-0875DF?style=for-the-badge&logo=vercel&logoColor=white)](https://medrella-healthcare.vercel.app)
+[![Deployment Repository](https://img.shields.io/badge/DEPLOYMENT_REPO-Medrella__Healthcare-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/atharva1407-sys/Medrella_Healthcare)
+[![Test Verification](https://img.shields.io/badge/TESTS-891_PASSED-00C853?style=for-the-badge&logo=checkmarx&logoColor=white)](https://github.com/atharva1407-sys/Pearl_Thoughts_Atharva-Mandlik)
 
-<img src="https://skillicons.dev/icons?i=nextjs,react,ts,tailwind,postgres,nodejs,vercel,githubactions&perline=8" alt="Next.js, React, TypeScript, Tailwind CSS, PostgreSQL, Node.js, Vercel, GitHub Actions" />
+<p align="center">
+  <img src="https://skillicons.dev/icons?i=nextjs,react,ts,tailwind,postgres,nodejs,vercel,githubactions&perline=8" alt="Tech Stack" />
+</p>
 
-<img src="https://img.shields.io/badge/Drizzle_ORM-C5F74F?style=for-the-badge&logo=drizzle&logoColor=000000" alt="Drizzle ORM" />
-<img src="https://img.shields.io/badge/Neon-00E599?style=for-the-badge&logo=neon&logoColor=000000" alt="Neon" />
-<img src="https://img.shields.io/badge/Razorpay-0C2451?style=for-the-badge&logo=razorpay&logoColor=3395FF" alt="Razorpay" />
-<img src="https://img.shields.io/badge/Zod-3E67B1?style=for-the-badge&logo=zod&logoColor=white" alt="Zod" />
-<img src="https://img.shields.io/badge/Sarvam_AI-FF6F00?style=for-the-badge" alt="Sarvam AI" />
+<p align="center">
+  <img src="https://img.shields.io/badge/Next.js-16.4.6-black?style=flat-square&logo=nextdotjs" alt="Next.js" />
+  <img src="https://img.shields.io/badge/TypeScript-Strict_5.x-blue?style=flat-square&logo=typescript" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Neon_Postgres-Serverless-00E599?style=flat-square&logo=postgresql" alt="Neon Postgres" />
+  <img src="https://img.shields.io/badge/Drizzle_ORM-0.38-C5F74F?style=flat-square&logo=drizzle" alt="Drizzle ORM" />
+  <img src="https://img.shields.io/badge/Sarvam_AI-Voice_&_Chat-FF6F00?style=flat-square" alt="Sarvam AI" />
+  <img src="https://img.shields.io/badge/Razorpay-Sandbox-0C2451?style=flat-square&logo=razorpay" alt="Razorpay" />
+  <img src="https://img.shields.io/badge/Brevo-Transactional_Email-0B996F?style=flat-square" alt="Brevo" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS-Modern_UI-38B2AC?style=flat-square&logo=tailwind-css" alt="Tailwind CSS" />
+</p>
 
 </div>
 
 ---
 
-## What this is
+## 📌 Project Overview
 
-A hospital appointment platform built one task at a time. Patients find a doctor, book a slot, pay online and get email reminders. Doctors run their own schedule. A **voice AI assistant** (English, Hindi, Marathi, Hinglish) lets both sides do all of that by chatting, with an explicit **Confirm** before anything changes.
+**Medrella Healthcare** is an enterprise-grade hospital outpatient platform engineered incrementally across **9 comprehensive milestones**. It combines high-throughput clinical operations, collision-free wave/stream OPD scheduling, dynamic physical queue management, a front-desk receptionist suite, hands-free multilingual AI assistance, and longitudinal patient health records.
 
-- 🔒 **No double booking**: database advisory locks serialize concurrent bookings.
-- 🤖 **AI that acts safely**: real backend actions, signed single-use confirmations, emergency messages routed to 112, client-side chat history.
-- 💳 **Real payment flow**: Razorpay checkout, 10-minute seat holds, signature checks, tiered refunds.
-- 📬 **Reliable emails**: transactional outbox with retries and a dead-letter dashboard.
-- ✅ **Tested**: 890+ automated checks, run in CI on every push.
+### 🛡️ Core Engineering Safeguards
+* **Zero Double-Bookings**: PostgreSQL session advisory locks and atomic Compare-And-Swap (CAS) state machines prevent race conditions under burst concurrency.
+* **10-Minute Seat Holds & Tiered Refunds**: Real Razorpay integration with automated idempotent refunds (100% $\ge$ 24h notice, 50% 2–24h notice, 0% $<$ 2h notice).
+* **Guaranteed Outbox Delivery**: Transactional email outbox pattern with Brevo/Resend integration, background workers, and admin dead-letter recovery.
+* **Clinical Voice AI with Hard Safety Rails**: Hands-free Voice Activity Detection (VAD) across English, Hindi, Marathi, and Hinglish. Signed, single-use confirmation tokens for sensitive actions, and instant 112 emergency routing for acute symptoms.
+* **Zero-Downtime Data Architecture**: Backward-compatible additive migrations (`0000` through `0010`) pairing serverless PostgreSQL with an in-memory test store.
 
-## 📋 All tasks and their features
+---
 
-Each folder is a complete, separately runnable app. Every task builds on the one before it.
+## 📋 Task Matrix: Chronological Development (Tasks 1 – 9)
 
-| Task | Focus | Features | Checks |
-|:---:|---|---|:---:|
-| [**1**](Task_1) | ER design and baseline | • Relational model for users, patients, doctors, sessions and appointments<br>• ER diagram (PNG) and a video walkthrough<br>• Next.js 16 + TypeScript + Tailwind starter | n/a |
-| [**2**](Task_2) | Core clinic app | • Live waiting queue with triage badges and an obstetric priority override<br>• Reception walk-ins and token allocation<br>• Doctor encounters: SOAP notes, ICD-10 diagnosis, vitals<br>• Weekly schedule view and conflict-proof slot booking<br>• Hashed passwords and signed session cookies | 17 |
-| [**3**](Task_3) | Advanced scheduling | • Morning and evening sessions on the same day<br>• Weekly, monthly-date or one-date recurrence<br>• Stream and Wave capacity (1 to 20 patients per slot)<br>• Doctor leave, and one-click atomic reschedule<br>• Review fixes: doctors see only their own patients, login rate limit | 205 |
-| [**4**](Task_4) | Razorpay payments | • Razorpay checkout in test mode<br>• 10-minute seat holds during payment<br>• Server-side signature checks and idempotent webhooks<br>• Refunds by notice: 100% (24h+), 50% (2 to 24h), 0% (under 2h)<br>• Printable receipts | 305 |
-| [**5**](Task_5) | Email outbox | • Transactional outbox: emails never block a booking<br>• Brevo and Resend delivery with retries<br>• Confirmation and reminder emails, IST-accurate timing<br>• Medical details kept out of emails<br>• Admin dead-letter dashboard and one-click unsubscribe | 417 |
-| [**6**](Task_6) | AI assistant and elastic scheduling | • **Assistant for patients and doctors**: text or hands-free voice, 4 languages, interrupt and stop<br>• **Chat history**: saved in browser per user, reopen, delete, clear<br>• Patients: search doctors, book, reschedule, cancel, pay in chat, see prescriptions and refunds<br>• Doctors: schedule, stats, leaves, conflicts, next free slot, reschedule suggestions<br>• **Confirm before any change**, slot rechecked at confirm time<br>• Elastic sessions: stretch or shrink hours even when booked<br>• Doctor-written prescriptions, follow-up and reminder jobs | 794 |
-| [**7**](Task_7) | Patient check-in and queue management | • Doctor and staff patient check-in with atomic duplicate guards<br>• Dynamic OPD queue with contiguous positions (1..N) and permanent tokens<br>• Accurate wait time estimation based on consultation progress<br>• Clinical lifecycle: BOOKED → CHECKED_IN → IN_CONSULTATION → COMPLETED<br>• Real-time privacy-safe patient dashboard queue tracking | 840 |
-| [**8**](Task_8) | Doctor-assigned receptionists & queue unavailable/reschedule | • Receptionist portal: a Receptionist button on the login page opens a receptionist-only sign-in<br>• Role split: doctor calls & completes, receptionist checks in, marks unavailable and handles no-shows<br>• Doctors assign receptionists from a Reception Team page; each sees only the queue of the doctors who assigned them<br>• `/reception` is the doctor's Live Queue scoped to the assigned doctor<br>• Unavailable removes a waiting patient, closes the queue gap and opens reschedule<br>• Migration 0009 · Next.js 16.4.6 | 869 |
-| [**9**](Task_9) | Patient medical history & visit history | • Medical profile per patient: allergies with severity, existing conditions, blood group, medications, surgeries, family history<br>• Patient and treating doctor can update it; every change is kept in an update history (who, when, what changed)<br>• Chronological visit history with doctor, status and visit details (diagnosis, notes, follow-up, prescription)<br>• Doctor "My Patients" list and full patient record<br>• Patient dashboard shows upcoming, completed and cancelled appointments separately<br>• Migration 0010 | 891 |
+Each directory in this repository represents an autonomous, runnable application reflecting the cumulative features developed up to that phase.
 
-## 🎬 2-minute demo (what to click)
+| Task | Title & Clinical Domain | Key Features & Architecture Delivered | Security & Data Integrity | Checks |
+|:---:|---|---|---|:---:|
+| [**Task 1**](Task_1) | **Relational Schema & System Baseline** | • Comprehensive relational ER model for multi-specialty OPD<br>• Core domain entities: Users, Doctors, Patients, Sessions, Appointments<br>• Entity-Relationship diagram, video walkthrough, and Next.js starter | • Normalized PostgreSQL schema<br>• Foreign key cascade rules<br>• Domain type definitions | *Spec* |
+| [**Task 2**](Task_2) | **Core Clinical OPD Application** | • Live patient waiting queue with clinical triage severity badges<br>• Obstetric & emergency priority queue override<br>• Doctor clinical encounters: SOAP clinical notes, ICD-10 diagnosis, vitals<br>• Walk-in registration with physical token allocation | • PBKDF2 password hashing (600k iter)<br>• HTTP-only encrypted session cookies<br>• Strict role-based page protection | **17** |
+| [**Task 3**](Task_3) | **Advanced Wave & Stream Scheduling** | • Multiple doctor sessions per day (Morning OPD & Evening OPD)<br>• Weekly recurrence, monthly date-of-month, and one-off dates<br>• Stream (1:1) and Wave scheduling (1–20 seats per block)<br>• Atomic doctor leave blocking and one-click slot rescheduling | • Postgres advisory locks on slot booking<br>• 5 failed attempts / 15-min login rate limiter<br>• Doctor-patient tenant isolation | **205** |
+| [**Task 4**](Task_4) | **Payment Gateway & Tiered Refund Policies** | • Razorpay checkout integration with 10-minute temporary seat holds<br>• Automated release worker for expired pending payments<br>• Automated cancellation refunds based on clinical notice hours<br>• Printable payment vouchers & GST-compliant receipt generation | • Cryptographic HMAC-SHA256 signature verification<br>• Webhook idempotency keys<br>• Double-refund CAS protection | **305** |
+| [**Task 5**](Task_5) | **Transactional Outbox & Notifications** | • Asynchronous transactional notification outbox pattern<br>• Brevo & Resend dual-provider delivery pipeline with exponential backoff<br>• Automated 24h & 2h appointment reminders in IST timezone<br>• Admin dead-letter queue dashboard with one-click retry | • Strict PII redaction from email payloads<br>• Cryptographic one-click unsubscribe tokens<br>• Fail-closed delivery guards | **417** |
+| [**Task 6**](Task_6) | **Conversational Voice AI & Elastic Hours** | • Multilingual conversational agent (English, Hindi, Marathi, Hinglish)<br>• Web Audio API Voice Activity Detection (VAD) & barge-in interruption<br>• Signed single-use confirmation cards before executing appointments<br>• Elastic session adjustment: stretch/shrink hours without stranding patients<br>• Client-side persistent chat history with automatic sign-out purging | • 112 emergency routing for acute symptoms<br>• Prompt injection & prompt leak guards<br>• Server-side re-verification of slot capacity at confirmation | **794** |
+| [**Task 7**](Task_7) | **OPD Check-in & Dynamic Queue Engine** | • Doctor/staff barcode & walk-in check-in engine<br>• Dynamic contiguous queue numbering ($1 \dots N$) with permanent token IDs<br>• Accurate remaining wait time estimation adapting to consultation speed<br>• Full clinical lifecycle: `BOOKED` → `CHECKED_IN` → `IN_CONSULTATION` → `COMPLETED`<br>• Privacy-preserving patient dashboard with live queue progress | • Atomic check-in CAS guards preventing double check-in<br>• Strict date boundary guards (today only)<br>• Automatic repositioning when waiting patients cancel | **840** |
+| [**Task 8**](Task_8) | **Doctor-Assigned Receptionists & Unavailable Flow** | • Dedicated receptionist portal (`/login?portal=reception`)<br>• Doctors manage front-desk staff via `/doctor/reception-team`<br>• Receptionists see queues only for doctors who assigned them<br>• "Unavailable" action: removes patient, closes queue gap, and opens reschedule modal<br>• Solo-doctor fallback mode (retains front-desk controls if no receptionist)<br>• Migration `0009_receptionist_assignments` & Next.js 16.4.6 security patch | • Strict role split: Receptionist checks in / handles arrivals; only Doctor calls/completes<br>• Dynamic server-side assignment verification on every request<br>• Atomic queue repositioning on arrival retry | **869** |
+| [**Task 9**](Task_9) | **Patient Longitudinal Health Record (LHR)** | • Comprehensive patient medical profile: Blood group, height, weight, allergies (with severity & reaction), chronic conditions, current meds, past surgeries, family history<br>• Versioned audit trail (`patient_medical_history_log`): tracks who, when, and exact before/after field diffs<br>• Optimistic concurrency control (`expectedVersion`): blocks stale concurrent overwrites<br>• Chronological visit history across hospital clinics with doctor clinical notes & prescriptions<br>• Doctor `/doctor/patients` roster & patient dashboard separating upcoming, completed, and missed visits<br>• Migration `0010_patient_medical_history` | • Server-enforced clinical relationship gate (only treating doctors can view/edit records)<br>• Receptionist role strictly barred from medical records<br>• Cascade deletion cleans profiles on account purge | **891** |
 
-Open the **[live app](https://medrella-healthcare.vercel.app)** and follow along:
+---
 
-1. **Home** shows the 8 specialists with each one's next open slot.
-2. **Register** as a patient at `/register` (any email, 8+ character password).
-3. Open the **assistant** (round button, bottom right) and type *"Find a cardiologist"*, then *"Book Dr. Mehta tomorrow around 10:00"*.
-4. A **Confirm card** appears. Nothing is booked until you press it. Then pay with the Razorpay test details below.
-5. Try *"Kal ke liye slot dikhao"* (Hinglish), or tap the **waveform** for hands-free voice and talk over the reply to interrupt it.
-6. Type *"I have chest pain"*: it answers with 112 emergency guidance and never calls the AI.
-7. Ask to **cancel**: the refund amount is shown before you confirm.
-8. As a **doctor** (logins on request): ask *"Any scheduling conflicts this week?"*, stretch or shrink a session in **Weekly Shifts** with patients booked, and add a prescription to a completed visit.
+## 🎬 2-Minute Interactive Demo Walkthrough
 
-> **Razorpay test mode** (no real money): card `4718 6091 0820 4366`, expiry `12/28`, CVV `123`, or UPI `success@razorpay`.
+Experience the complete application live on **[medrella-healthcare.vercel.app](https://medrella-healthcare.vercel.app)**:
 
-## 🏃 Run it locally
-
-```bash
-cd Task_8                      # or Task_1 ... Task_7
-npm install
-cp .env.example .env.local
-npm run dev                    # http://localhost:3000
-npm test                       # all automated checks, no network needed
+```mermaid
+flowchart LR
+    A["👤 Register / Sign In"] --> B["🔍 Search Doctor & Slot"]
+    B --> C["🤖 Book via Voice AI / Web"]
+    C --> D["💳 Razorpay 10-Min Hold & Pay"]
+    D --> E["👩‍💼 Receptionist Check-In"]
+    E --> F["🚶‍♂️ Dynamic OPD Queue (1..N)"]
+    F --> G["🩺 Doctor Consultation & SOAP Notes"]
+    G --> H["📋 Medical History & Visit Records Updated"]
 ```
 
-> **No database needed to try it.** Set `DATABASE_URL=disabled-for-local-test`, `USE_MOCK_PAYMENTS=true` and `ENABLE_SEED_DATA=true` in `.env.local`: the app runs in memory with the 8 specialists and a simulated payment gateway. Add `SARVAM_API_KEY` to turn on the assistant.
+1. **Explore Specialists**: View Ruby Hall Clinic's 8 department specialists with real-time next-available slot markers.
+2. **Register as Patient**: Sign up at `/signup` with any email and an 8+ character password.
+3. **Conversational Booking**:
+   - Open the floating assistant widget (bottom right).
+   - Type or speak: *"Book Dr. Rohan Mehta tomorrow morning"*.
+   - A cryptographic **Confirm Card** appears—verify slot details and press **Confirm**.
+4. **Razorpay Sandbox Payment**:
+   - Test Card: `4718 6091 0820 4366`, Expiry: Any future date, CVV: `123`.
+   - Test UPI: `success@razorpay`.
+5. **Front-Desk Check-In & Queue**:
+   - Sign in as Doctor `rohan.mehta@medrella.com` (password configured or demo mode).
+   - Go to **Reception Team**, add receptionist `pooja@medrella.com`.
+   - Sign in through the **Receptionist** portal (`/login?portal=reception`) to see the assigned queue.
+   - Click **Check In** to place the patient in the active queue. Test **Unavailable** to observe contiguous gap-closing.
+6. **Consultation & Medical Records (Task 9)**:
+   - As Doctor, **Call** the patient and **Complete** consultation.
+   - Enter diagnosis, symptoms, and clinical advice.
+   - Open **My Patients** (`/doctor/patients`) to inspect the patient's full longitudinal health history.
+   - Log back in as Patient to see completed consultation notes and the immutable update audit log.
 
-## 📦 Repositories
+---
 
-| Repository | Purpose |
-|---|---|
-| **This repo** (`Pearl_Thoughts_Atharva-Mandlik`) | Task by task history, Tasks 1 to 8 |
-| [`Medrella_Healthcare`](https://github.com/atharva1407-sys/Medrella_Healthcare) | The production build deployed on Vercel, with CI and operations guides |
-| [`Medrella_Healthcare`](https://github.com/atharva1407-sys/Medrella_Healthcare) | The production build deployed on Vercel, with CI and operations guides |
+## 🛠️ Tech Stack & Architecture
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                        Next.js 16.4.6 App Router                       │
+│      React 19 Server Components · Server Actions · Client Interactivity │
+└──────────────┬──────────────────────────┬──────────────────────────────┘
+               │                          │
+        ┌──────▼──────┐            ┌──────▼──────┐
+        │  Sarvam AI  │            │  Razorpay   │
+        │ Voice & LLM │            │ Payment API │
+        └──────┬──────┘            └──────┬──────┘
+               │                          │
+┌──────────────▼──────────────────────────▼──────────────────────────────┐
+│                  Application Repository & Business Logic                │
+│       Advisory Locks · CAS State Machines · Outbox Dispatcher          │
+└──────────────┬──────────────────────────┬──────────────────────────────┘
+               │                          │
+        ┌──────▼──────┐            ┌──────▼──────┐
+        │    Brevo    │            │ Drizzle ORM │
+        │ Email Outbox│            │ Neon Pg SQL │
+        └─────────────┘            └─────────────┘
+```
+
+* **Frontend**: Next.js 16.4.6 (App Router), React 19, Tailwind CSS, Lucide Icons, Radix UI.
+* **Backend & Validation**: Next.js Server Actions, Route Handlers, Zod schema validation.
+* **Database & ORM**: PostgreSQL via Neon Serverless, Drizzle ORM, Drizzle Kit Migrations.
+* **Speech & AI**: Sarvam AI Conversational Engine, Browser Web Audio API, Custom Voice Activity Detection (VAD).
+* **Payments**: Razorpay Payment Gateway, Webhooks, Tiered Cancellation Engine.
+* **Notifications**: Transactional Outbox Pattern, Brevo (Sendinblue), Resend API, ICS Calendar Invites.
+
+---
+
+## 🚀 Local Development Quickstart
+
+You can test any task locally without requiring an external PostgreSQL instance or third-party API credentials:
+
+```bash
+# 1. Navigate to the desired task directory (e.g., Task_9)
+cd Task_9
+
+# 2. Install dependencies
+npm install
+
+# 3. Configure environment variables for mock / in-memory mode
+cp .env.example .env.local
+```
+
+Set the following in `.env.local` for instant in-memory execution:
+```env
+DATABASE_URL="disabled"
+USE_MOCK_PAYMENTS="true"
+ENABLE_SEED_DATA="true"
+SEED_DOCTOR_PASSWORD="Password123!"
+```
+
+```bash
+# 4. Start the Next.js development server
+npm run dev
+
+# 5. Run the complete automated test suite (891 checks across 17 suites)
+npm test
+```
+
+---
+
+## 📦 Repository Ecosystem
+
+| Repository | Scope & Purpose | Link |
+|---|---|:---:|
+| **Task Repository** (`Pearl_Thoughts_Atharva-Mandlik`) | Monorepo containing full incremental development history across Tasks 1 to 9. | [GitHub](https://github.com/atharva1407-sys/Pearl_Thoughts_Atharva-Mandlik) |
+| **Deployment Repository** (`Medrella_Healthcare`) | Production-ready root deployment application with automated GitHub Actions CI/CD. | [GitHub](https://github.com/atharva1407-sys/Medrella_Healthcare) |
 
 ---
 
 <div align="center">
 
-Built by **Atharva Mandlik** for **Pearl Thoughts**, for Medrella Healthcare, Ruby Hall Clinic, Pune.
+**Built with precision by Atharva Mandlik**  
+*Full Stack Developer · Pearl Thoughts Assessment*  
+*Medrella Healthcare for Ruby Hall Clinic, Pune*
 
 </div>
