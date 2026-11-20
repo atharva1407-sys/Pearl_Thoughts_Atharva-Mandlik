@@ -21,7 +21,8 @@ import {
   Check,
   X,
   Stethoscope,
-  Users
+  Users,
+  FileHeart
 } from "lucide-react";
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -71,6 +72,10 @@ export default async function DoctorDashboard() {
           <Link href="/queue" className="btn">
             <Clock3 size={15} />
             <span>Live Queue</span>
+          </Link>
+          <Link href="/doctor/patients" className="btn">
+            <FileHeart size={15} />
+            <span>My Patients</span>
           </Link>
           <Link href="/doctor/reception-team" className="btn">
             <Users size={15} />
@@ -206,8 +211,15 @@ export default async function DoctorDashboard() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <b>{apt.patient.firstName} {apt.patient.lastName}</b>
-                        <small>Patient ID: {apt.patientId.slice(0, 8)}</small>
+                        <Link href={`/doctor/patients/${apt.patientId}`} className="font-bold text-blue-700 hover:underline">
+                          {apt.patient.firstName} {apt.patient.lastName}
+                        </Link>
+                        <small>
+                          Patient ID: {apt.patientId.slice(0, 8)} ·{" "}
+                          <Link href={`/doctor/patients/${apt.patientId}`} className="text-blue-600 hover:underline">
+                            View history
+                          </Link>
+                        </small>
                       </TableCell>
                       <TableCell className="font-mono text-xs">{apt.patient.phone}</TableCell>
                       <TableCell>
@@ -262,14 +274,23 @@ export default async function DoctorDashboard() {
                 {completedBookings.map((apt) => (
                   <TableRow key={apt.id}>
                     <TableCell><b>{formatDate(apt.appointmentDate)}</b></TableCell>
-                    <TableCell>{apt.patient.firstName} {apt.patient.lastName}</TableCell>
+                    <TableCell>
+                      <Link href={`/doctor/patients/${apt.patientId}`} className="font-medium text-blue-700 hover:underline">
+                        {apt.patient.firstName} {apt.patient.lastName}
+                      </Link>
+                    </TableCell>
                     <TableCell className="font-mono">{apt.startTime} – {apt.endTime}</TableCell>
                     <TableCell>{apt.reason}</TableCell>
                     <TableCell>
                       <Badge variant="green">Completed</Badge>
                     </TableCell>
                     <TableCell>
-                      <PrescriptionDialog appointmentId={apt.id} patientName={`${apt.patient.firstName} ${apt.patient.lastName}`} />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <PrescriptionDialog appointmentId={apt.id} patientName={`${apt.patient.firstName} ${apt.patient.lastName}`} />
+                        <Link href={`/doctor/patients/${apt.patientId}#visit-${apt.id}`} className="btn text-xs">
+                          Visit details
+                        </Link>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
