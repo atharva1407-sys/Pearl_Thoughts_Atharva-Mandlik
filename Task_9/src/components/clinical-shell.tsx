@@ -31,6 +31,7 @@ import {
   UserPlus,
   CreditCard,
   Pill,
+  FileHeart,
 } from "lucide-react";
 import type { SessionPayload } from "@/lib/auth-crypto";
 import { logoutAction, deleteAccountAction } from "@/actions/auth";
@@ -163,6 +164,8 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
     if (pathname.startsWith("/reports")) return "Visit Reports & Analytics";
     if (pathname.startsWith("/patient/payments")) return "Payments & Receipts";
     if (pathname.startsWith("/patient/prescriptions")) return "Prescriptions";
+    if (pathname.startsWith("/patient/history")) return "Medical History";
+    if (pathname.startsWith("/doctor/patients")) return "Patient Records";
     if (pathname.startsWith("/patient/dashboard")) return "Patient Portal";
     if (pathname.startsWith("/doctor/reception-team")) return "Reception Team";
     if (pathname.startsWith("/doctor/dashboard")) return "Doctor Agenda";
@@ -262,6 +265,15 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
               </Link>
 
               <Link
+                href="/patient/history"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname.startsWith("/patient/history") ? "active" : ""}`}
+              >
+                <FileHeart size={17} />
+                <span>Medical History</span>
+              </Link>
+
+              <Link
                 href="/patient/prescriptions"
                 onClick={() => setSidebarOpen(false)}
                 className={`nav-item ${pathname.startsWith("/patient/prescriptions") ? "active" : ""}`}
@@ -309,6 +321,15 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
               >
                 <CalendarClock size={17} />
                 <span>Weekly Shifts</span>
+              </Link>
+
+              <Link
+                href="/doctor/patients"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname.startsWith("/doctor/patients") ? "active" : ""}`}
+              >
+                <FileHeart size={17} />
+                <span>My Patients</span>
               </Link>
 
               <Link
@@ -422,6 +443,15 @@ export function ClinicalShell({ user, children }: ClinicalShellProps) {
               >
                 <CreditCard size={17} />
                 <span>Payments & Receipts</span>
+              </Link>
+
+              <Link
+                href="/patient/history"
+                onClick={() => setSidebarOpen(false)}
+                className={`nav-item ${pathname.startsWith("/patient/history") ? "active" : ""}`}
+              >
+                <FileHeart size={17} />
+                <span>Medical History</span>
               </Link>
 
               <Link
