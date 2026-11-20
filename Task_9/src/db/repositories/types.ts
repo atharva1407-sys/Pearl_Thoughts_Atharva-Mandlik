@@ -210,6 +210,78 @@ export interface PrescriptionEntity {
   updatedAt: Date;
 }
 
+export type AllergySeverity = "MILD" | "MODERATE" | "SEVERE";
+export type ConditionStatus = "ACTIVE" | "MANAGED" | "RESOLVED";
+
+export interface MedicalAllergy {
+  name: string;
+  severity: AllergySeverity;
+  reaction?: string;
+}
+
+export interface MedicalCondition {
+  name: string;
+  status: ConditionStatus;
+  notes?: string;
+}
+
+/** The part of a medical profile a person edits (everything except bookkeeping). */
+export interface MedicalProfileData {
+  bloodGroup: string | null;
+  heightCm: number | null;
+  weightKg: number | null;
+  allergies: MedicalAllergy[];
+  conditions: MedicalCondition[];
+  currentMedications: string | null;
+  pastSurgeries: string | null;
+  familyHistory: string | null;
+  notes: string | null;
+}
+
+export interface MedicalProfileEntity extends MedicalProfileData {
+  id: string;
+  patientId: string;
+  version: number;
+  updatedByUserId?: string | null;
+  updatedByRole?: "PATIENT" | "DOCTOR" | null;
+  updatedByName?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** One changed field, with before/after already formatted for display. */
+export interface MedicalProfileChange {
+  field: keyof MedicalProfileData;
+  label: string;
+  from: string;
+  to: string;
+}
+
+export interface MedicalHistoryLogEntity {
+  id: string;
+  patientId: string;
+  version: number;
+  changes: MedicalProfileChange[];
+  changeNote?: string | null;
+  changedByUserId: string;
+  changedByRole: "PATIENT" | "DOCTOR";
+  changedByName: string;
+  createdAt: Date;
+}
+
+export interface VisitRecordEntity {
+  id: string;
+  appointmentId: string;
+  doctorId: string;
+  patientId: string;
+  diagnosis: string;
+  symptoms?: string | null;
+  notes?: string | null;
+  followUp?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export type AgentEventKind = "MESSAGE" | "TOOL_CALL" | "ACTION" | "ERROR";
 
 export interface AgentEventEntity {

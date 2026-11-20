@@ -71,6 +71,13 @@
       "when": 1794935228195,
       "tag": "0009_receptionist_assignments",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795088648609,
+      "tag": "0010_patient_medical_history",
+      "breakpoints": true
     }
   ]
 }
